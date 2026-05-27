@@ -1,0 +1,361 @@
+"""
+Capa de persistencia — SQLite
+SIATC · Ministerio Público Fiscal de Córdoba
+"""
+
+import sqlite3
+import os
+from datetime import datetime
+from contextlib import contextmanager
+
+DB_PATH = os.path.join(os.path.dirname(__file__), "siatc.db")
+
+ESTADOS = ["ingresada", "clasificada", "notificada", "en_mediacion", "resuelta", "archivada"]
+
+ESTADOS_LABEL = {
+    "ingresada":     "📥 Ingresada",
+    "clasificada":   "🔍 Clasificada",
+    "notificada":    "📬 Notificada",
+    "en_mediacion":  "🤝 En mediación",
+    "resuelta":      "✅ Resuelta",
+    "archivada":     "🗄️ Archivada",
+}
+
+# ── Conexión ───────────────────────────────────────────────────────────────────
+
+@contextmanager
+def get_conn():
+    conn = sqlite3.connect(DB_PATH, detect_types=sqlite3.PARSE_DECLTYPES)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
+    try:
+        yield conn
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+# ── Inicialización del esquema ─────────────────────────────────────────────────
+
+def init_db():
+    with get_conn() as conn:
+        conn.executescript("""
+        CREATE TABLE IF NOT EXISTS personas (
+            id               INTEGER PRIMARY KEY AUTOINCREMENT,
+            dni              TEXT    UNIQUE NOT NULL,
+            apellido_nombre  TEXT    NOT NULL,
+            edad             INTEGER,
+            domicilio        TEXT,
+            telefono         TEXT,
+            created_at       TEXT    DEFAULT (datetime('now','localtime')),
+            updated_at       TEXT    DEFAULT (datetime('now','localtime'))
+        );
+
+        CREATE TABLE IF NOT EXISTS causas (
+            id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+            numero                TEXT    UNIQUE NOT NULL,
+            persona_id            INTEGER REFERENCES personas(id),
+            tipo_infraccion       TEXT    NOT NULL,
+            descripcion           TEXT,
+            carril                TEXT,
+            accion                TEXT,
+            unidad                TEXT,
+            fiscal_asignado       TEXT,
+            estado                TEXT    DEFAULT 'ingresada',
+            victima_identificada  INTEGER DEFAULT 0,
+            hay_lesiones          INTEGER DEFAULT 0,
+            resistencia_autoridad INTEGER DEFAULT 0,
+            score_clasificacion   REAL,
+            fecha_hecho           TEXT,
+            created_at            TEXT    DEFAULT (datetime('now','localtime')),
+            updated_at            TEXT    DEFAULT (datetime('now','localtime'))
+        );
+
+        CREATE TABLE IF NOT EXISTS estados_causa (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            causa_id        INTEGER NOT NULL REFERENCES causas(id),
+            estado_anterior TEXT,
+            estado_nuevo    TEXT    NOT NULL,
+            usuario         TEXT,
+            observaciones   TEXT,
+            created_at      TEXT    DEFAULT (datetime('now','localtime'))
+        );
+
+        CREATE TABLE IF NOT EXISTS documentos (
+            id             INTEGER PRIMARY KEY AUTOINCREMENT,
+            causa_id       INTEGER NOT NULL REFERENCES causas(id),
+            tipo_documento TEXT    NOT NULL,
+            contenido      TEXT,
+            generado_por   TEXT,
+            created_at     TEXT    DEFAULT (datetime('now','localtime'))
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_causas_persona   ON causas(persona_id);
+        CREATE INDEX IF NOT EXISTS idx_causas_estado    ON causas(estado);
+        CREATE INDEX IF NOT EXISTS idx_causas_carril    ON causas(carril);
+        CREATE INDEX IF NOT EXISTS idx_estados_causa_id ON estados_causa(causa_id);
+        CREATE INDEX IF NOT EXISTS idx_docs_causa_id    ON documentos(causa_id);
+        """)
+
+
+# ── Personas ───────────────────────────────────────────────────────────────────
+
+def buscar_persona_por_dni(dni: str) -> dict | None:
+    dni_clean = dni.replace(".", "").replace("-", "").strip()
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT * FROM personas WHERE replace(replace(dni,'.',''),'-','') = ?",
+            (dni_clean,)
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def contar_antecedentes(persona_id: int) -> int:
+    """Causas resueltas o archivadas = antecedentes."""
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT COUNT(*) as n FROM causas WHERE persona_id=? AND estado IN ('resuelta','archivada')",
+            (persona_id,)
+        ).fetchone()
+    return row["n"] if row else 0
+
+
+def upsert_persona(dni: str, apellido_nombre: str, edad: int,
+                   domicilio: str = "", telefono: str = "") -> int:
+    with get_conn() as conn:
+        existing = conn.execute(
+            "SELECT id FROM personas WHERE replace(replace(dni,'.',''),'-','') = ?",
+            (dni.replace(".", "").replace("-", "").strip(),)
+        ).fetchone()
+        if existing:
+            conn.execute(
+                """UPDATE personas SET apellido_nombre=?, edad=?, domicilio=?, telefono=?,
+                   updated_at=datetime('now','localtime') WHERE id=?""",
+                (apellido_nombre, edad, domicilio, telefono, existing["id"])
+            )
+            return existing["id"]
+        else:
+            cur = conn.execute(
+                "INSERT INTO personas (dni,apellido_nombre,edad,domicilio,telefono) VALUES (?,?,?,?,?)",
+                (dni, apellido_nombre, edad, domicilio, telefono)
+            )
+            return cur.lastrowid
+
+
+def listar_personas(busqueda: str = "") -> list[dict]:
+    with get_conn() as conn:
+        if busqueda:
+            rows = conn.execute(
+                "SELECT * FROM personas WHERE apellido_nombre LIKE ? OR dni LIKE ? ORDER BY apellido_nombre",
+                (f"%{busqueda}%", f"%{busqueda}%")
+            ).fetchall()
+        else:
+            rows = conn.execute("SELECT * FROM personas ORDER BY apellido_nombre").fetchall()
+    return [dict(r) for r in rows]
+
+
+# ── Causas ─────────────────────────────────────────────────────────────────────
+
+def _next_numero(unidad: str) -> str:
+    prefijos = {"norte": "UCN", "sur": "UCS", "genero": "UCG"}
+    pref = prefijos.get(unidad, "UCX")
+    year = datetime.now().year
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT COUNT(*) as n FROM causas WHERE numero LIKE ?",
+            (f"{year}-{pref}-%",)
+        ).fetchone()
+    seq = (row["n"] if row else 0) + 1
+    return f"{year}-{pref}-{seq:05d}"
+
+
+def guardar_causa(caso: dict, clasificacion: dict, fiscal: str) -> int:
+    """Guarda o actualiza una causa. Retorna el id."""
+    numero = caso.get("numero") or _next_numero(caso.get("unidad", "norte"))
+    persona_id = upsert_persona(
+        caso["dni"], caso["imputado"], caso.get("edad", 0),
+        caso.get("domicilio", ""), caso.get("telefono", "")
+    )
+    with get_conn() as conn:
+        existing = conn.execute("SELECT id, estado FROM causas WHERE numero=?", (numero,)).fetchone()
+        if existing:
+            conn.execute(
+                """UPDATE causas SET tipo_infraccion=?, descripcion=?, carril=?, accion=?,
+                   unidad=?, fiscal_asignado=?, victima_identificada=?, hay_lesiones=?,
+                   resistencia_autoridad=?, score_clasificacion=?,
+                   updated_at=datetime('now','localtime') WHERE id=?""",
+                (
+                    caso["tipo"], caso.get("descripcion", ""),
+                    clasificacion["carril"], clasificacion["accion"],
+                    caso.get("unidad", "norte"), fiscal,
+                    int(caso.get("victima", False)), int(caso.get("lesiones", False)),
+                    int(caso.get("resistencia", False)), clasificacion.get("score", 0),
+                    existing["id"]
+                )
+            )
+            causa_id = existing["id"]
+            # Si el estado era ingresada, pasa a clasificada
+            if existing["estado"] == "ingresada":
+                _registrar_estado(conn, causa_id, "ingresada", "clasificada", fiscal, "Clasificación automática")
+        else:
+            cur = conn.execute(
+                """INSERT INTO causas (numero,persona_id,tipo_infraccion,descripcion,carril,accion,
+                   unidad,fiscal_asignado,estado,victima_identificada,hay_lesiones,
+                   resistencia_autoridad,score_clasificacion,fecha_hecho)
+                   VALUES (?,?,?,?,?,?,?,?,'clasificada',?,?,?,?,datetime('now','localtime'))""",
+                (
+                    numero, persona_id, caso["tipo"], caso.get("descripcion", ""),
+                    clasificacion["carril"], clasificacion["accion"],
+                    caso.get("unidad", "norte"), fiscal,
+                    int(caso.get("victima", False)), int(caso.get("lesiones", False)),
+                    int(caso.get("resistencia", False)), clasificacion.get("score", 0),
+                )
+            )
+            causa_id = cur.lastrowid
+            _registrar_estado(conn, causa_id, None, "clasificada", fiscal, "Caso ingresado y clasificado")
+    return causa_id
+
+
+def avanzar_estado(causa_id: int, nuevo_estado: str, usuario: str, observaciones: str = "") -> bool:
+    with get_conn() as conn:
+        row = conn.execute("SELECT estado FROM causas WHERE id=?", (causa_id,)).fetchone()
+        if not row:
+            return False
+        estado_actual = row["estado"]
+        if nuevo_estado not in ESTADOS:
+            return False
+        conn.execute(
+            "UPDATE causas SET estado=?, updated_at=datetime('now','localtime') WHERE id=?",
+            (nuevo_estado, causa_id)
+        )
+        _registrar_estado(conn, causa_id, estado_actual, nuevo_estado, usuario, observaciones)
+    return True
+
+
+def _registrar_estado(conn, causa_id, anterior, nuevo, usuario, obs=""):
+    conn.execute(
+        "INSERT INTO estados_causa (causa_id,estado_anterior,estado_nuevo,usuario,observaciones) VALUES (?,?,?,?,?)",
+        (causa_id, anterior, nuevo, usuario, obs)
+    )
+
+
+def listar_causas(estado: str = None, carril: str = None, unidad: str = None,
+                  busqueda: str = None, limit: int = 200) -> list[dict]:
+    sql = """
+        SELECT c.*, p.apellido_nombre, p.dni as persona_dni
+        FROM causas c
+        LEFT JOIN personas p ON c.persona_id = p.id
+        WHERE 1=1
+    """
+    params = []
+    if estado:
+        sql += " AND c.estado = ?"
+        params.append(estado)
+    if carril:
+        sql += " AND c.carril = ?"
+        params.append(carril)
+    if unidad:
+        sql += " AND c.unidad = ?"
+        params.append(unidad)
+    if busqueda:
+        sql += " AND (p.apellido_nombre LIKE ? OR c.numero LIKE ? OR p.dni LIKE ?)"
+        params.extend([f"%{busqueda}%"] * 3)
+    sql += " ORDER BY c.created_at DESC LIMIT ?"
+    params.append(limit)
+    with get_conn() as conn:
+        rows = conn.execute(sql, params).fetchall()
+    return [dict(r) for r in rows]
+
+
+def get_causa(causa_id: int) -> dict | None:
+    with get_conn() as conn:
+        row = conn.execute(
+            """SELECT c.*, p.apellido_nombre, p.dni as persona_dni, p.edad as persona_edad
+               FROM causas c LEFT JOIN personas p ON c.persona_id=p.id WHERE c.id=?""",
+            (causa_id,)
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def get_timeline(causa_id: int) -> list[dict]:
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT * FROM estados_causa WHERE causa_id=? ORDER BY created_at ASC",
+            (causa_id,)
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+# ── Documentos ─────────────────────────────────────────────────────────────────
+
+def guardar_documento(causa_id: int, tipo: str, contenido: str, generado_por: str) -> int:
+    with get_conn() as conn:
+        cur = conn.execute(
+            "INSERT INTO documentos (causa_id,tipo_documento,contenido,generado_por) VALUES (?,?,?,?)",
+            (causa_id, tipo, contenido, generado_por)
+        )
+    return cur.lastrowid
+
+
+def listar_documentos(causa_id: int) -> list[dict]:
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT * FROM documentos WHERE causa_id=? ORDER BY created_at DESC",
+            (causa_id,)
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+# ── Estadísticas ───────────────────────────────────────────────────────────────
+
+def stats_generales() -> dict:
+    with get_conn() as conn:
+        total = conn.execute("SELECT COUNT(*) as n FROM causas").fetchone()["n"]
+        por_carril = {
+            r["carril"]: r["n"]
+            for r in conn.execute("SELECT carril, COUNT(*) as n FROM causas GROUP BY carril").fetchall()
+            if r["carril"]
+        }
+        por_estado = {
+            r["estado"]: r["n"]
+            for r in conn.execute("SELECT estado, COUNT(*) as n FROM causas GROUP BY estado").fetchall()
+        }
+        por_unidad = {
+            r["unidad"]: r["n"]
+            for r in conn.execute("SELECT unidad, COUNT(*) as n FROM causas GROUP BY unidad").fetchall()
+            if r["unidad"]
+        }
+        reincidentes = conn.execute(
+            """SELECT COUNT(DISTINCT persona_id) as n FROM causas
+               WHERE persona_id IN (SELECT persona_id FROM causas GROUP BY persona_id HAVING COUNT(*)>1)"""
+        ).fetchone()["n"]
+        personas = conn.execute("SELECT COUNT(*) as n FROM personas").fetchone()["n"]
+
+    return {
+        "total": total,
+        "por_carril": por_carril,
+        "por_estado": por_estado,
+        "por_unidad": por_unidad,
+        "reincidentes": reincidentes,
+        "personas": personas,
+    }
+
+
+def causas_por_tipo() -> list[dict]:
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT tipo_infraccion, COUNT(*) as n FROM causas GROUP BY tipo_infraccion ORDER BY n DESC"
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def historial_persona(persona_id: int) -> list[dict]:
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT * FROM causas WHERE persona_id=? ORDER BY created_at DESC",
+            (persona_id,)
+        ).fetchall()
+    return [dict(r) for r in rows]
