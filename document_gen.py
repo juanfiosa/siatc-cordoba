@@ -33,12 +33,12 @@ def _get_condiciones(tipo_infraccion: str, categoria: str) -> list:
     return CONDICIONES_SUSPENSION["convivencia"]
 
 
-def generar_dictamen_mediacion(caso: dict, clasificacion: dict, fiscal_nombre: str, unidad_key: str) -> str:
+def generar_dictamen_mediacion(caso: dict, clasificacion: dict, fiscal_nombre: str, unidad_key: str,
+                               fecha_audiencia_dt: datetime = None, hora_audiencia: str = "10:00") -> str:
     infraccion = TIPOS_INFRACCION.get(caso["tipo"], {})
     unidad = UNIDADES.get(unidad_key, UNIDADES["norte"])
     fecha = _fecha_formal()
-    fecha_audiencia = _fecha_formal(datetime.now() + timedelta(days=7))
-    hora_audiencia = "10:00"
+    fecha_audiencia = _fecha_formal(fecha_audiencia_dt) if fecha_audiencia_dt else _fecha_formal(datetime.now() + timedelta(days=7))
 
     return f"""
 MINISTERIO PÚBLICO FISCAL DE LA PROVINCIA DE CÓRDOBA
@@ -167,12 +167,13 @@ AYUDANTE FISCAL
 """.strip()
 
 
-def generar_citacion(caso: dict, fiscal_nombre: str, unidad_key: str, motivo: str = "audiencia") -> str:
+def generar_citacion(caso: dict, fiscal_nombre: str, unidad_key: str, motivo: str = "audiencia",
+                     fecha_citacion_dt: datetime = None, hora_citacion: str = "09:00") -> str:
     infraccion = TIPOS_INFRACCION.get(caso["tipo"], {})
     unidad = UNIDADES.get(unidad_key, UNIDADES["norte"])
     fecha = _fecha_formal()
-    fecha_citacion = _fecha_formal(datetime.now() + timedelta(days=5))
-    hora = "09:00"
+    fecha_citacion = _fecha_formal(fecha_citacion_dt) if fecha_citacion_dt else _fecha_formal(datetime.now() + timedelta(days=5))
+    hora = hora_citacion
 
     motivo_texto = {
         "audiencia": "comparecer a audiencia contravencional",
