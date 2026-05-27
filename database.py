@@ -98,6 +98,19 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_causas_carril    ON causas(carril);
         CREATE INDEX IF NOT EXISTS idx_estados_causa_id ON estados_causa(causa_id);
         CREATE INDEX IF NOT EXISTS idx_docs_causa_id    ON documentos(causa_id);
+
+        CREATE TABLE IF NOT EXISTS citaciones (
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            causa_id      INTEGER NOT NULL REFERENCES causas(id),
+            tipo          TEXT NOT NULL,
+            fecha         TEXT NOT NULL,
+            hora          TEXT DEFAULT '09:00',
+            lugar         TEXT,
+            observaciones TEXT,
+            created_at    TEXT DEFAULT (datetime('now','localtime'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_citaciones_fecha    ON citaciones(fecha);
+        CREATE INDEX IF NOT EXISTS idx_citaciones_causa_id ON citaciones(causa_id);
         """)
 
 
@@ -384,3 +397,41 @@ def actualizar_persona(persona_id: int, apellido_nombre: str, edad: int,
             (apellido_nombre, edad, domicilio, telefono, persona_id)
         )
     return True
+
+
+# ── Citaciones / Agenda ────────────────────────────────────────────────────────
+
+def guardar_citacion(causa_id: int, tipo: str, fecha: str, hora: str = "09:00",
+                     lugar: str = "", observaciones: str = "") -> int:
+    with get_conn() as conn:
+        cur = conn.execute(
+            "INSERT INTO citaciones (causa_id,tipo,fecha,hora,lugar,observaciones) VALUES (?,?,?,?,?,?)",
+            (causa_id, tipo, fecha, hora, lugar, observaciones)
+        )
+    return cur.lastrowid
+
+
+def listar_citaciones_proximas(dias: int = 30) -> list[dict]:
+    """Citaciones futuras con datos de causa y persona."""
+    with get_conn() as conn:
+        rows = conn.execute(
+            """SELECT ci.*, c.numero, c.tipo_infraccion, c.carril, c.unidad,
+                      p.apellido_nombre, p.dni as persona_dni
+               FROM citaciones ci
+               JOIN causas c ON ci.causa_id = c.id
+               LEFT JOIN personas p ON c.persona_id = p.id
+               WHERE ci.fecha >= date('now','localtime')
+                 AND ci.fecha <= date('now','localtime', ?)
+               ORDER BY ci.fecha, ci.hora""",
+            (f"+{dias} days",)
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def citaciones_por_causa(causa_id: int) -> list[dict]:
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT * FROM citaciones WHERE causa_id=? ORDER BY fecha, hora",
+            (causa_id,)
+        ).fetchall()
+    return [dict(r) for r in rows]
