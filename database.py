@@ -245,7 +245,9 @@ def _registrar_estado(conn, causa_id, anterior, nuevo, usuario, obs=""):
 def listar_causas(estado: str = None, carril: str = None, unidad: str = None,
                   busqueda: str = None, limit: int = 200) -> list[dict]:
     sql = """
-        SELECT c.*, p.apellido_nombre, p.dni as persona_dni
+        SELECT c.*, p.apellido_nombre, p.dni as persona_dni,
+               p.edad as persona_edad, p.domicilio as persona_domicilio,
+               p.telefono as persona_telefono
         FROM causas c
         LEFT JOIN personas p ON c.persona_id = p.id
         WHERE 1=1
@@ -359,3 +361,26 @@ def historial_persona(persona_id: int) -> list[dict]:
             (persona_id,)
         ).fetchall()
     return [dict(r) for r in rows]
+
+
+def causas_por_mes(meses: int = 6) -> list[dict]:
+    with get_conn() as conn:
+        rows = conn.execute(
+            """SELECT strftime('%Y-%m', created_at) as mes, COUNT(*) as n
+               FROM causas
+               WHERE created_at >= datetime('now', ?)
+               GROUP BY mes ORDER BY mes""",
+            (f"-{meses} months",)
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def actualizar_persona(persona_id: int, apellido_nombre: str, edad: int,
+                       domicilio: str = "", telefono: str = "") -> bool:
+    with get_conn() as conn:
+        conn.execute(
+            """UPDATE personas SET apellido_nombre=?, edad=?, domicilio=?, telefono=?,
+               updated_at=datetime('now','localtime') WHERE id=?""",
+            (apellido_nombre, edad, domicilio, telefono, persona_id)
+        )
+    return True
