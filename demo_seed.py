@@ -52,11 +52,11 @@ CASOS_SEED = [
      "antec": 0, "estado": "resuelta", "carril": "verde",
      "dias_atras": 70, "seg": True, "seg_estado": "activo", "seg_meses": 3},
 
-    # Estado: notificada (sin seguimiento aún)
+    # Estado: notificada (sin seguimiento aún, SIN ACTIVIDAD desde hace 8 días)
     {"persona_idx": 4, "tipo": "riña_verbal_vecinal", "unidad": "norte",
      "desc": "Altercado verbal con insultos en galería comercial. Testigos presentes.",
      "antec": 2, "estado": "notificada", "carril": "rojo",
-     "dias_atras": 10, "seg": False},
+     "dias_atras": 10, "seg": False, "updated_dias": 8},
 
     # Estado: clasificada
     {"persona_idx": 5, "tipo": "consumo_alcohol_via_publica", "unidad": "sur",
@@ -215,7 +215,7 @@ def poblar():
                 caso["estado"], clf["score"],
                 _fecha(caso["dias_atras"] + 3),
                 _dt(caso["dias_atras"]),
-                _dt(_updated_dias),
+                _dt(caso.get("updated_dias", _updated_dias)),
             ))
             causa_id = cur.lastrowid
             numeros_causa[caso["persona_idx"]] = causa_id
