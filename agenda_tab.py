@@ -89,14 +89,19 @@ def _vista_semana(semana_offset: int = 0):
 # ── Lista detallada ───────────────────────────────────────────────────────────
 
 def _lista_audiencias(fiscal):
-    col_f1, col_f2, col_f3 = st.columns(3)
+    col_f1, col_f2, col_f3, col_f4 = st.columns([2, 1, 1, 1])
     with col_f1:
+        busqueda_aud = st.text_input("Buscar por nombre o expediente",
+                                     placeholder="Ej: García o UCN-00001",
+                                     label_visibility="collapsed",
+                                     key="aud_busqueda")
+    with col_f2:
         rango = st.selectbox("Período", [
             "Hoy", "Esta semana", "Próximos 7 días", "Este mes", "Todos"
         ])
-    with col_f2:
-        filtro_estado = st.selectbox("Estado", ["Todos"] + db.ESTADOS_AUDIENCIA)
     with col_f3:
+        filtro_estado = st.selectbox("Estado", ["Todos"] + db.ESTADOS_AUDIENCIA)
+    with col_f4:
         filtro_tipo = st.selectbox("Tipo", ["Todos"] + list(TIPO_LABEL.keys()),
                                    format_func=lambda k: TIPO_LABEL.get(k, k) if k != "Todos" else "Todos")
 
@@ -119,6 +124,11 @@ def _lista_audiencias(fiscal):
     audiencias = db.listar_audiencias(desde=desde, hasta=hasta, estado=estado_p)
     if filtro_tipo != "Todos":
         audiencias = [a for a in audiencias if a["tipo"] == filtro_tipo]
+    if busqueda_aud:
+        q = busqueda_aud.lower()
+        audiencias = [a for a in audiencias
+                      if q in (a.get("apellido_nombre","") or "").lower()
+                      or q in (a.get("numero","") or "").lower()]
 
     if not audiencias:
         st.info("No hay audiencias para los filtros seleccionados.")
