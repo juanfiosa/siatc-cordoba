@@ -492,6 +492,7 @@ with tab_causas:
                         doc_opts_causa = ["Dictamen de suspensión a prueba", "Cédula de citación", "Resumen ejecutivo"]
                     doc_tipo = st.selectbox("Tipo", doc_opts_causa, key=f"dopt_{c['id']}", label_visibility="collapsed")
                     if st.button("Generar y guardar", key=f"gendoc_{c['id']}", use_container_width=True):
+                        _needs_rerun = True
                         if doc_tipo == "Dictamen de derivación a mediación":
                             doc_txt = generar_dictamen_mediacion(caso_stored, clf_stored, fiscal_nombre, caso_stored["unidad"])
                         elif "suspensión" in doc_tipo or "prueba" in doc_tipo:
@@ -504,10 +505,9 @@ with tab_causas:
                                     ("integridad" if cat == "Integridad" else "convivencia")))
                             conds_list = CONDICIONES_SUSPENSION.get(key_c, [])
                             pdf_bytes = generar_pdf("acta compromiso", caso_stored, {"condiciones": conds_list}, fiscal_nombre, caso_stored["unidad"])
-                            st.download_button("⬇️ Descargar Acta PDF", data=pdf_bytes,
-                                file_name=f"{c['numero']}_acta_compromiso.pdf",
-                                mime="application/pdf", key=f"dl_acta_{c['id']}", type="primary")
+                            st.session_state[f"_pdf_acta_{c['id']}"] = pdf_bytes
                             doc_txt = f"Acta de compromiso — {caso_stored['imputado']} — {c['numero']}"
+                            _needs_rerun = False   # show download before rerun
                         elif "Informe de incumplimiento" in doc_tipo:
                             seg_info = db.get_seguimiento_por_causa(c["id"]) or {}
                             conds_inc = [cd for cd in db.get_condiciones(seg_info.get("id", 0))
@@ -515,17 +515,29 @@ with tab_causas:
                             pdf_bytes = generar_pdf("informe incumplimiento", caso_stored,
                                                     {"seguimiento": seg_info, "condiciones_inc": conds_inc},
                                                     fiscal_nombre, caso_stored["unidad"])
-                            st.download_button("⬇️ Descargar Informe PDF", data=pdf_bytes,
-                                file_name=f"{c['numero']}_informe_incumplimiento.pdf",
-                                mime="application/pdf", key=f"dl_inf_{c['id']}", type="primary")
+                            st.session_state[f"_pdf_inf_{c['id']}"] = pdf_bytes
                             doc_txt = f"Informe de incumplimiento — {caso_stored['imputado']} — {c['numero']}"
+                            _needs_rerun = False
                         elif "citación" in doc_tipo:
                             doc_txt = generar_citacion(caso_stored, fiscal_nombre, caso_stored["unidad"])
                         else:
                             doc_txt = generar_resumen_ejecutivo(caso_stored, clf_stored)
                         guardar_documento(c["id"], doc_tipo, doc_txt, fiscal_nombre)
                         st.success("Documento guardado en la causa")
-                        st.rerun()
+                        if _needs_rerun:
+                            st.rerun()
+
+                    # Persistent download buttons for PDF-only docs
+                    if st.session_state.get(f"_pdf_acta_{c['id']}"):
+                        st.download_button("⬇️ Descargar Acta PDF",
+                            data=st.session_state[f"_pdf_acta_{c['id']}"],
+                            file_name=f"{c['numero']}_acta_compromiso.pdf",
+                            mime="application/pdf", key=f"dl_acta_{c['id']}", type="primary")
+                    if st.session_state.get(f"_pdf_inf_{c['id']}"):
+                        st.download_button("⬇️ Descargar Informe PDF",
+                            data=st.session_state[f"_pdf_inf_{c['id']}"],
+                            file_name=f"{c['numero']}_informe_incumplimiento.pdf",
+                            mime="application/pdf", key=f"dl_inf_{c['id']}", type="primary")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
