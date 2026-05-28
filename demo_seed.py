@@ -113,6 +113,12 @@ CASOS_SEED = [
      "desc": "Amenazas hacia ex pareja mediante mensajes de voz reiterados. Víctima identificada. Solicita restricción de acercamiento.",
      "antec": 0, "estado": "clasificada", "carril": "rojo",
      "dias_atras": 25, "seg": False, "updated_dias": 20},
+
+    # REINCIDENCIA: segunda causa para Garcia (persona_idx=0) - transito_exceso_velocidad
+    {"persona_idx": 0, "tipo": "transito_exceso_velocidad", "unidad": "norte",
+     "desc": "Control radar Av. Rafael Núñez al 3200 marcó 112 km/h en zona de 60 km/h. Reincidente en infracciones viales.",
+     "antec": 1, "estado": "clasificada", "carril": "amarillo",
+     "dias_atras": 4, "seg": False},
 ]
 
 # Condiciones pre-armadas por tipo de seguimiento

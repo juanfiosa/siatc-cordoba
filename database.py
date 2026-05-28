@@ -406,6 +406,29 @@ def causas_por_tipo() -> list[dict]:
     return [dict(r) for r in rows]
 
 
+def personas_reincidentes(min_causas: int = 2) -> list[dict]:
+    """
+    Retorna personas con al menos `min_causas` causas registradas,
+    con detalle de sus antecedentes y último estado.
+    Ordenadas por cantidad de causas descendente.
+    """
+    sql = """
+        SELECT p.id, p.dni, p.apellido_nombre, p.edad,
+               COUNT(c.id) as n_causas,
+               MAX(c.created_at) as ultima_causa,
+               GROUP_CONCAT(DISTINCT c.carril) as carriles,
+               GROUP_CONCAT(DISTINCT c.estado) as estados
+        FROM personas p
+        JOIN causas c ON c.persona_id = p.id
+        GROUP BY p.id
+        HAVING COUNT(c.id) >= ?
+        ORDER BY n_causas DESC, ultima_causa DESC
+    """
+    with get_conn() as conn:
+        rows = conn.execute(sql, (min_causas,)).fetchall()
+    return [dict(r) for r in rows]
+
+
 def causas_por_mes(meses: int = 12) -> list[dict]:
     """Retorna cantidad de causas ingresadas por mes (ultimos N meses)."""
     with get_conn() as conn:

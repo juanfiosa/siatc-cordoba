@@ -26,7 +26,7 @@ from database import (
     historial_persona, upsert_persona, ESTADOS, ESTADOS_LABEL,
     listar_seguimientos, stats_seguimiento, causas_por_mes, causas_por_fiscal,
     get_seguimiento_por_causa, get_condiciones, stats_tiempos_resolucion,
-    causas_inactivas, causas_sin_audiencia_programada,
+    causas_inactivas, causas_sin_audiencia_programada, personas_reincidentes,
 )
 from seguimiento_tab import render_tab_seguimiento
 from agenda_tab import render_tab_agenda
@@ -908,14 +908,49 @@ with tab_panel:
 
         if stats["personas"]:
             st.markdown("---")
-            col_r1, col_r2 = st.columns(2)
+            st.subheader("🔄 Reincidencia")
+            col_r1, col_r2, col_r3 = st.columns(3)
             with col_r1:
-                st.caption(f"{stats['personas']} personas registradas")
+                st.metric("Personas registradas", stats["personas"])
             with col_r2:
                 if stats["reincidentes"]:
                     pct_r = round(stats["reincidentes"] * 100 / stats["personas"], 1)
-                    st.metric("Tasa reincidencia", f"{pct_r}%",
-                              delta=f"{stats['reincidentes']} personas")
+                    st.metric("Reincidentes",
+                              f"{stats['reincidentes']}",
+                              delta=f"{pct_r}% del padrón",
+                              delta_color="inverse",
+                              help="Personas con 2 o más causas registradas")
+                else:
+                    st.metric("Reincidentes", "0")
+            with col_r3:
+                _multicarril = sum(1 for c in listar_causas(limit=500)
+                                   if c.get("carril") == "rojo")
+                st.metric("Causas Rojo (proceso pleno)", _multicarril)
+
+            reincidentes_list = personas_reincidentes(min_causas=2)
+            if reincidentes_list:
+                st.markdown(f"**{len(reincidentes_list)} persona(s) con múltiples causas:**")
+                _rows_reic = []
+                for r in reincidentes_list:
+                    # Parse carriles and estados strings
+                    _carriles_str = r.get("carriles") or ""
+                    _carr_icons = "".join(
+                        {"verde":"🟢","amarillo":"🟡","rojo":"🔴"}.get(car.strip(),"⚪")
+                        for car in _carriles_str.split(",") if car.strip()
+                    )
+                    _rows_reic.append({
+                        "DNI":           r["dni"],
+                        "Imputado/a":    r["apellido_nombre"],
+                        "Edad":          r.get("edad",""),
+                        "Causas":        r["n_causas"],
+                        "Carriles":      _carr_icons,
+                        "Última causa":  r.get("ultima_causa","")[:10] if r.get("ultima_causa") else "",
+                    })
+                _df_reic = pd.DataFrame(_rows_reic).sort_values("Causas", ascending=False)
+                st.dataframe(_df_reic, use_container_width=True, hide_index=True,
+                             column_config={"Causas": st.column_config.NumberColumn("Causas", format="%d")})
+            else:
+                st.success("✅ No hay reincidentes en el padrón actual.")
 
         # ── Bloque seguimiento ─────────────────────────────────────────────
         st.markdown("---")

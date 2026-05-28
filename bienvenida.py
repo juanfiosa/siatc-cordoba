@@ -53,30 +53,46 @@ hace seguimiento del cumplimiento de condiciones post-resolución.
 
 
 def _render_lanes():
+    # Try to compute real percentages from DB
+    _verde_pct  = "~60%"
+    _amar_pct   = "~30%"
+    _rojo_pct   = "~10%"
+    try:
+        import database as _db
+        _s = _db.stats_generales()
+        _tot = _s.get("total", 0)
+        if _tot > 0:
+            _pc = _s.get("por_carril", {})
+            _verde_pct  = f"{_pc.get('verde', 0) * 100 // _tot}% del sistema"
+            _amar_pct   = f"{_pc.get('amarillo', 0) * 100 // _tot}% del sistema"
+            _rojo_pct   = f"{_pc.get('rojo', 0) * 100 // _tot}% del sistema"
+    except Exception:
+        pass
+
     c1, c2, c3 = st.columns(3)
     with c1:
-        st.markdown("""<div class="lane-card lane-verde">
+        st.markdown(f"""<div class="lane-card lane-verde">
 <h4>🟢 Carril Verde</h4>
 <p><strong>Mediación</strong><br>
 Conflictos de mínima gravedad sin antecedentes.<br>
 Derivación al Centro Judicial de Mediación.<br>
-<em>~60% de las causas</em></p>
+<em>{_verde_pct}</em></p>
 </div>""", unsafe_allow_html=True)
     with c2:
-        st.markdown("""<div class="lane-card lane-amarillo">
+        st.markdown(f"""<div class="lane-card lane-amarillo">
 <h4>🟡 Carril Amarillo</h4>
 <p><strong>Suspensión del proceso a prueba</strong><br>
 Gravedad media o antecedentes leves.<br>
 Condiciones de cumplimiento monitoreadas.<br>
-<em>~30% de las causas</em></p>
+<em>{_amar_pct}</em></p>
 </div>""", unsafe_allow_html=True)
     with c3:
-        st.markdown("""<div class="lane-card lane-rojo">
+        st.markdown(f"""<div class="lane-card lane-rojo">
 <h4>🔴 Carril Rojo</h4>
 <p><strong>Proceso contravencional pleno</strong><br>
 Alta gravedad, lesiones o reincidencia.<br>
 Tramitación completa ante el Tribunal.<br>
-<em>~10% de las causas</em></p>
+<em>{_rojo_pct}</em></p>
 </div>""", unsafe_allow_html=True)
 
 
