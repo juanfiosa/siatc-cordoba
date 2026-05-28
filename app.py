@@ -481,7 +481,7 @@ with tab_causas:
         _cnt = _Cnt(c.get("carril","") for c in causas)
         _cnt_est = _Cnt(c.get("estado","") for c in causas)
 
-        _sum_col, _ord_col = st.columns([4, 1])
+        _sum_col, _ord_col, _vista_col = st.columns([3, 1, 1])
         _sum_col.markdown(
             f"**{len(causas)} causa{'s' if len(causas)!=1 else ''}** &nbsp;—&nbsp; "
             f"🟢 {_cnt.get('verde',0)} &nbsp; 🟡 {_cnt.get('amarillo',0)} &nbsp; 🔴 {_cnt.get('rojo',0)} "
@@ -495,6 +495,10 @@ with tab_causas:
             ["Recientes", "Más antiguas", "Carril", "Estado"],
             label_visibility="collapsed", key="causas_orden"
         )
+        _vista_gc = _vista_col.radio(
+            "Vista", ["📋 Detalle", "📊 Tabla"],
+            horizontal=True, label_visibility="collapsed", key="causas_vista"
+        )
         if _orden == "Más antiguas":
             causas = sorted(causas, key=lambda x: x.get("created_at",""))
         elif _orden == "Carril":
@@ -503,10 +507,40 @@ with tab_causas:
         elif _orden == "Estado":
             causas = sorted(causas, key=lambda x: ESTADOS.index(x["estado"]) if x["estado"] in ESTADOS else 99)
 
+        # ── Vista tabla compacta ───────────────────────────────────────────
+        if _vista_gc == "📊 Tabla":
+            _rows_gc = []
+            for c in causas:
+                _ic = {"verde":"🟢","amarillo":"🟡","rojo":"🔴"}.get(c.get("carril",""),"⚪")
+                _rows_gc.append({
+                    "Carril":     _ic,
+                    "Expediente": c["numero"],
+                    "Imputado/a": (c.get("apellido_nombre","") or "").split(",")[0],
+                    "DNI":        c.get("persona_dni",""),
+                    "Infracción": TIPOS_INFRACCION.get(c.get("tipo_infraccion",""),{}).get("label","")[:30],
+                    "Estado":     ESTADOS_LABEL.get(c["estado"], c["estado"]),
+                    "Unidad":     {"norte":"Norte","sur":"Sur","genero":"Género"}.get(c.get("unidad",""),""),
+                    "Fiscal":     c.get("fiscal_asignado",""),
+                    "Ingresada":  c.get("created_at","")[:10],
+                })
+            st.dataframe(
+                pd.DataFrame(_rows_gc),
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "Carril": st.column_config.TextColumn("", width="small"),
+                    "Expediente": st.column_config.TextColumn("Expediente", width="medium"),
+                }
+            )
+            st.caption("💡 Cambiá a vista '📋 Detalle' para acceder a acciones, documentos y gestión de estado.")
+
+        # ── Vista detalle (expanders) ──────────────────────────────────────
         # Selector de causa para ver detalle
         causa_sel_id = st.session_state.get("causa_sel_id")
 
         for c in causas:
+            if _vista_gc == "📊 Tabla":
+                continue   # tabla ya renderizada arriba
             carril_icon = {"verde":"🟢","amarillo":"🟡","rojo":"🔴"}.get(c.get("carril",""),"⚪")
             estado_label = ESTADOS_LABEL.get(c["estado"], c["estado"])
             infraccion_label = TIPOS_INFRACCION.get(c["tipo_infraccion"],{}).get("label", c["tipo_infraccion"])
@@ -1281,7 +1315,11 @@ with tab_panel:
                 from datetime import date as _d4
                 _auds_hoy  = _la2(desde=_d4.today().isoformat(), hasta=_d4.today().isoformat())
                 _pend      = listar_causas(estado="notificada") + listar_causas(estado="clasificada")
-                rpt_bytes  = pdf_reporte_diario(stats, _auds_hoy, _pend, fiscal_nombre, unidad_key)
+                rpt_bytes  = pdf_reporte_diario(
+                    stats, _auds_hoy, _pend, fiscal_nombre, unidad_key,
+                    seg_stats=stats_seguimiento(),
+                    causas_sin_aud=causas_sin_audiencia_programada(),
+                )
                 st.download_button(
                     "⬇️ Reporte del día (.pdf)",
                     data=rpt_bytes,

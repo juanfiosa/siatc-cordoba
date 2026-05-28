@@ -540,8 +540,12 @@ def pdf_informe_incumplimiento(caso, seguimiento, condiciones_inc, fiscal_nombre
 
 # -- Reporte diario -----------------------------------------------------------
 
-def pdf_reporte_diario(stats, audiencias_hoy, causas_pendientes, fiscal_nombre, unidad_key):
-    """Genera un resumen ejecutivo del dia para la unidad."""
+def pdf_reporte_diario(stats, audiencias_hoy, causas_pendientes, fiscal_nombre, unidad_key,
+                       seg_stats: dict = None, causas_sin_aud: list = None):
+    """Genera un resumen ejecutivo del dia para la unidad.
+    seg_stats: resultado de stats_seguimiento() — opcional.
+    causas_sin_aud: lista de causas sin audiencia programada — opcional.
+    """
     fecha = _fecha_formal()
     now   = datetime.now()
 
@@ -620,8 +624,53 @@ def pdf_reporte_diario(stats, audiencias_hoy, causas_pendientes, fiscal_nombre, 
             pdf.cell(0, 5, f"... y {len(causas_pendientes)-15} causas mas.", ln=True)
     else:
         pdf.cell(0, 5, "No hay causas pendientes de accion inmediata.", ln=True)
-    pdf.ln(6)
+    pdf.ln(4)
 
+    # Seguimientos
+    if seg_stats:
+        pdf._sf("B", 10)
+        pdf.set_text_color(*AZUL_MPF)
+        pdf.set_fill_color(240, 244, 255)
+        pdf.cell(0, 7, "SEGUIMIENTOS POST-RESOLUCION", fill=True, ln=True)
+        pdf.set_text_color(*NEGRO)
+        pdf._sf("", 9)
+        pdf.ln(2)
+        pdf.cell(47, 5, f"Total seguimientos: {seg_stats.get('total', 0)}", ln=False)
+        pdf.cell(47, 5, f"Activos: {seg_stats.get('activos', 0)}", ln=False)
+        pdf.cell(47, 5, f"Cumplidos: {seg_stats.get('cumplidos', 0)}", ln=False)
+        pdf.cell(47, 5, f"Incumplidos: {seg_stats.get('incumplidos', 0)}", ln=True)
+        venc = seg_stats.get("vencidos", 0)
+        if venc > 0:
+            pdf._sf("B", 9)
+            pdf.set_text_color(180, 0, 0)
+            pdf.cell(0, 5,
+                f"ALERTA: {venc} seguimiento(s) vencido(s) sin cierre formal. Requiere atencion urgente.",
+                ln=True)
+            pdf.set_text_color(*NEGRO)
+            pdf._sf("", 9)
+        pdf.ln(3)
+
+    # Causas sin audiencia programada
+    if causas_sin_aud:
+        pdf._sf("B", 10)
+        pdf.set_text_color(*AZUL_MPF)
+        pdf.set_fill_color(240, 244, 255)
+        pdf.cell(0, 7, f"CAUSAS SIN AUDIENCIA PROGRAMADA ({len(causas_sin_aud)})", fill=True, ln=True)
+        pdf.set_text_color(*NEGRO)
+        pdf._sf("", 9)
+        pdf.ln(2)
+        for c in causas_sin_aud[:10]:
+            nom   = _s(c.get("apellido_nombre","")).split(",")[0].strip()
+            num   = _s(c.get("numero",""))
+            est   = _s(c.get("estado","")).capitalize()
+            pdf.cell(70, 5, nom, ln=False)
+            pdf.cell(60, 5, num, ln=False)
+            pdf.cell(60, 5, est, ln=True)
+        if len(causas_sin_aud) > 10:
+            pdf.cell(0, 5, f"... y {len(causas_sin_aud)-10} mas.", ln=True)
+        pdf.ln(3)
+
+    pdf.ln(2)
     pdf._sf("I", 8)
     pdf.set_text_color(*GRIS_TEXTO)
     pdf.cell(0, 4,
