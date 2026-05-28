@@ -98,6 +98,44 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_causas_carril    ON causas(carril);
         CREATE INDEX IF NOT EXISTS idx_estados_causa_id ON estados_causa(causa_id);
         CREATE INDEX IF NOT EXISTS idx_docs_causa_id    ON documentos(causa_id);
+
+        CREATE TABLE IF NOT EXISTS seguimientos (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            causa_id        INTEGER NOT NULL REFERENCES causas(id),
+            tipo_resolucion TEXT    NOT NULL,
+            fecha_inicio    TEXT    NOT NULL,
+            fecha_fin       TEXT    NOT NULL,
+            estado          TEXT    DEFAULT 'activo',
+            fiscal          TEXT,
+            observaciones   TEXT,
+            created_at      TEXT    DEFAULT (datetime('now','localtime'))
+        );
+
+        CREATE TABLE IF NOT EXISTS condiciones (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            seguimiento_id  INTEGER NOT NULL REFERENCES seguimientos(id),
+            tipo            TEXT    NOT NULL,
+            descripcion     TEXT    NOT NULL,
+            valor_objetivo  REAL    DEFAULT 0,
+            unidad          TEXT    DEFAULT '',
+            estado          TEXT    DEFAULT 'pendiente',
+            fecha_limite    TEXT    DEFAULT '',
+            created_at      TEXT    DEFAULT (datetime('now','localtime'))
+        );
+
+        CREATE TABLE IF NOT EXISTS registros_cumplimiento (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            condicion_id    INTEGER NOT NULL REFERENCES condiciones(id),
+            fecha           TEXT    NOT NULL,
+            valor_parcial   REAL    DEFAULT 0,
+            observaciones   TEXT    DEFAULT '',
+            usuario         TEXT    DEFAULT '',
+            created_at      TEXT    DEFAULT (datetime('now','localtime'))
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_seg_causa    ON seguimientos(causa_id);
+        CREATE INDEX IF NOT EXISTS idx_cond_seg     ON condiciones(seguimiento_id);
+        CREATE INDEX IF NOT EXISTS idx_reg_cond     ON registros_cumplimiento(condicion_id);
         """)
 
 
@@ -359,3 +397,174 @@ def historial_persona(persona_id: int) -> list[dict]:
             (persona_id,)
         ).fetchall()
     return [dict(r) for r in rows]
+
+
+# ── Seguimiento post-resolución ────────────────────────────────────────────────
+
+def crear_seguimiento(causa_id: int, tipo_resolucion: str,
+                      fecha_inicio: str, fecha_fin: str,
+                      fiscal: str, observaciones: str = "") -> int:
+    with get_conn() as conn:
+        cur = conn.execute(
+            """INSERT INTO seguimientos
+               (causa_id, tipo_resolucion, fecha_inicio, fecha_fin, fiscal, observaciones)
+               VALUES (?,?,?,?,?,?)""",
+            (causa_id, tipo_resolucion, fecha_inicio, fecha_fin, fiscal, observaciones)
+        )
+        return cur.lastrowid
+
+
+def agregar_condicion(seguimiento_id: int, tipo: str, descripcion: str,
+                      valor_objetivo: float = 0, unidad: str = "",
+                      fecha_limite: str = "") -> int:
+    with get_conn() as conn:
+        cur = conn.execute(
+            """INSERT INTO condiciones
+               (seguimiento_id, tipo, descripcion, valor_objetivo, unidad, fecha_limite)
+               VALUES (?,?,?,?,?,?)""",
+            (seguimiento_id, tipo, descripcion, valor_objetivo, unidad, fecha_limite)
+        )
+        return cur.lastrowid
+
+
+def registrar_avance(condicion_id: int, fecha: str, valor_parcial: float,
+                     observaciones: str, usuario: str) -> int:
+    with get_conn() as conn:
+        cur = conn.execute(
+            """INSERT INTO registros_cumplimiento
+               (condicion_id, fecha, valor_parcial, observaciones, usuario)
+               VALUES (?,?,?,?,?)""",
+            (condicion_id, fecha, valor_parcial, observaciones, usuario)
+        )
+        # Calcular acumulado y actualizar estado
+        total = conn.execute(
+            "SELECT COALESCE(SUM(valor_parcial),0) as t FROM registros_cumplimiento WHERE condicion_id=?",
+            (condicion_id,)
+        ).fetchone()["t"]
+        cond = conn.execute(
+            "SELECT valor_objetivo FROM condiciones WHERE id=?", (condicion_id,)
+        ).fetchone()
+        if cond and cond["valor_objetivo"] > 0 and total >= cond["valor_objetivo"]:
+            conn.execute("UPDATE condiciones SET estado='cumplido' WHERE id=?", (condicion_id,))
+        elif total > 0:
+            conn.execute("UPDATE condiciones SET estado='en_curso' WHERE id=?", (condicion_id,))
+        return cur.lastrowid
+
+
+def marcar_condicion(condicion_id: int, estado: str) -> bool:
+    if estado not in ("pendiente", "en_curso", "cumplido", "incumplido"):
+        return False
+    with get_conn() as conn:
+        conn.execute("UPDATE condiciones SET estado=? WHERE id=?", (estado, condicion_id))
+    return True
+
+
+def cerrar_seguimiento(seguimiento_id: int, estado: str) -> bool:
+    if estado not in ("cumplido", "incumplido", "revocado"):
+        return False
+    with get_conn() as conn:
+        conn.execute("UPDATE seguimientos SET estado=? WHERE id=?", (estado, seguimiento_id))
+    return True
+
+
+def get_seguimiento(seguimiento_id: int) -> dict | None:
+    with get_conn() as conn:
+        row = conn.execute(
+            """SELECT s.*, c.numero, p.apellido_nombre, p.dni
+               FROM seguimientos s
+               JOIN causas c ON s.causa_id = c.id
+               JOIN personas p ON c.persona_id = p.id
+               WHERE s.id=?""",
+            (seguimiento_id,)
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def get_condiciones(seguimiento_id: int) -> list[dict]:
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT * FROM condiciones WHERE seguimiento_id=? ORDER BY id",
+            (seguimiento_id,)
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def get_registros(condicion_id: int) -> list[dict]:
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT * FROM registros_cumplimiento WHERE condicion_id=? ORDER BY fecha DESC",
+            (condicion_id,)
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def listar_seguimientos(estado: str = None, unidad: str = None) -> list[dict]:
+    sql = """
+        SELECT s.*, c.numero, c.unidad, c.tipo_infraccion,
+               p.apellido_nombre, p.dni
+        FROM seguimientos s
+        JOIN causas c ON s.causa_id = c.id
+        JOIN personas p ON c.persona_id = p.id
+        WHERE 1=1
+    """
+    params = []
+    if estado:
+        sql += " AND s.estado=?"
+        params.append(estado)
+    if unidad:
+        sql += " AND c.unidad=?"
+        params.append(unidad)
+    sql += " ORDER BY s.fecha_fin ASC"
+    with get_conn() as conn:
+        rows = conn.execute(sql, params).fetchall()
+    return [dict(r) for r in rows]
+
+
+def get_seguimiento_por_causa(causa_id: int) -> dict | None:
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT * FROM seguimientos WHERE causa_id=? ORDER BY id DESC LIMIT 1",
+            (causa_id,)
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def progress_seguimiento(seguimiento_id: int) -> dict:
+    """Calcula el progreso global de un seguimiento."""
+    condiciones = get_condiciones(seguimiento_id)
+    total = len(condiciones)
+    if total == 0:
+        return {"total": 0, "cumplidas": 0, "en_curso": 0, "pendientes": 0, "incumplidas": 0, "pct": 0}
+    cumplidas   = sum(1 for c in condiciones if c["estado"] == "cumplido")
+    en_curso    = sum(1 for c in condiciones if c["estado"] == "en_curso")
+    incumplidas = sum(1 for c in condiciones if c["estado"] == "incumplido")
+    pendientes  = total - cumplidas - en_curso - incumplidas
+    return {
+        "total": total, "cumplidas": cumplidas, "en_curso": en_curso,
+        "pendientes": pendientes, "incumplidas": incumplidas,
+        "pct": round(cumplidas / total * 100)
+    }
+
+
+def acumulado_condicion(condicion_id: int) -> float:
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT COALESCE(SUM(valor_parcial),0) as t FROM registros_cumplimiento WHERE condicion_id=?",
+            (condicion_id,)
+        ).fetchone()
+    return row["t"] if row else 0.0
+
+
+def stats_seguimiento() -> dict:
+    with get_conn() as conn:
+        total   = conn.execute("SELECT COUNT(*) as n FROM seguimientos").fetchone()["n"]
+        activos = conn.execute("SELECT COUNT(*) as n FROM seguimientos WHERE estado='activo'").fetchone()["n"]
+        cumplidos = conn.execute("SELECT COUNT(*) as n FROM seguimientos WHERE estado='cumplido'").fetchone()["n"]
+        incumplidos = conn.execute("SELECT COUNT(*) as n FROM seguimientos WHERE estado='incumplido'").fetchone()["n"]
+        vencidos = conn.execute(
+            "SELECT COUNT(*) as n FROM seguimientos WHERE estado='activo' AND fecha_fin < date('now')"
+        ).fetchone()["n"]
+    return {
+        "total": total, "activos": activos, "cumplidos": cumplidos,
+        "incumplidos": incumplidos, "vencidos": vencidos
+    }

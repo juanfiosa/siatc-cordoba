@@ -25,6 +25,7 @@ from database import (
     guardar_documento, listar_documentos, stats_generales, causas_por_tipo,
     historial_persona, upsert_persona, ESTADOS, ESTADOS_LABEL,
 )
+from seguimiento_tab import render_tab_seguimiento
 
 # ── Init ───────────────────────────────────────────────────────────────────────
 init_db()
@@ -84,8 +85,9 @@ Ministerio Público Fiscal · Provincia de Córdoba &nbsp;|&nbsp; Código de Con
 """, unsafe_allow_html=True)
 
 # ── Tabs ───────────────────────────────────────────────────────────────────────
-tab_nuevo, tab_causas, tab_demo, tab_panel = st.tabs([
-    "📋 Nuevo Caso", "📂 Gestión de Causas", "🗂️ Casos Demo", "📊 Panel de Control"
+tab_nuevo, tab_causas, tab_demo, tab_seg, tab_panel = st.tabs([
+    "📋 Nuevo Caso", "📂 Gestión de Causas", "🗂️ Casos Demo",
+    "🔍 Seguimiento", "📊 Panel de Control"
 ])
 
 
@@ -448,7 +450,14 @@ with tab_demo:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# TAB 4 — PANEL DE CONTROL
+# TAB 4 — SEGUIMIENTO POST-RESOLUCIÓN
+# ══════════════════════════════════════════════════════════════════════════════
+with tab_seg:
+    render_tab_seguimiento(fiscal_nombre)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 5 — PANEL DE CONTROL
 # ══════════════════════════════════════════════════════════════════════════════
 with tab_panel:
     st.subheader("Panel de Control")
