@@ -83,17 +83,20 @@ def causas_a_excel() -> bytes:
             "DNI":             c.get("persona_dni", ""),
             "Tipo infracción": TIPOS_INFRACCION.get(c.get("tipo_infraccion",""), {}).get("label", c.get("tipo_infraccion","")),
             "Artículo":        TIPOS_INFRACCION.get(c.get("tipo_infraccion",""), {}).get("articulo", ""),
+            "Categoría":       TIPOS_INFRACCION.get(c.get("tipo_infraccion",""), {}).get("categoria", ""),
             "Carril":          CARRIL_LABEL.get(c.get("carril",""), c.get("carril","")),
             "Acción":          c.get("accion", ""),
             "Estado":          c.get("estado", "").capitalize(),
             "Unidad":          c.get("unidad", "").capitalize(),
             "Fiscal":          c.get("fiscal_asignado", ""),
+            "Fecha del hecho": c.get("fecha_hecho", "")[:10] if c.get("fecha_hecho") else "",
             "Fecha ingreso":   c.get("created_at", "")[:10] if c.get("created_at") else "",
             "Última actuali.": c.get("updated_at", "")[:10] if c.get("updated_at") else "",
         })
     df_causas = pd.DataFrame(rows_c) if rows_c else pd.DataFrame(
-        columns=["Expediente","Imputado/a","DNI","Tipo infracción","Artículo",
-                 "Carril","Acción","Estado","Unidad","Fiscal","Fecha ingreso","Última actuali."])
+        columns=["Expediente","Imputado/a","DNI","Tipo infracción","Artículo","Categoría",
+                 "Carril","Acción","Estado","Unidad","Fiscal",
+                 "Fecha del hecho","Fecha ingreso","Última actuali."])
 
     # Hoja 2: Personas
     personas = db.listar_personas()

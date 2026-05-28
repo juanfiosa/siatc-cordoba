@@ -254,17 +254,19 @@ def guardar_causa(caso: dict, clasificacion: dict, fiscal: str) -> int:
             if existing["estado"] == "ingresada":
                 _registrar_estado(conn, causa_id, "ingresada", "clasificada", fiscal, "Clasificación automática")
         else:
+            fecha_hecho_val = caso.get("fecha_hecho") or datetime.now().strftime("%Y-%m-%d")
             cur = conn.execute(
                 """INSERT INTO causas (numero,persona_id,tipo_infraccion,descripcion,carril,accion,
                    unidad,fiscal_asignado,estado,victima_identificada,hay_lesiones,
                    resistencia_autoridad,score_clasificacion,fecha_hecho)
-                   VALUES (?,?,?,?,?,?,?,?,'clasificada',?,?,?,?,datetime('now','localtime'))""",
+                   VALUES (?,?,?,?,?,?,?,?,'clasificada',?,?,?,?,?)""",
                 (
                     numero, persona_id, caso["tipo"], caso.get("descripcion", ""),
                     clasificacion["carril"], clasificacion["accion"],
                     caso.get("unidad", "norte"), fiscal,
                     int(caso.get("victima", False)), int(caso.get("lesiones", False)),
                     int(caso.get("resistencia", False)), clasificacion.get("score", 0),
+                    fecha_hecho_val,
                 )
             )
             causa_id = cur.lastrowid

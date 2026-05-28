@@ -273,8 +273,14 @@ with tab_nuevo:
         tipo_opciones = {k: v["label"]+f"  ({v['categoria']})" for k,v in TIPOS_INFRACCION.items()}
         tipo = st.selectbox("Tipo de infracción", options=list(tipo_opciones.keys()),
                             format_func=lambda k: tipo_opciones[k])
-        descripcion = st.text_area("Descripción (según parte policial)", height=90,
-                                   placeholder="Descripción breve del hecho...")
+        from datetime import date as _date_form
+        col_desc, col_fech = st.columns([3, 1])
+        with col_desc:
+            descripcion = st.text_area("Descripción (según parte policial)", height=90,
+                                       placeholder="Descripción breve del hecho...")
+        with col_fech:
+            fecha_hecho = st.date_input("Fecha del hecho", value=_date_form.today(),
+                                        max_value=_date_form.today(), key="nuevo_fecha_hecho")
         col_v, col_l, col_r = st.columns(3)
         victima    = col_v.checkbox("Víctima identificada")
         lesiones   = col_l.checkbox("Lesiones físicas")
@@ -291,6 +297,7 @@ with tab_nuevo:
                 "descripcion": descripcion, "unidad": unidad_key,
                 "domicilio": domicilio,
                 "victima": victima, "lesiones": lesiones, "resistencia": resistencia,
+                "fecha_hecho": fecha_hecho.isoformat(),
             }
             clf = clasificar_caso(tipo, antecedentes, victima, lesiones, resistencia)
             t   = tiempo_estimado_resolucion(clf["carril"])
@@ -481,7 +488,9 @@ with tab_causas:
                         st.session_state["perfil_busqueda"] = c["persona_dni"]
                         st.session_state["goto_perfil"] = True
                     st.markdown(f"**Descripción:** {c.get('descripcion') or '—'}")
-                    st.markdown(f"**Ingresada:** {c['created_at']}")
+                    _fh = c.get("fecha_hecho","")
+                    _fecha_hecho_str = _fh[:10] if _fh else "—"
+                    st.markdown(f"**Fecha del hecho:** {_fecha_hecho_str}  |  **Ingresada:** {c['created_at'][:10]}")
 
                     # Timeline
                     timeline = get_timeline(c["id"])
