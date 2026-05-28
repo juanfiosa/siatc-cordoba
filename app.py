@@ -340,7 +340,17 @@ with tab_causas:
     if not causas:
         st.info("No hay causas que coincidan con los filtros. Ingresá un caso nuevo en la pestaña 📋 o cargá los casos demo.")
     else:
-        st.markdown(f"**{len(causas)} causa{'s' if len(causas)!=1 else ''}**")
+        from collections import Counter as _Cnt
+        _cnt = _Cnt(c.get("carril","") for c in causas)
+        _cnt_est = _Cnt(c.get("estado","") for c in causas)
+        st.markdown(
+            f"**{len(causas)} causa{'s' if len(causas)!=1 else ''}** &nbsp;—&nbsp; "
+            f"🟢 {_cnt.get('verde',0)} &nbsp; 🟡 {_cnt.get('amarillo',0)} &nbsp; 🔴 {_cnt.get('rojo',0)} "
+            f"&nbsp;|&nbsp; "
+            f"Ingresadas: {_cnt_est.get('ingresada',0)} &nbsp; "
+            f"Notificadas: {_cnt_est.get('notificada',0)} &nbsp; "
+            f"Resueltas: {_cnt_est.get('resuelta',0)}",
+        )
 
         # Selector de causa para ver detalle
         causa_sel_id = st.session_state.get("causa_sel_id")
