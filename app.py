@@ -24,7 +24,7 @@ from database import (
     guardar_causa, avanzar_estado, listar_causas, get_causa, get_timeline,
     guardar_documento, listar_documentos, stats_generales, causas_por_tipo,
     historial_persona, upsert_persona, ESTADOS, ESTADOS_LABEL,
-    listar_seguimientos, stats_seguimiento,
+    listar_seguimientos, stats_seguimiento, causas_por_mes,
 )
 from seguimiento_tab import render_tab_seguimiento
 from agenda_tab import render_tab_agenda
@@ -650,7 +650,38 @@ with tab_panel:
                 fig4.update_layout(title="Causas por unidad", height=280)
                 st.plotly_chart(fig4, use_container_width=True)
 
-        st.markdown(f"*Datos reales del sistema · {stats['personas']} personas registradas · {stats['reincidentes']} con más de una causa*")
+        # Evolución temporal
+        meses_data = causas_por_mes(18)
+        if len(meses_data) >= 2:
+            col_time, col_resumen = st.columns([3, 1])
+            with col_time:
+                df_mes = pd.DataFrame(meses_data)
+                fig5 = go.Figure(go.Bar(
+                    x=df_mes["mes"],
+                    y=df_mes["n"],
+                    marker_color="#2e5090",
+                ))
+                fig5.add_trace(go.Scatter(
+                    x=df_mes["mes"], y=df_mes["n"],
+                    mode="lines+markers",
+                    line=dict(color="#28a745", width=2),
+                    marker=dict(size=6),
+                    name="Tendencia",
+                ))
+                fig5.update_layout(
+                    title="Causas ingresadas por mes",
+                    height=260, showlegend=False,
+                    xaxis_title="", yaxis_title="Causas",
+                )
+                st.plotly_chart(fig5, use_container_width=True)
+            with col_resumen:
+                st.markdown(f"*{stats['personas']} personas*")
+                st.markdown(f"*{stats['reincidentes']} con más de una causa*")
+                if stats["reincidentes"] and stats["personas"]:
+                    pct_r = round(stats["reincidentes"] * 100 / stats["personas"], 1)
+                    st.metric("Tasa reincidencia", f"{pct_r}%")
+        else:
+            st.markdown(f"*Datos reales · {stats['personas']} personas · {stats['reincidentes']} con más de una causa*")
 
         # ── Bloque seguimiento ─────────────────────────────────────────────
         st.markdown("---")

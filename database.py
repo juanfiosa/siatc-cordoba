@@ -406,6 +406,20 @@ def causas_por_tipo() -> list[dict]:
     return [dict(r) for r in rows]
 
 
+def causas_por_mes(meses: int = 12) -> list[dict]:
+    """Retorna cantidad de causas ingresadas por mes (ultimos N meses)."""
+    with get_conn() as conn:
+        rows = conn.execute(
+            """SELECT strftime('%Y-%m', created_at) as mes, COUNT(*) as n
+               FROM causas
+               GROUP BY mes
+               ORDER BY mes ASC
+               LIMIT ?""",
+            (meses,)
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
 def historial_persona(persona_id: int) -> list[dict]:
     with get_conn() as conn:
         rows = conn.execute(

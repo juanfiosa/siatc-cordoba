@@ -84,6 +84,18 @@ Requires OAuth in browser — cannot be done headlessly.
 `siatc.db` is in `.gitignore`; the cloud instance seeds fresh on each cold start.
 `requirements.txt` lists all dependencies.
 
+## Key DB query functions
+
+| Function | Returns |
+|---|---|
+| `stats_generales()` | total, por_carril, por_estado, por_unidad, personas, reincidentes |
+| `causas_por_tipo()` | list of {tipo_infraccion, n} ordered by count |
+| `causas_por_mes(meses)` | list of {mes, n} last N months |
+| `stats_seguimiento()` | total, activos, cumplidos, incumplidos, vencidos |
+| `stats_audiencias()` | total, proximas, hoy, realizadas, ausentes |
+| `perfil_persona(id)` | {persona, causas, seguimientos, audiencias, antecedentes, total_causas} |
+| `listar_causas(...)` | rows include persona_edad, persona_domicilio (added 2025-05) |
+
 ## Known issues / decisions
 - `demo_seed.py → ya_poblado()` checks `n >= 5` (not `>= 12`), so adding
   more seed rows does NOT re-trigger seeding; delete `siatc.db` to reseed.
