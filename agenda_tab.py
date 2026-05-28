@@ -68,19 +68,32 @@ def _vista_semana(semana_offset: int = 0):
     cols = st.columns(5)
     for col, dia, nombre in zip(cols, dias, nombres_dia):
         es_hoy = dia == hoy
-        encabezado = f"**{'🔸 ' if es_hoy else ''}{nombre} {dia.strftime('%d/%m')}**"
-        col.markdown(encabezado)
         audiencias_dia = por_dia[dia.isoformat()]
+        n_aud = len(audiencias_dia)
+        n_prog = sum(1 for a in audiencias_dia if a.get("estado") == "programada")
+
+        # Header with day indicator and count badge
+        header_bg = "background:#1a2f5e;color:white;border-radius:6px;padding:4px 8px;" if es_hoy else "background:#f0f0f0;border-radius:6px;padding:4px 8px;"
+        badge = f"<span style='background:#28a745;color:white;border-radius:10px;padding:1px 7px;font-size:0.75rem;margin-left:4px'>{n_aud}</span>" if n_aud else ""
+        hoy_lbl = " 🔸 HOY" if es_hoy else ""
+        col.markdown(
+            f"<div style='{header_bg}text-align:center'>"
+            f"<strong>{nombre} {dia.strftime('%d/%m')}{hoy_lbl}</strong>{badge}"
+            f"</div>",
+            unsafe_allow_html=True
+        )
+        col.markdown("")
+
         if not audiencias_dia:
-            col.caption("Sin audiencias")
-        for a in audiencias_dia:
+            col.caption("—")
+        for a in sorted(audiencias_dia, key=lambda x: x["hora"]):
             bg = ESTADO_COLOR_CSS.get(a["estado"], "#f0f0f0")
             col.markdown(
                 f"<div style='background:{bg};border-radius:6px;padding:6px 8px;"
                 f"margin-bottom:4px;font-size:0.82rem'>"
                 f"<strong>{a['hora']}</strong> — {a['apellido_nombre'].split(',')[0]}<br>"
                 f"<span style='color:#555'>{TIPO_LABEL.get(a['tipo'], a['tipo'])}</span><br>"
-                f"<span style='font-size:0.75rem'>{a['numero']}</span>"
+                f"<span style='font-size:0.75rem;color:#888'>{a['numero']}</span>"
                 f"</div>",
                 unsafe_allow_html=True
             )
@@ -256,6 +269,22 @@ def render_tab_agenda(fiscal):
             st.markdown(f"<div style='text-align:center;font-weight:bold'>"
                         f"Semana del {lunes.strftime('%d/%m')} al {viernes.strftime('%d/%m/%Y')}"
                         f"</div>", unsafe_allow_html=True)
+        # Weekly stats summary
+        _sem_auds = db.listar_audiencias(
+            desde=lunes.isoformat(),
+            hasta=(lunes + timedelta(days=6)).isoformat()
+        )
+        if _sem_auds:
+            from collections import Counter as _C
+            _cnt_sem = _C(a["estado"] for a in _sem_auds)
+            st.markdown(
+                f"<small>Semana: **{len(_sem_auds)} audiencias** — "
+                f"🔵 {_cnt_sem.get('programada',0)} programadas &nbsp;"
+                f"🟢 {_cnt_sem.get('realizada',0)} realizadas &nbsp;"
+                f"🔴 {_cnt_sem.get('ausente',0)} ausentes &nbsp;"
+                f"🟡 {_cnt_sem.get('reprogramada',0)} reprogramadas</small>",
+                unsafe_allow_html=True
+            )
         st.markdown("")
         _vista_semana(st.session_state.get("sem_offset", 0))
 
