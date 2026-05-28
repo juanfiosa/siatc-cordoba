@@ -68,9 +68,11 @@ def badge_dias(dias):
 def _form_nuevo_seguimiento(fiscal):
     st.subheader("➕ Registrar Seguimiento de Resolución")
 
-    causas = db.listar_causas(estado="resuelta") + db.listar_causas(estado="clasificada")
+    causas = (db.listar_causas(estado="resuelta")
+              + db.listar_causas(estado="notificada")
+              + db.listar_causas(estado="en_mediacion"))
     if not causas:
-        st.info("No hay causas resueltas o clasificadas disponibles.")
+        st.info("No hay causas notificadas, en mediación o resueltas disponibles.")
         return
 
     opciones = {
@@ -185,8 +187,9 @@ def _form_nuevo_seguimiento(fiscal):
                 unidad=cond["unidad"],
                 fecha_limite=cond["fecha_limite"]
             )
+        n_conds = len(st.session_state.condiciones_temp)
         st.session_state.condiciones_temp = []
-        st.success(f"✅ Seguimiento #{seg_id} registrado con {len(st.session_state.get('condiciones_temp_prev', []))} condiciones.")
+        st.success(f"✅ Seguimiento #{seg_id} registrado con {n_conds} condición(es).")
         st.balloons()
         st.rerun()
 
