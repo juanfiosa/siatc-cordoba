@@ -13,6 +13,17 @@ from data_cordoba import TIPOS_INFRACCION, UNIDADES
 CARRIL_LABEL = {"verde": "Mediación", "amarillo": "Suspensión", "rojo": "Proceso pleno"}
 TIPO_RES_LABEL = {"suspension": "Suspensión del Proceso a Prueba",
                   "mediacion": "Acuerdo de Mediación", "acuerdo": "Acuerdo Conciliatorio"}
+TIPO_AUD_LABEL = {
+    "audiencia":       "Audiencia contravencional",
+    "mediacion":       "Audiencia de mediación",
+    "acta_compromiso": "Suscripción acta de compromiso",
+    "control_seg":     "Control de seguimiento",
+    "reprogramada":    "Audiencia reprogramada",
+}
+ESTADO_AUD_LABEL = {
+    "programada": "Programada", "realizada": "Realizada",
+    "ausente": "Ausente", "reprogramada": "Reprogramada", "cancelada": "Cancelada",
+}
 
 
 def _xl_header(writer, sheet, titulo):
@@ -198,5 +209,79 @@ def seguimientos_a_excel() -> bytes:
 
         _xl_header(writer, "Seguimientos", "Registro de Seguimientos Post-Resolución")
         _xl_header(writer, "Condiciones",  "Detalle de Condiciones por Seguimiento")
+
+    return buf.getvalue()
+
+
+def audiencias_a_excel() -> bytes:
+    """Exporta el listado de audiencias a Excel con dos hojas: futuras y pasadas."""
+    from openpyxl.styles import PatternFill, Font
+    audiencias = db.listar_audiencias()
+    today = date.today().isoformat()
+
+    TIPO_AUD_LABEL_LOCAL = {
+        "audiencia":       "Audiencia contravencional",
+        "mediacion":       "Audiencia de mediacion",
+        "acta_compromiso": "Suscripcion acta de compromiso",
+        "control_seg":     "Control de seguimiento",
+        "reprogramada":    "Audiencia reprogramada",
+    }
+
+    def _row(a):
+        return {
+            "Fecha":         a.get("fecha", ""),
+            "Hora":          a.get("hora", ""),
+            "Imputado/a":    a.get("apellido_nombre", ""),
+            "DNI":           a.get("dni", ""),
+            "Expediente":    a.get("numero", ""),
+            "Unidad":        a.get("unidad", "").capitalize(),
+            "Carril":        CARRIL_LABEL.get(a.get("carril",""), a.get("carril","")),
+            "Tipo":          TIPO_AUD_LABEL_LOCAL.get(a.get("tipo",""), a.get("tipo","")),
+            "Lugar":         a.get("lugar",""),
+            "Estado":        a.get("estado","").capitalize(),
+            "Observaciones": a.get("observaciones",""),
+        }
+
+    futuras = [_row(a) for a in audiencias if a.get("fecha","") >= today]
+    pasadas = [_row(a) for a in audiencias if a.get("fecha","") <  today]
+
+    cols = ["Fecha","Hora","Imputado/a","DNI","Expediente","Unidad",
+            "Carril","Tipo","Lugar","Estado","Observaciones"]
+
+    df_fut = pd.DataFrame(futuras) if futuras else pd.DataFrame(columns=cols)
+    df_pas = pd.DataFrame(pasadas) if pasadas else pd.DataFrame(columns=cols)
+
+    buf = BytesIO()
+    with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+        df_fut.to_excel(writer, sheet_name="Proximas",  index=False, startrow=3)
+        df_pas.to_excel(writer, sheet_name="Historial", index=False, startrow=3)
+
+        estado_colors = {
+            "Programada":   "CCE5FF",
+            "Realizada":    "C3E6CB",
+            "Ausente":      "F5C6CB",
+            "Reprogramada": "FFF3CD",
+            "Cancelada":    "E2E3E5",
+        }
+        azul_col = PatternFill("solid", fgColor="2E5090")
+
+        for sheet, df in [("Proximas", df_fut), ("Historial", df_pas)]:
+            ws = writer.sheets[sheet]
+            for cell in ws[4]:
+                if cell.value:
+                    cell.fill = azul_col
+                    cell.font = Font(color="FFFFFF", bold=True)
+            for col in ws.columns:
+                max_len = max((len(str(c.value or "")) for c in col), default=8)
+                ws.column_dimensions[col[0].column_letter].width = min(max_len + 3, 40)
+            for row in ws.iter_rows(min_row=5, max_row=ws.max_row):
+                for cell in row:
+                    if ws.cell(4, cell.column).value == "Estado" and cell.value:
+                        color = estado_colors.get(str(cell.value), None)
+                        if color:
+                            cell.fill = PatternFill("solid", fgColor=color)
+
+        _xl_header(writer, "Proximas",  "Agenda de Audiencias - Proximas")
+        _xl_header(writer, "Historial", "Agenda de Audiencias - Historial")
 
     return buf.getvalue()

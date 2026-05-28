@@ -539,6 +539,17 @@ def pdf_informe_incumplimiento(caso, seguimiento, condiciones_inc, fiscal_nombre
 # -- Punto de entrada ---------------------------------------------------------
 
 def generar_pdf(tipo_doc, caso, clf, fiscal, unidad):
+    # Normalize DB row keys to the legacy keys used by pdf helpers.
+    # get_causa() returns apellido_nombre / persona_dni / persona_edad;
+    # the pdf helpers expect imputado / dni / edad / tipo / antecedentes.
+    if isinstance(caso, dict):
+        caso = dict(caso)
+        caso.setdefault("tipo",         caso.get("tipo_infraccion", ""))
+        caso.setdefault("imputado",     caso.get("apellido_nombre", ""))
+        caso.setdefault("dni",          caso.get("persona_dni", ""))
+        caso.setdefault("edad",         caso.get("persona_edad", ""))
+        caso.setdefault("antecedentes", 0)
+        caso.setdefault("domicilio",    caso.get("persona_domicilio", ""))
     t = tipo_doc.lower()
     if "mediaci" in t:
         return pdf_dictamen_mediacion(caso, clf, fiscal, unidad)

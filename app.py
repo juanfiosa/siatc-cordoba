@@ -31,7 +31,7 @@ from agenda_tab import render_tab_agenda
 from perfil_tab import render_buscador_perfil
 from demo_seed import poblar, ya_poblado
 from bienvenida import mostrar_si_primera_vez
-from export_excel import causas_a_excel, seguimientos_a_excel
+from export_excel import causas_a_excel, seguimientos_a_excel, audiencias_a_excel
 from database import (
     audiencias_hoy, stats_audiencias, listar_audiencias,
     crear_audiencia, actualizar_estado_audiencia,
@@ -776,7 +776,7 @@ with tab_panel:
         # ── Exportación a Excel ────────────────────────────────────────────
         st.markdown("---")
         st.subheader("📥 Exportar datos")
-        col_ex1, col_ex2, col_ex3 = st.columns(3)
+        col_ex1, col_ex2, col_ex3, col_ex4 = st.columns(4)
         with col_ex1:
             try:
                 xls_causas = causas_a_excel()
@@ -802,6 +802,18 @@ with tab_panel:
             except Exception as e:
                 st.error(f"Error generando Excel: {e}")
         with col_ex3:
+            try:
+                xls_aud = audiencias_a_excel()
+                st.download_button(
+                    "⬇️ Audiencias (.xlsx)",
+                    data=xls_aud,
+                    file_name=f"SIATC_audiencias_{datetime.now().strftime('%Y%m%d')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True,
+                )
+            except Exception as e:
+                st.error(f"Error generando Excel audiencias: {e}")
+        with col_ex4:
             st.caption("Los archivos Excel incluyen formato institucional MPF, "
                        "dos hojas por reporte y colores de estado.")
 
