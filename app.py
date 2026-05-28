@@ -159,6 +159,39 @@ Ministerio Público Fiscal · Provincia de Córdoba &nbsp;|&nbsp; Código de Con
 </div>
 """, unsafe_allow_html=True)
 
+# ── Alertas críticas ──────────────────────────────────────────────────────────
+_alertas = []
+from datetime import date as _date_now
+_hoy_str = _date_now.today().isoformat()
+
+# Audiencias de hoy sin gestionar
+_aud_hoy_count = stats_audiencias()["hoy"]
+if _aud_hoy_count:
+    _alertas.append(f"📅 **{_aud_hoy_count} audiencia(s) HOY** — revisá la pestaña Agenda")
+
+# Seguimientos vencidos sin cierre
+_venc = stats_seguimiento()["vencidos"]
+if _venc:
+    _alertas.append(f"⚠️ **{_venc} seguimiento(s) vencido(s)** sin cierre formal")
+
+# Causas incumplidas
+_inc = stats_seguimiento()["incumplidos"]
+if _inc:
+    _alertas.append(f"❌ **{_inc} seguimiento(s) incumplido(s)** — evaluar revocación")
+
+# Ausencias recientes (últimos 7 días)
+from database import listar_audiencias as _la_alerts
+from datetime import timedelta as _tda
+_hace7 = (_date_now.today() - _tda(days=7)).isoformat()
+_ausentes_rec = len([a for a in _la_alerts(desde=_hace7, hasta=_hoy_str) if a.get("estado") == "ausente"])
+if _ausentes_rec:
+    _alertas.append(f"🚨 **{_ausentes_rec} incomparecencia(s)** en los últimos 7 días")
+
+if _alertas:
+    with st.container():
+        for alerta in _alertas:
+            st.warning(alerta)
+
 # ── Tabs ───────────────────────────────────────────────────────────────────────
 tab_nuevo, tab_causas, tab_demo, tab_seg, tab_agenda, tab_perfil, tab_panel = st.tabs([
     "📋 Nuevo Caso", "📂 Gestión de Causas", "🗂️ Casos Demo",
@@ -275,7 +308,13 @@ with tab_nuevo:
 
             if guardar:
                 causa_id = guardar_causa(caso, clf, fiscal_nombre)
-                st.success(f"✅ Causa guardada — ID interno #{causa_id}")
+                c_saved  = get_causa(causa_id)
+                numero_guardado = c_saved["numero"] if c_saved else f"ID#{causa_id}"
+                st.success(
+                    f"✅ Causa **{numero_guardado}** guardada — "
+                    f"Carril {clf['carril'].upper()} | Ir a **📂 Gestión de Causas** para ver el expediente."
+                )
+                st.balloons()
                 st.rerun()
 
             if gen_doc or st.session_state.get("doc_generado_nuevo"):
@@ -509,7 +548,8 @@ with tab_causas:
                             cat = TIPOS_INFRACCION.get(caso_stored["tipo"], {}).get("categoria", "Convivencia")
                             key_c = "transito_alcoholemia" if caso_stored["tipo"] == "transito_alcoholemia" else \
                                     ("transito" if cat == "Tránsito" else ("comercio" if cat == "Comercio" else
-                                    ("integridad" if cat == "Integridad" else "convivencia")))
+                                    ("integridad" if cat == "Integridad" else
+                                    ("espacio_publico" if cat == "Espacio Público" else "convivencia"))))
                             conds_list = CONDICIONES_SUSPENSION.get(key_c, [])
                             pdf_bytes = generar_pdf("acta compromiso", caso_stored, {"condiciones": conds_list}, fiscal_nombre, caso_stored["unidad"])
                             st.session_state[f"_pdf_acta_{c['id']}"] = pdf_bytes

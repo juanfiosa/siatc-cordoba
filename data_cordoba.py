@@ -167,6 +167,11 @@ CONDICIONES_SUSPENSION = {
         "Prestar CUARENTA (40) horas de trabajo comunitario",
         "Acreditar participación en programa de manejo de conflictos del Ministerio de Justicia Provincial",
     ],
+    "espacio_publico": [
+        "No reincidir en conductas perturbadoras del espacio público por el término de SEIS (6) meses",
+        "Prestar VEINTE (20) horas de trabajo comunitario en tareas de limpieza y mantenimiento de espacios públicos",
+        "Abonar multa correspondiente a tarifa por deterioro de bienes comunes según art. 94 CCC",
+    ],
 }
 
 UNIDADES = {

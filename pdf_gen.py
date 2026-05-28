@@ -48,6 +48,8 @@ def _get_condiciones(tipo, categoria):
         return CONDICIONES_SUSPENSION["comercio"]
     elif categoria == "Integridad":
         return CONDICIONES_SUSPENSION["integridad"]
+    elif categoria == "Espacio Público":
+        return CONDICIONES_SUSPENSION["espacio_publico"]
     return CONDICIONES_SUSPENSION["convivencia"]
 
 

@@ -120,6 +120,8 @@ def _form_nuevo_seguimiento(fiscal):
             key = "comercio"
         elif cat == "Integridad":
             key = "integridad"
+        elif cat == "Espacio Público":
+            key = "espacio_publico"
         else:
             key = "convivencia"
         st.session_state.condiciones_temp = [
