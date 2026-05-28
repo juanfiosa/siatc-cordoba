@@ -29,7 +29,7 @@ from database import (
     get_seguimiento_por_causa, get_condiciones, stats_tiempos_resolucion,
     causas_inactivas, causas_sin_audiencia_programada, personas_reincidentes,
     actividad_reciente, stats_edad, stats_edad_por_carril,
-    causas_mes_actual_vs_anterior,
+    causas_mes_actual_vs_anterior, stats_por_fiscal,
 )
 from seguimiento_tab import render_tab_seguimiento
 from agenda_tab import render_tab_agenda
@@ -508,28 +508,37 @@ with tab_causas:
     filtro_unidad = col_f4.selectbox("Unidad", ["Todas","norte","sur","genero"],
                                       format_func=lambda x: {"Todas":"Todas","norte":"Norte","sur":"Sur","genero":"Género"}[x])
 
-    # Filtros — fila 2: rango de fechas (colapsable)
-    with st.expander("📆 Filtrar por fecha de ingreso", expanded=False):
+    # Filtros — fila 2: tipo infracción + rango de fechas (colapsable)
+    with st.expander("🔍 Filtros adicionales: tipo de infracción y fechas", expanded=False):
         from datetime import date as _dt_gc
-        _col_fd, _col_fh, _col_fc = st.columns([1, 1, 1])
-        _gc_fecha_desde = _col_fd.date_input("Desde", value=None, key="gc_fecha_desde")
-        _gc_fecha_hasta = _col_fh.date_input("Hasta", value=None, key="gc_fecha_hasta")
-        if _col_fc.button("🗑️ Limpiar fechas", key="gc_clear_fechas"):
-            if "gc_fecha_desde" in st.session_state:
-                del st.session_state["gc_fecha_desde"]
-            if "gc_fecha_hasta" in st.session_state:
-                del st.session_state["gc_fecha_hasta"]
+        _tipo_opciones_gc = {"": "Todos los tipos"} | {
+            k: f"{v['categoria']} — {v['label'][:40]}" for k, v in TIPOS_INFRACCION.items()
+        }
+        _col_tipo_gc, _col_fd_gc, _col_fh_gc, _col_fc_gc = st.columns([2, 1, 1, 1])
+        _filtro_tipo = _col_tipo_gc.selectbox(
+            "Tipo de infracción",
+            options=list(_tipo_opciones_gc.keys()),
+            format_func=lambda k: _tipo_opciones_gc[k],
+            key="gc_filtro_tipo",
+        )
+        _gc_fecha_desde = _col_fd_gc.date_input("Desde", value=None, key="gc_fecha_desde")
+        _gc_fecha_hasta = _col_fh_gc.date_input("Hasta", value=None, key="gc_fecha_hasta")
+        if _col_fc_gc.button("🗑️ Limpiar", key="gc_clear_ext"):
+            for _k in ("gc_filtro_tipo", "gc_fecha_desde", "gc_fecha_hasta"):
+                if _k in st.session_state:
+                    del st.session_state[_k]
             st.rerun()
     _fecha_desde_str = _gc_fecha_desde.isoformat() if _gc_fecha_desde else None
     _fecha_hasta_str = _gc_fecha_hasta.isoformat() if _gc_fecha_hasta else None
 
     causas = listar_causas(
-        estado       = None if filtro_estado=="Todos"  else filtro_estado,
-        carril       = None if filtro_carril=="Todos"  else filtro_carril,
-        unidad       = None if filtro_unidad=="Todas"  else filtro_unidad,
-        busqueda     = busqueda or None,
-        fecha_desde  = _fecha_desde_str,
-        fecha_hasta  = _fecha_hasta_str,
+        estado          = None if filtro_estado=="Todos"  else filtro_estado,
+        carril          = None if filtro_carril=="Todos"  else filtro_carril,
+        unidad          = None if filtro_unidad=="Todas"  else filtro_unidad,
+        busqueda        = busqueda or None,
+        tipo_infraccion = _filtro_tipo or None,
+        fecha_desde     = _fecha_desde_str,
+        fecha_hasta     = _fecha_hasta_str,
     )
 
     if not causas:
@@ -1155,6 +1164,34 @@ with tab_panel:
                 st.plotly_chart(fig6, use_container_width=True)
             else:
                 st.caption("Sin datos de fiscales.")
+
+        # ── Estadísticas detalladas por fiscal ────────────────────────────
+        _sfiscal = stats_por_fiscal()
+        if _sfiscal:
+            st.markdown("---")
+            st.subheader("👨‍⚖️ Rendimiento por fiscal")
+            _sfis_rows = []
+            for sf in _sfiscal:
+                _sfis_rows.append({
+                    "Fiscal":              sf["fiscal_asignado"],
+                    "Total":               sf["total"],
+                    "Resueltas":           sf["resueltas"],
+                    "% Resolución":        sf["pct_resolucion"],
+                    "% No punitivas":      sf["pct_no_punitivo"],
+                    "Prom. días":          sf["dias_promedio"] if sf["dias_promedio"] else "—",
+                })
+            _df_sfis = pd.DataFrame(_sfis_rows)
+            st.dataframe(
+                _df_sfis,
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "Total":          st.column_config.NumberColumn("Total", format="%d"),
+                    "Resueltas":      st.column_config.NumberColumn("Resueltas", format="%d"),
+                    "% Resolución":   st.column_config.ProgressColumn("% Resueltas", min_value=0, max_value=100, format="%d%%"),
+                    "% No punitivas": st.column_config.ProgressColumn("% No punitivas", min_value=0, max_value=100, format="%d%%"),
+                },
+            )
 
         # ── Tiempos de resolución vs. proceso tradicional ──────────────────
         tiempos = stats_tiempos_resolucion()

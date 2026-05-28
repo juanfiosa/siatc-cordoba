@@ -605,6 +605,36 @@ def causas_por_fiscal() -> list[dict]:
     return [dict(r) for r in rows]
 
 
+def stats_por_fiscal() -> list[dict]:
+    """Estadísticas detalladas por fiscal: total, resueltas, archivadas, pct_resolucion,
+    dias_promedio (entre created_at y updated_at para causas resueltas/archivadas)."""
+    with get_conn() as conn:
+        rows = conn.execute(
+            """SELECT
+                 fiscal_asignado,
+                 COUNT(*) AS total,
+                 SUM(CASE WHEN estado IN ('resuelta','archivada') THEN 1 ELSE 0 END) AS resueltas,
+                 SUM(CASE WHEN carril IN ('verde','amarillo') THEN 1 ELSE 0 END) AS no_punitivas,
+                 ROUND(AVG(CASE WHEN estado IN ('resuelta','archivada')
+                       THEN CAST(
+                         (julianday(updated_at) - julianday(created_at)) AS REAL)
+                       END), 1) AS dias_promedio
+               FROM causas
+               WHERE fiscal_asignado IS NOT NULL AND fiscal_asignado != ''
+               GROUP BY fiscal_asignado
+               ORDER BY total DESC"""
+        ).fetchall()
+    result = []
+    for r in rows:
+        d = dict(r)
+        tot = d["total"] or 0
+        res = d["resueltas"] or 0
+        d["pct_resolucion"] = round(res * 100 / tot) if tot else 0
+        d["pct_no_punitivo"] = round((d["no_punitivas"] or 0) * 100 / tot) if tot else 0
+        result.append(d)
+    return result
+
+
 def causas_inactivas(dias: int = 30, estados: list = None) -> list[dict]:
     """
     Retorna causas en estados activos (notificada/clasificada/en_mediacion)
