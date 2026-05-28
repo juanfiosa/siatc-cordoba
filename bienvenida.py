@@ -84,9 +84,11 @@ def _render_tabs():
     tabs_info = [
         ("📋 Nuevo Caso",        "Ingresá DNI para autocompletar datos del imputado/a. El sistema clasifica automáticamente y genera el documento correspondiente (PDF + .txt)."),
         ("📂 Gestión de Causas", "Buscá, filtrá y gestioná todas las causas activas. Avanzá estados, consultá la línea de tiempo y descargá documentos."),
-        ("🗂️ Casos Demo",       "Cinco casos representativos de una semana real. Cargalos al sistema con un clic para explorar el flujo completo."),
+        ("🗂️ Casos Demo",       "Casos representativos de una semana real. Cargalos al sistema con un clic para explorar el flujo completo."),
         ("🔍 Seguimiento",       "Registrá los períodos de prueba y las condiciones impuestas. Monitoreá avances, registrá acreditaciones y cerrá seguimientos."),
-        ("📊 Panel de Control",  "Dashboard con métricas en tiempo real: distribución por carril, tipos de infracción, estados y seguimientos activos."),
+        ("📅 Agenda",            "Visualizá la agenda de audiencias por semana o lista. Programá nuevas audiencias y actualizá su estado."),
+        ("👤 Perfil",            "Vista consolidada de una persona: todas sus causas, audiencias y seguimientos en una sola pantalla."),
+        ("📊 Panel de Control",  "Dashboard con métricas en tiempo real: distribución por carril, audiencias, seguimientos activos y exportación a Excel."),
     ]
     for emoji_nombre, desc in tabs_info:
         st.markdown(f"""<div class="tab-card">
@@ -96,12 +98,24 @@ def _render_tabs():
 
 
 def _render_stats():
-    stats_items = [
-        ("23.256", "causas/año en Córdoba"),
-        ("27", "unidades contravencionales"),
-        ("76%", "reducción tiempo (Prometea CABA)"),
-        ("3", "unidades piloto MPF"),
-    ]
+    try:
+        import database as db
+        s = db.stats_generales()
+        sa = db.stats_audiencias()
+        ss = db.stats_seguimiento()
+        stats_items = [
+            (str(s.get("total", 0)),       "causas en el sistema"),
+            (str(s.get("personas", 0)),    "personas registradas"),
+            (str(sa.get("total", 0)),      "audiencias agendadas"),
+            (str(ss.get("activos", 0)),    "seguimientos activos"),
+        ]
+    except Exception:
+        stats_items = [
+            ("23.256", "causas/año en Córdoba"),
+            ("27",     "unidades contravencionales"),
+            ("76%",    "reduccion tiempo (Prometea CABA)"),
+            ("3",      "unidades piloto MPF"),
+        ]
     cols = st.columns(4)
     for col, (num, lbl) in zip(cols, stats_items):
         col.markdown(f"""<div class="stat-box">

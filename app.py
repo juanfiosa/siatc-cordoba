@@ -132,7 +132,17 @@ with st.sidebar:
         for a in hoy_auds:
             st.caption(f"🔵 {a['hora']} — {a['apellido_nombre'].split(',')[0]} ({a['numero']})")
 
-    st.markdown(f"*{datetime.now().strftime('%d/%m/%Y %H:%M')}*")
+    # Próximas audiencias esta semana
+    aud_s = stats_audiencias()
+    if aud_s["proximas"] > 0:
+        st.markdown("---")
+        st.markdown(f"**📆 Esta semana: {aud_s['proximas']} audiencia(s)**")
+
+    st.markdown("---")
+    st.caption(
+        f"v1.0-demo · {datetime.now().strftime('%d/%m/%Y')}\n\n"
+        "[GitHub](https://github.com/juanfiosa/siatc-cordoba)"
+    )
 
 # ── Bienvenida (primera vez por sesión) ────────────────────────────────────────
 if not mostrar_si_primera_vez():
