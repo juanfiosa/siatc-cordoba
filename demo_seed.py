@@ -25,6 +25,8 @@ PERSONAS_DEMO = [
     {"dni": "41556677", "apellido_nombre": "Ruiz, Agustina Paola",    "edad": 21, "domicilio": "Dean Funes 234",          "telefono": "351-4530010"},
     {"dni": "36778899", "apellido_nombre": "Sanchez, Pablo Eduardo",  "edad": 35, "domicilio": "Av. Maipú 1450",         "telefono": "351-4531011"},
     {"dni": "28990011", "apellido_nombre": "Moreno, Claudia Ines",    "edad": 44, "domicilio": "Calle Obispo Trejo 890", "telefono": "351-4532012"},
+    {"dni": "43221890", "apellido_nombre": "Villareal, Natalia Belen","edad": 28, "domicilio": "Av. Cabrera 340, Villa El Libertador", "telefono": "351-4533013"},
+    {"dni": "31445677", "apellido_nombre": "Acuña, Roberto Carlos",   "edad": 52, "domicilio": "Calle Belgrano 1220, Bº Los Plátanos", "telefono": "351-4534014"},
 ]
 
 CASOS_SEED = [
@@ -99,6 +101,18 @@ CASOS_SEED = [
      "desc": "Bar con música en vivo supera decibeles permitidos. Medición técnica realizada.",
      "antec": 0, "estado": "ingresada", "carril": "amarillo",
      "dias_atras": 1, "seg": False},
+
+    # Unidad Género: notificada SIN audiencia, SIN actividad hace 35 días
+    {"persona_idx": 12, "tipo": "agresion_fisica_leve", "unidad": "genero",
+     "desc": "Agresión física hacia conviviente en domicilio particular. Constatada por personal policial. Víctima identificada. Requiere medida cautelar.",
+     "antec": 1, "estado": "notificada", "carril": "rojo",
+     "dias_atras": 40, "seg": False, "updated_dias": 35},
+
+    # Unidad Género: clasificada SIN audiencia, SIN actividad hace 20 días
+    {"persona_idx": 13, "tipo": "amenazas_leves", "unidad": "genero",
+     "desc": "Amenazas hacia ex pareja mediante mensajes de voz reiterados. Víctima identificada. Solicita restricción de acercamiento.",
+     "antec": 0, "estado": "clasificada", "carril": "rojo",
+     "dias_atras": 25, "seg": False, "updated_dias": 20},
 ]
 
 # Condiciones pre-armadas por tipo de seguimiento
@@ -347,6 +361,7 @@ def _crear_audiencias_demo(causa_ids_por_idx):
         (9,  "audiencia",       5,   "09:00", "programada"),   # Ruiz clasificada
         (5,  "acta_compromiso", 7,   "10:30", "programada"),   # Fernandez
         (11, "audiencia",       10,  "09:00", "programada"),   # Moreno ingresada
+        (12, "audiencia",       1,   "09:30", "programada"),   # Villareal genero - urgente
         # Ya realizadas
         (0,  "audiencia",      -45,  "09:00", "realizada"),    # Garcia archivada
         (1,  "mediacion",      -30,  "10:00", "realizada"),    # Perez resuelta
@@ -361,7 +376,7 @@ def _crear_audiencias_demo(causa_ids_por_idx):
     unidades_por_idx = {
         0: "norte", 1: "sur", 2: "norte", 3: "sur", 4: "norte",
         5: "sur", 6: "sur", 7: "norte", 8: "norte", 9: "norte",
-        10: "sur", 11: "sur",
+        10: "sur", 11: "sur", 12: "genero", 13: "genero",
     }
 
     for pidx, tipo, dias, hora, estado in audiencias:
@@ -370,8 +385,9 @@ def _crear_audiencias_demo(causa_ids_por_idx):
             continue
         u = unidades_por_idx.get(pidx, "norte")
         lugar = {
-            "norte": "Unidad Contravencional Norte - Antonio del Viso 756",
-            "sur":   "Unidad Contravencional Sur - Guzman 1075",
+            "norte":  "Unidad Contravencional Norte - Antonio del Viso 756",
+            "sur":    "Unidad Contravencional Sur - Guzman 1075",
+            "genero": "Unidad de Violencia de Genero - Entre Rios 680",
         }.get(u, "Sede de la Unidad")
 
         fecha = (hoy + timedelta(days=dias)).isoformat()

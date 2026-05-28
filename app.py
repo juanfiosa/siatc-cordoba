@@ -26,7 +26,7 @@ from database import (
     historial_persona, upsert_persona, ESTADOS, ESTADOS_LABEL,
     listar_seguimientos, stats_seguimiento, causas_por_mes, causas_por_fiscal,
     get_seguimiento_por_causa, get_condiciones, stats_tiempos_resolucion,
-    causas_inactivas,
+    causas_inactivas, causas_sin_audiencia_programada,
 )
 from seguimiento_tab import render_tab_seguimiento
 from agenda_tab import render_tab_agenda
@@ -140,6 +140,12 @@ with st.sidebar:
         st.markdown("---")
         st.markdown(f"**📆 Esta semana: {aud_s['proximas']} audiencia(s)**")
 
+    # Causas sin audiencia programada (sidebar alert)
+    _sin_aud_sb = causas_sin_audiencia_programada()
+    if _sin_aud_sb:
+        st.markdown("---")
+        st.error(f"📋 {len(_sin_aud_sb)} sin audiencia")
+
     # Búsqueda rápida
     st.markdown("---")
     st.markdown("**🔎 Búsqueda rápida**")
@@ -195,6 +201,11 @@ _hace7 = (_date_now.today() - _tda(days=7)).isoformat()
 _ausentes_rec = len([a for a in _la_alerts(desde=_hace7, hasta=_hoy_str) if a.get("estado") == "ausente"])
 if _ausentes_rec:
     _alertas.append(f"🚨 **{_ausentes_rec} incomparecencia(s)** en los últimos 7 días")
+
+# Causas sin audiencia programada
+_sin_aud = causas_sin_audiencia_programada()
+if _sin_aud:
+    _alertas.append(f"📋 **{len(_sin_aud)} causa(s) notificada(s) o clasificada(s)** sin audiencia programada")
 
 if _alertas:
     with st.container():
@@ -1123,6 +1134,29 @@ with tab_panel:
                 )
             except Exception as e:
                 st.error(f"Error reporte: {e}")
+
+        # ── Causas sin audiencia programada ───────────────────────────────
+        st.markdown("---")
+        st.subheader("📋 Causas sin audiencia programada")
+        _sin_aud_panel = causas_sin_audiencia_programada()
+        if not _sin_aud_panel:
+            st.success("✅ Todas las causas notificadas y clasificadas tienen audiencia programada.")
+        else:
+            st.warning(f"⚠️ **{len(_sin_aud_panel)} causa(s)** notificadas o clasificadas sin audiencia programada:")
+            _rows_sa = []
+            for c in _sin_aud_panel:
+                _rows_sa.append({
+                    "Expediente":  c["numero"],
+                    "Imputado/a":  (c.get("apellido_nombre","") or "").split(",")[0],
+                    "Estado":      ESTADOS_LABEL.get(c["estado"], c["estado"]),
+                    "Carril":      {"verde":"🟢","amarillo":"🟡","rojo":"🔴"}.get(c.get("carril",""),"⚪"),
+                    "Unidad":      {"norte":"Norte","sur":"Sur","genero":"Género"}.get(c.get("unidad",""),""),
+                    "Fiscal":      c.get("fiscal_asignado",""),
+                    "Última act.": c.get("updated_at","")[:10] if c.get("updated_at") else "",
+                })
+            _df_sa = pd.DataFrame(_rows_sa)
+            st.dataframe(_df_sa, use_container_width=True, hide_index=True)
+            st.caption("💡 Agendá las audiencias desde **📂 Gestión de Causas** o desde **📅 Agenda**.")
 
         # ── Causas sin actividad reciente ─────────────────────────────────
         st.markdown("---")

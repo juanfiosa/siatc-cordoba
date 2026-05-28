@@ -493,6 +493,33 @@ def causas_inactivas(dias: int = 30, estados: list = None) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+def causas_sin_audiencia_programada(estados: list = None) -> list[dict]:
+    """
+    Retorna causas en estados activos que no tienen ninguna audiencia
+    programada con fecha futura (>=hoy).
+    Útil para alertar sobre imputados notificados sin audiencia asignada.
+    """
+    if estados is None:
+        estados = ["notificada", "clasificada"]
+    placeholders = ",".join(["?" for _ in estados])
+    sql = f"""
+        SELECT c.*, p.apellido_nombre, p.dni as persona_dni, p.edad as persona_edad
+        FROM causas c
+        LEFT JOIN personas p ON c.persona_id = p.id
+        WHERE c.estado IN ({placeholders})
+          AND NOT EXISTS (
+              SELECT 1 FROM audiencias a
+              WHERE a.causa_id = c.id
+                AND a.estado = 'programada'
+                AND a.fecha >= date('now','localtime')
+          )
+        ORDER BY c.updated_at ASC
+    """
+    with get_conn() as conn:
+        rows = conn.execute(sql, estados).fetchall()
+    return [dict(r) for r in rows]
+
+
 def historial_persona(persona_id: int) -> list[dict]:
     with get_conn() as conn:
         rows = conn.execute(
