@@ -387,10 +387,13 @@ with tab_causas:
 
     # Filtros
     col_f1, col_f2, col_f3, col_f4 = st.columns([2,1,1,1])
-    _default_busqueda = st.session_state.pop("busqueda_rapida_causas", "")
+    # Pre-fill from sidebar quick-lookup if it just fired
+    _rapid_val = st.session_state.pop("busqueda_rapida_causas", None)
+    if _rapid_val is not None:
+        st.session_state["gc_busqueda"] = _rapid_val
     busqueda  = col_f1.text_input("Buscar por nombre, DNI o N° de causa",
-                                   value=_default_busqueda,
-                                   placeholder="Buscar...", label_visibility="collapsed")
+                                   placeholder="Buscar...", label_visibility="collapsed",
+                                   key="gc_busqueda")
     filtro_estado = col_f2.selectbox("Estado", ["Todos"] + ESTADOS,
                                       format_func=lambda x: "Todos los estados" if x=="Todos" else ESTADOS_LABEL.get(x,x))
     filtro_carril = col_f3.selectbox("Carril", ["Todos","verde","amarillo","rojo"],
