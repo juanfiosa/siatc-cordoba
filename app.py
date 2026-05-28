@@ -175,7 +175,7 @@ with st.sidebar:
 
     st.markdown("---")
     st.caption(
-        f"v1.1-demo · {datetime.now().strftime('%d/%m/%Y')}\n\n"
+        f"v1.2-demo · {datetime.now().strftime('%d/%m/%Y')}\n\n"
         "[GitHub](https://github.com/juanfiosa/siatc-cordoba)"
     )
 
@@ -1584,14 +1584,16 @@ with tab_panel:
                     st.success("Datos restablecidos correctamente.")
                     st.rerun()
             with col_r2:
-                st.info("💡 **Guía de demostración (v1.1)**\n\n"
-                        "1. **📋 Nuevo Caso** → DNI `38.421.667` (auto-completa nombre, tel., antecedentes)\n"
-                        "   → triaje automático → descargá el PDF → guardá la causa.\n"
-                        "2. **📂 Gestión** → filtrá por carril Rojo → expandí la causa → agregá una nota rápida\n"
-                        "   → agendá audiencia desde el popover → cambiá a vista Tabla para escaneo rápido.\n"
-                        "3. **📅 Agenda** → semana actual → audiencias del día con tel. y domicilio.\n"
-                        "4. **🔍 Seguimiento** → Panel → mostrá cumplimiento de condiciones con progreso.\n"
-                        "5. **👤 Perfil** → buscá `García` → mostrá 2 causas (reincidente) → editá tel.\n"
-                        "   → descargá ficha PDF institucional.\n"
-                        "6. **📊 Panel** → mostrá categorías, carriles, tiempos vs. proceso tradicional\n"
-                        "   → KPIs → actividad reciente → alertas → exportá Excel / Reporte del día.")
+                st.info("💡 **Guía de demostración (v1.2)**\n\n"
+                        "1. **📋 Nuevo Caso** → DNI `38.421.667` (auto-completa, valida formato)\n"
+                        "   → triaje automático → descargá PDF → guardá la causa.\n"
+                        "2. **📂 Gestión** → filtrá por carril Rojo → nota rápida → agendá audiencia\n"
+                        "   → cambiá estado a 'Realizada' (se registra nota automática en timeline).\n"
+                        "3. **📅 Agenda** → vista Tabla → audiencias con tel./domicilio.\n"
+                        "   Marcá una como 'Ausente' → revisá el historial de la causa (nota automática).\n"
+                        "4. **🔍 Seguimiento** → expandí seguimiento activo → descargá Informe PDF\n"
+                        "   → si todas condiciones cumplidas → cerrá con un clic.\n"
+                        "5. **👤 Perfil** → buscá `García` → mostrá 2 causas + línea de tiempo visual\n"
+                        "   → expandí 'Causas similares' → editá tel. → descargá ficha PDF.\n"
+                        "6. **📊 Panel** → Resumen ejecutivo → demografía (edades) → carriles\n"
+                        "   → KPIs → exportá Excel (incluye hoja Estadísticas) / Reporte del día.")

@@ -9,6 +9,7 @@ from io import BytesIO
 from datetime import date, datetime
 import database as db
 from data_cordoba import TIPOS_INFRACCION, UNIDADES
+from database import stats_edad, stats_edad_por_carril
 
 CARRIL_LABEL = {"verde": "Mediación", "amarillo": "Suspensión", "rojo": "Proceso pleno"}
 TIPO_RES_LABEL = {"suspension": "Suspensión del Proceso a Prueba",
@@ -115,13 +116,88 @@ def causas_a_excel() -> bytes:
     df_personas = pd.DataFrame(rows_p) if rows_p else pd.DataFrame(
         columns=["DNI","Apellido y Nombre","Edad","Domicilio","Teléfono","Antecedentes","Registrado"])
 
+    # ── Hoja 3: Estadísticas (resumen analítico) ──────────────────────────────
+    _stats = db.stats_generales()
+    _tipos = db.causas_por_tipo()
+    _ed    = stats_edad()
+    _ed_c  = stats_edad_por_carril()
+    _seg_s = db.stats_seguimiento()
+    _aud_s = db.stats_audiencias()
+
+    _stats_rows = []
+
+    # Sección: Resumen general
+    _stats_rows += [
+        {"Sección": "RESUMEN GENERAL", "Indicador": "Total de causas", "Valor": _stats["total"]},
+        {"Sección": "",               "Indicador": "Total de personas", "Valor": _stats["personas"]},
+        {"Sección": "",               "Indicador": "Personas reincidentes", "Valor": _stats["reincidentes"]},
+        {"Sección": "",               "Indicador": "", "Valor": ""},
+    ]
+
+    # Sección: Por carril
+    total_c = _stats["total"] or 1
+    _stats_rows += [
+        {"Sección": "POR CARRIL", "Indicador": "Verde (Mediación)", "Valor": _stats["por_carril"].get("verde",0)},
+        {"Sección": "",           "Indicador": "Amarillo (Suspensión)", "Valor": _stats["por_carril"].get("amarillo",0)},
+        {"Sección": "",           "Indicador": "Rojo (Proceso pleno)", "Valor": _stats["por_carril"].get("rojo",0)},
+        {"Sección": "",           "Indicador": "% vía no punitiva", "Valor": f"{(_stats['por_carril'].get('verde',0)+_stats['por_carril'].get('amarillo',0))*100//total_c}%"},
+        {"Sección": "",           "Indicador": "", "Valor": ""},
+    ]
+
+    # Sección: Por estado
+    _stats_rows.append({"Sección": "POR ESTADO", "Indicador": "", "Valor": ""})
+    for est, n in _stats["por_estado"].items():
+        _stats_rows.append({"Sección": "", "Indicador": est.capitalize(), "Valor": n})
+    _stats_rows.append({"Sección": "", "Indicador": "", "Valor": ""})
+
+    # Sección: Top infracciones
+    _stats_rows.append({"Sección": "INFRACCIONES MÁS FRECUENTES", "Indicador": "", "Valor": ""})
+    for t in _tipos[:8]:
+        lbl = TIPOS_INFRACCION.get(t["tipo_infraccion"], {}).get("label", t["tipo_infraccion"])
+        _stats_rows.append({"Sección": "", "Indicador": lbl, "Valor": t["n"]})
+    _stats_rows.append({"Sección": "", "Indicador": "", "Valor": ""})
+
+    # Sección: Demografía
+    _stats_rows.append({"Sección": "DEMOGRAFÍA (GRUPO ETARIO)", "Indicador": "", "Valor": ""})
+    for grupo, cnt in _ed.items():
+        _stats_rows.append({"Sección": "", "Indicador": f"Personas {grupo} años", "Valor": cnt})
+    _stats_rows.append({"Sección": "", "Indicador": "", "Valor": ""})
+
+    # Sección: Seguimientos
+    _stats_rows += [
+        {"Sección": "SEGUIMIENTOS", "Indicador": "Total", "Valor": _seg_s["total"]},
+        {"Sección": "",             "Indicador": "Activos", "Valor": _seg_s["activos"]},
+        {"Sección": "",             "Indicador": "Cumplidos", "Valor": _seg_s["cumplidos"]},
+        {"Sección": "",             "Indicador": "Incumplidos", "Valor": _seg_s["incumplidos"]},
+        {"Sección": "",             "Indicador": "Vencidos sin cierre", "Valor": _seg_s["vencidos"]},
+        {"Sección": "",             "Indicador": "", "Valor": ""},
+    ]
+
+    # Sección: Audiencias
+    _stats_rows += [
+        {"Sección": "AUDIENCIAS", "Indicador": "Total agendadas", "Valor": _aud_s["total"]},
+        {"Sección": "",           "Indicador": "Realizadas", "Valor": _aud_s["realizadas"]},
+        {"Sección": "",           "Indicador": "Ausencias", "Valor": _aud_s["ausentes"]},
+        {"Sección": "",           "Indicador": "Próximas 7 días", "Valor": _aud_s["proximas"]},
+        {"Sección": "",           "Indicador": "", "Valor": ""},
+    ]
+
+    _stats_rows.append({
+        "Sección": "Generado",
+        "Indicador": datetime.now().strftime("%d/%m/%Y %H:%M"),
+        "Valor": "SIATC - MPF Córdoba",
+    })
+
+    df_stats = pd.DataFrame(_stats_rows, columns=["Sección", "Indicador", "Valor"])
+
     buf = BytesIO()
     with pd.ExcelWriter(buf, engine="openpyxl") as writer:
-        df_causas.to_excel(writer, sheet_name="Causas", index=False, startrow=3)
-        df_personas.to_excel(writer, sheet_name="Personas", index=False, startrow=3)
+        df_causas.to_excel(writer, sheet_name="Causas",      index=False, startrow=3)
+        df_personas.to_excel(writer, sheet_name="Personas",  index=False, startrow=3)
+        df_stats.to_excel(writer, sheet_name="Estadísticas", index=False, startrow=3)
 
         # Formato columnas
-        for sheet, df in [("Causas", df_causas), ("Personas", df_personas)]:
+        for sheet, df in [("Causas", df_causas), ("Personas", df_personas), ("Estadísticas", df_stats)]:
             ws = writer.sheets[sheet]
             from openpyxl.styles import PatternFill, Font, Alignment
             # Encabezado de columnas (fila 4)
@@ -164,8 +240,20 @@ def causas_a_excel() -> bytes:
                     ws_c.cell(row[0].row, carril_col_idx).fill = carril_fill[cv]
                     ws_c.cell(row[0].row, carril_col_idx).font = carril_font[cv]
 
-        _xl_header(writer, "Causas",   "Registro de Causas Contravencionales")
-        _xl_header(writer, "Personas", "Registro de Personas Imputadas")
+        # Bold + color for "Sección" column in Estadísticas
+        from openpyxl.styles import PatternFill, Font
+        ws_st = writer.sheets["Estadísticas"]
+        for row in ws_st.iter_rows(min_row=5, max_row=ws_st.max_row):
+            sec_cell = row[0]
+            if sec_cell.value and str(sec_cell.value).strip():
+                sec_cell.font = Font(bold=True, color="1E2F5E")
+                sec_cell.fill = PatternFill("solid", fgColor="E8EDF7")
+                row[1].fill = PatternFill("solid", fgColor="E8EDF7")
+                row[2].fill = PatternFill("solid", fgColor="E8EDF7")
+
+        _xl_header(writer, "Causas",        "Registro de Causas Contravencionales")
+        _xl_header(writer, "Personas",      "Registro de Personas Imputadas")
+        _xl_header(writer, "Estadísticas",  "Resumen Estadístico - SIATC")
 
     return buf.getvalue()
 
