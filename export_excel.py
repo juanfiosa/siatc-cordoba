@@ -27,22 +27,46 @@ ESTADO_AUD_LABEL = {
 
 
 def _xl_header(writer, sheet, titulo):
-    """Fila de título institucional en las primeras dos filas."""
+    """Fila de título institucional en las primeras tres filas, con merge de columnas."""
     ws = writer.sheets[sheet]
-    wb = writer.book
     from openpyxl.styles import PatternFill, Font, Alignment
+    from openpyxl.utils import get_column_letter
+
+    # Count how many columns the sheet has (row 4 = data header)
+    max_col = max((cell.column for row in ws.iter_rows(min_row=4, max_row=4) for cell in row if cell.value), default=1)
+
     azul = PatternFill("solid", fgColor="1E2F5E")
-    font_blanco = Font(color="FFFFFF", bold=True, size=11)
-    ws.insert_rows(1, 2)
+    azul2 = PatternFill("solid", fgColor="2E5090")
+    font_blanco_big = Font(color="FFFFFF", bold=True, size=12)
+    font_blanco_sub = Font(color="FFFFFF", bold=True, size=10)
+
+    ws.insert_rows(1, 3)
+
+    # Row 1: Institution
     ws.cell(1, 1).value = "MINISTERIO PÚBLICO FISCAL DE LA PROVINCIA DE CÓRDOBA"
-    ws.cell(1, 1).font = font_blanco
+    ws.cell(1, 1).font = font_blanco_big
     ws.cell(1, 1).fill = azul
-    ws.cell(1, 1).alignment = Alignment(horizontal="center")
+    ws.cell(1, 1).alignment = Alignment(horizontal="center", vertical="center")
+    ws.row_dimensions[1].height = 20
+    if max_col > 1:
+        ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=max_col)
+
+    # Row 2: Document title
     ws.cell(2, 1).value = titulo
-    ws.cell(2, 1).font = Font(bold=True, size=10, color="2E5090")
-    ws.cell(2, 1).alignment = Alignment(horizontal="center")
-    ws.cell(3, 1).value = f"Generado: {datetime.now().strftime('%d/%m/%Y %H:%M')} — SIATC"
+    ws.cell(2, 1).font = font_blanco_sub
+    ws.cell(2, 1).fill = azul2
+    ws.cell(2, 1).alignment = Alignment(horizontal="center", vertical="center")
+    ws.row_dimensions[2].height = 17
+    if max_col > 1:
+        ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=max_col)
+
+    # Row 3: Generation timestamp
+    ws.cell(3, 1).value = f"Generado: {datetime.now().strftime('%d/%m/%Y %H:%M')}  |  Sistema SIATC — MPF Córdoba"
     ws.cell(3, 1).font = Font(italic=True, size=8, color="808080")
+    ws.cell(3, 1).alignment = Alignment(horizontal="left", vertical="center")
+    ws.row_dimensions[3].height = 13
+    if max_col > 1:
+        ws.merge_cells(start_row=3, start_column=1, end_row=3, end_column=max_col)
 
 
 def causas_a_excel() -> bytes:
@@ -96,17 +120,46 @@ def causas_a_excel() -> bytes:
         # Formato columnas
         for sheet, df in [("Causas", df_causas), ("Personas", df_personas)]:
             ws = writer.sheets[sheet]
-            from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
+            from openpyxl.styles import PatternFill, Font, Alignment
             # Encabezado de columnas (fila 4)
             azul_col = PatternFill("solid", fgColor="2E5090")
             for cell in ws[4]:
                 if cell.value:
                     cell.fill = azul_col
                     cell.font = Font(color="FFFFFF", bold=True)
+                    cell.alignment = Alignment(horizontal="center", vertical="center")
+            ws.row_dimensions[4].height = 16
             # Ancho automático aproximado
             for col in ws.columns:
                 max_len = max((len(str(c.value or "")) for c in col), default=8)
                 ws.column_dimensions[col[0].column_letter].width = min(max_len + 3, 40)
+
+        # Colores condicionales en Causas — carril column
+        ws_c = writer.sheets["Causas"]
+        carril_fill = {
+            "Mediación":   PatternFill("solid", fgColor="D4EDDA"),
+            "Suspensión":  PatternFill("solid", fgColor="FFF3CD"),
+            "Proceso pleno": PatternFill("solid", fgColor="F8D7DA"),
+        }
+        carril_font = {
+            "Mediación":   Font(color="155724", bold=True),
+            "Suspensión":  Font(color="856404", bold=True),
+            "Proceso pleno": Font(color="721C24", bold=True),
+        }
+        # Find carril column index
+        carril_col_idx = None
+        estado_col_idx = None
+        for cell in ws_c[4]:
+            if cell.value == "Carril":
+                carril_col_idx = cell.column
+            if cell.value == "Estado":
+                estado_col_idx = cell.column
+        if carril_col_idx:
+            for row in ws_c.iter_rows(min_row=5, max_row=ws_c.max_row):
+                cv = ws_c.cell(row[0].row, carril_col_idx).value
+                if cv in carril_fill:
+                    ws_c.cell(row[0].row, carril_col_idx).fill = carril_fill[cv]
+                    ws_c.cell(row[0].row, carril_col_idx).font = carril_font[cv]
 
         _xl_header(writer, "Causas",   "Registro de Causas Contravencionales")
         _xl_header(writer, "Personas", "Registro de Personas Imputadas")
