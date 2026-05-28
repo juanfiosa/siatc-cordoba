@@ -212,17 +212,24 @@ def _panel_seguimientos(fiscal):
     st.divider()
 
     # Filtros
-    col_f1, col_f2 = st.columns(2)
+    col_f1, col_f2, col_f3 = st.columns([2, 1, 1])
     with col_f1:
         filtro_estado = st.selectbox("Estado",
                                      ["Todos", "activo", "cumplido", "incumplido", "revocado"])
     with col_f2:
         filtro_unidad = st.selectbox("Unidad", ["Todas", "norte", "sur", "genero"])
+    with col_f3:
+        solo_vencen_pronto = st.checkbox("⏳ Próx. a vencer (≤30d)", key="seg_prox")
 
     estado_param = None if filtro_estado == "Todos" else filtro_estado
     unidad_param = None if filtro_unidad == "Todas" else filtro_unidad
 
     seguimientos = db.listar_seguimientos(estado=estado_param, unidad=unidad_param)
+    if solo_vencen_pronto:
+        seguimientos = [
+            s for s in seguimientos
+            if (d := dias_restantes(s["fecha_fin"])) is not None and 0 <= d <= 30
+        ]
 
     if not seguimientos:
         st.info("No hay seguimientos que coincidan con los filtros.")
