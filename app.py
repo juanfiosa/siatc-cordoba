@@ -463,7 +463,7 @@ with tab_causas:
     if st.session_state.pop("goto_perfil", False):
         st.info("👤 El perfil del imputado/a se muestra en la pestaña **Perfil**.")
 
-    # Filtros
+    # Filtros — fila 1
     col_f1, col_f2, col_f3, col_f4 = st.columns([2,1,1,1])
     # Pre-fill from sidebar quick-lookup if it just fired
     _rapid_val = st.session_state.pop("busqueda_rapida_causas", None)
@@ -479,11 +479,28 @@ with tab_causas:
     filtro_unidad = col_f4.selectbox("Unidad", ["Todas","norte","sur","genero"],
                                       format_func=lambda x: {"Todas":"Todas","norte":"Norte","sur":"Sur","genero":"Género"}[x])
 
+    # Filtros — fila 2: rango de fechas (colapsable)
+    with st.expander("📆 Filtrar por fecha de ingreso", expanded=False):
+        from datetime import date as _dt_gc
+        _col_fd, _col_fh, _col_fc = st.columns([1, 1, 1])
+        _gc_fecha_desde = _col_fd.date_input("Desde", value=None, key="gc_fecha_desde")
+        _gc_fecha_hasta = _col_fh.date_input("Hasta", value=None, key="gc_fecha_hasta")
+        if _col_fc.button("🗑️ Limpiar fechas", key="gc_clear_fechas"):
+            if "gc_fecha_desde" in st.session_state:
+                del st.session_state["gc_fecha_desde"]
+            if "gc_fecha_hasta" in st.session_state:
+                del st.session_state["gc_fecha_hasta"]
+            st.rerun()
+    _fecha_desde_str = _gc_fecha_desde.isoformat() if _gc_fecha_desde else None
+    _fecha_hasta_str = _gc_fecha_hasta.isoformat() if _gc_fecha_hasta else None
+
     causas = listar_causas(
-        estado   = None if filtro_estado=="Todos"  else filtro_estado,
-        carril   = None if filtro_carril=="Todos"  else filtro_carril,
-        unidad   = None if filtro_unidad=="Todas"  else filtro_unidad,
-        busqueda = busqueda or None,
+        estado       = None if filtro_estado=="Todos"  else filtro_estado,
+        carril       = None if filtro_carril=="Todos"  else filtro_carril,
+        unidad       = None if filtro_unidad=="Todas"  else filtro_unidad,
+        busqueda     = busqueda or None,
+        fecha_desde  = _fecha_desde_str,
+        fecha_hasta  = _fecha_hasta_str,
     )
 
     if not causas:
