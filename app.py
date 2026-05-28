@@ -429,8 +429,17 @@ with tab_causas:
             infraccion_label = TIPOS_INFRACCION.get(c["tipo_infraccion"],{}).get("label", c["tipo_infraccion"])
             unidad_label = {"norte":"Norte","sur":"Sur","genero":"Género"}.get(c.get("unidad",""),"")
 
+            # Days in current state
+            try:
+                _upd = datetime.strptime(c["updated_at"][:16], "%Y-%m-%d %H:%M")
+                _dias_est = (datetime.now() - _upd).days
+                _dias_badge = (f"  🔴 {_dias_est}d sin actualizar" if _dias_est > 30 else
+                               f"  🟡 {_dias_est}d" if _dias_est > 7 else "")
+            except Exception:
+                _dias_badge = ""
+
             with st.expander(
-                f"{carril_icon} **{c['numero']}** — {c['apellido_nombre']}  |  {infraccion_label}  |  {estado_label}",
+                f"{carril_icon} **{c['numero']}** — {c['apellido_nombre']}  |  {infraccion_label}  |  {estado_label}{_dias_badge}",
                 expanded=(causa_sel_id == c["id"])
             ):
                 col_info, col_acciones = st.columns([2,1])
