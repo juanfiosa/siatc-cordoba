@@ -389,6 +389,24 @@ def get_timeline(causa_id: int) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+def actividad_reciente(limit: int = 15) -> list[dict]:
+    """Retorna las últimas N entradas de estados_causa de cualquier causa,
+    con número de expediente y nombre del imputado."""
+    sql = """
+        SELECT ec.created_at, ec.causa_id, ec.estado_anterior, ec.estado_nuevo,
+               ec.usuario, ec.observaciones,
+               c.numero, p.apellido_nombre
+        FROM estados_causa ec
+        JOIN causas c ON ec.causa_id = c.id
+        JOIN personas p ON c.persona_id = p.id
+        ORDER BY ec.created_at DESC
+        LIMIT ?
+    """
+    with get_conn() as conn:
+        rows = conn.execute(sql, (limit,)).fetchall()
+    return [dict(r) for r in rows]
+
+
 # ── Documentos ─────────────────────────────────────────────────────────────────
 
 def guardar_documento(causa_id: int, tipo: str, contenido: str, generado_por: str) -> int:
@@ -809,7 +827,8 @@ def listar_audiencias(desde: str = None, hasta: str = None,
                       estado: str = None, causa_id: int = None) -> list[dict]:
     sql = """
         SELECT a.*, c.numero, c.unidad, c.carril,
-               p.apellido_nombre, p.dni
+               p.apellido_nombre, p.dni, p.telefono as persona_telefono,
+               p.domicilio as persona_domicilio
         FROM audiencias a
         JOIN causas c ON a.causa_id = c.id
         JOIN personas p ON c.persona_id = p.id

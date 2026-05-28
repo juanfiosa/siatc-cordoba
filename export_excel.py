@@ -289,6 +289,7 @@ def audiencias_a_excel() -> bytes:
             "Hora":          a.get("hora", ""),
             "Imputado/a":    a.get("apellido_nombre", ""),
             "DNI":           a.get("dni", ""),
+            "Teléfono":      a.get("persona_telefono", ""),
             "Expediente":    a.get("numero", ""),
             "Unidad":        a.get("unidad", "").capitalize(),
             "Carril":        CARRIL_LABEL.get(a.get("carril",""), a.get("carril","")),
@@ -301,7 +302,7 @@ def audiencias_a_excel() -> bytes:
     futuras = [_row(a) for a in audiencias if a.get("fecha","") >= today]
     pasadas = [_row(a) for a in audiencias if a.get("fecha","") <  today]
 
-    cols = ["Fecha","Hora","Imputado/a","DNI","Expediente","Unidad",
+    cols = ["Fecha","Hora","Imputado/a","DNI","Teléfono","Expediente","Unidad",
             "Carril","Tipo","Lugar","Estado","Observaciones"]
 
     df_fut = pd.DataFrame(futuras) if futuras else pd.DataFrame(columns=cols)

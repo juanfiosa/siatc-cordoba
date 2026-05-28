@@ -156,11 +156,26 @@ def render_perfil(persona_id: int):
                 + (f" | _{a['observaciones']}_" if a.get("observaciones") else "")
             )
 
-    # ── Teléfono / domicilio ─────────────────────────────────────────────────
-    with st.expander("📋 Datos de contacto"):
-        st.markdown(f"**Domicilio:** {p.get('domicilio') or 'No registrado'}")
-        st.markdown(f"**Teléfono:** {p.get('telefono') or 'No registrado'}")
-        st.caption(f"Registrado: {p.get('created_at','')[:10]}")
+    # ── Editar datos de contacto ─────────────────────────────────────────────
+    with st.expander("✏️ Editar datos de contacto"):
+        with st.form(key=f"edit_persona_{p['id']}"):
+            col_e1, col_e2, col_e3 = st.columns(3)
+            with col_e1:
+                _new_nombre = st.text_input("Apellido y nombre", value=p.get("apellido_nombre",""))
+                _new_edad   = st.number_input("Edad", min_value=16, max_value=99,
+                                               value=int(p.get("edad") or 30))
+            with col_e2:
+                _new_dom = st.text_input("Domicilio", value=p.get("domicilio",""))
+            with col_e3:
+                _new_tel = st.text_input("Teléfono", value=p.get("telefono",""),
+                                          placeholder="Ej: (0351) 4123456")
+            if st.form_submit_button("💾 Guardar cambios", type="primary"):
+                db.upsert_persona(
+                    p["dni"], _new_nombre, _new_edad, _new_dom, _new_tel
+                )
+                st.success("Datos actualizados correctamente.")
+                st.rerun()
+        st.caption(f"Registrado: {p.get('created_at','')[:10]}  |  DNI: {p.get('dni','')}")
 
 
 def render_buscador_perfil():

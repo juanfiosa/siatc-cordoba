@@ -28,6 +28,7 @@ from database import (
     listar_seguimientos, stats_seguimiento, causas_por_mes, causas_por_fiscal,
     get_seguimiento_por_causa, get_condiciones, stats_tiempos_resolucion,
     causas_inactivas, causas_sin_audiencia_programada, personas_reincidentes,
+    actividad_reciente,
 )
 from seguimiento_tab import render_tab_seguimiento
 from agenda_tab import render_tab_agenda
@@ -1382,6 +1383,42 @@ with tab_panel:
             _df_inact = pd.DataFrame(_rows_inact).sort_values("Sin act. (días)", ascending=False)
             st.dataframe(_df_inact, use_container_width=True, hide_index=True,
                          column_config={"Sin act. (días)": st.column_config.NumberColumn("Sin act. (días)", format="%d días")})
+
+        # ── Actividad reciente ────────────────────────────────────────────
+        st.markdown("---")
+        st.subheader("🕐 Actividad reciente")
+        _actividad = actividad_reciente(limit=12)
+        if not _actividad:
+            st.info("No hay actividad registrada aún.")
+        else:
+            for _act in _actividad:
+                _es_nota = _act.get("estado_anterior") == _act.get("estado_nuevo") and _act.get("estado_anterior")
+                _nombre_a = (_act.get("apellido_nombre","") or "").split(",")[0]
+                _num_a    = _act.get("numero","")
+                _ts       = _act.get("created_at","")[:16]
+                _usr      = _act.get("usuario","")
+                _obs      = _act.get("observaciones","")
+                if _es_nota:
+                    st.markdown(
+                        f"<div style='border-left:3px solid #6c757d;padding:3px 10px;"
+                        f"margin:2px 0;background:#f8f9fa;border-radius:0 4px 4px 0;font-size:0.82rem'>"
+                        f"📝 <strong>{_ts}</strong> — {_num_a} ({_nombre_a}): "
+                        f"<em>{_obs[:80]}{'…' if len(_obs)>80 else ''}</em>"
+                        f"</div>",
+                        unsafe_allow_html=True
+                    )
+                else:
+                    _ant = ESTADOS_LABEL.get(_act.get("estado_anterior",""),"—") if _act.get("estado_anterior") else "Ingreso"
+                    _nvo = ESTADOS_LABEL.get(_act.get("estado_nuevo",""), _act.get("estado_nuevo",""))
+                    _obs_txt = f" — {_obs[:50]}" if _obs else ""
+                    st.markdown(
+                        f"<div style='border-left:3px solid #2e5090;padding:3px 10px;"
+                        f"margin:2px 0;background:#f8f9fa;border-radius:0 4px 4px 0;font-size:0.82rem'>"
+                        f"🔄 <strong>{_ts}</strong> — {_num_a} ({_nombre_a}): "
+                        f"{_ant} ➜ <strong>{_nvo}</strong>{_obs_txt}"
+                        f"</div>",
+                        unsafe_allow_html=True
+                    )
 
         # ── Opciones de demostración ───────────────────────────────────────
         st.markdown("---")

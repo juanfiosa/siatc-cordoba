@@ -161,6 +161,9 @@ def _lista_audiencias(fiscal):
             col_i, col_a = st.columns([3, 2])
             with col_i:
                 st.markdown(f"**Imputado/a:** {a['apellido_nombre']} (DNI: {a['dni']})")
+                _tel_a = a.get("persona_telefono") or "—"
+                _dom_a = a.get("persona_domicilio") or "—"
+                st.markdown(f"📞 **Tel.:** {_tel_a}  |  🏠 **Dom.:** {_dom_a}")
                 st.markdown(f"**Expediente:** {a['numero']}  |  "
                             f"**Unidad:** {a.get('unidad','').upper()}  |  "
                             f"{CARRIL_COLOR.get(a.get('carril',''), '')} Carril {a.get('carril','').capitalize()}")
