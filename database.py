@@ -136,6 +136,21 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_seg_causa    ON seguimientos(causa_id);
         CREATE INDEX IF NOT EXISTS idx_cond_seg     ON condiciones(seguimiento_id);
         CREATE INDEX IF NOT EXISTS idx_reg_cond     ON registros_cumplimiento(condicion_id);
+
+        CREATE TABLE IF NOT EXISTS audiencias (
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            causa_id      INTEGER NOT NULL REFERENCES causas(id),
+            tipo          TEXT    NOT NULL DEFAULT 'audiencia',
+            fecha         TEXT    NOT NULL,
+            hora          TEXT    DEFAULT '09:00',
+            lugar         TEXT    DEFAULT '',
+            estado        TEXT    DEFAULT 'programada',
+            observaciones TEXT    DEFAULT '',
+            created_at    TEXT    DEFAULT (datetime('now','localtime'))
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_aud_causa ON audiencias(causa_id);
+        CREATE INDEX IF NOT EXISTS idx_aud_fecha ON audiencias(fecha);
         """)
 
 
@@ -567,4 +582,139 @@ def stats_seguimiento() -> dict:
     return {
         "total": total, "activos": activos, "cumplidos": cumplidos,
         "incumplidos": incumplidos, "vencidos": vencidos
+    }
+
+
+# ── Audiencias / agenda ────────────────────────────────────────────────────────
+
+TIPOS_AUDIENCIA = {
+    "audiencia":          "Audiencia contravencional",
+    "mediacion":          "Audiencia de mediación",
+    "acta_compromiso":    "Suscripción de acta de compromiso",
+    "control_seg":        "Control de seguimiento",
+    "reprogramada":       "Audiencia reprogramada",
+}
+
+ESTADOS_AUDIENCIA = ["programada", "realizada", "ausente", "reprogramada", "cancelada"]
+
+
+def crear_audiencia(causa_id: int, tipo: str, fecha: str, hora: str = "09:00",
+                    lugar: str = "", observaciones: str = "") -> int:
+    with get_conn() as conn:
+        cur = conn.execute(
+            """INSERT INTO audiencias (causa_id, tipo, fecha, hora, lugar, observaciones)
+               VALUES (?,?,?,?,?,?)""",
+            (causa_id, tipo, fecha, hora, lugar, observaciones)
+        )
+        return cur.lastrowid
+
+
+def actualizar_estado_audiencia(audiencia_id: int, estado: str,
+                                observaciones: str = "") -> bool:
+    if estado not in ESTADOS_AUDIENCIA:
+        return False
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE audiencias SET estado=?, observaciones=? WHERE id=?",
+            (estado, observaciones, audiencia_id)
+        )
+    return True
+
+
+def listar_audiencias(desde: str = None, hasta: str = None,
+                      estado: str = None, causa_id: int = None) -> list[dict]:
+    sql = """
+        SELECT a.*, c.numero, c.unidad, c.carril,
+               p.apellido_nombre, p.dni
+        FROM audiencias a
+        JOIN causas c ON a.causa_id = c.id
+        JOIN personas p ON c.persona_id = p.id
+        WHERE 1=1
+    """
+    params = []
+    if desde:
+        sql += " AND a.fecha >= ?"
+        params.append(desde)
+    if hasta:
+        sql += " AND a.fecha <= ?"
+        params.append(hasta)
+    if estado:
+        sql += " AND a.estado = ?"
+        params.append(estado)
+    if causa_id:
+        sql += " AND a.causa_id = ?"
+        params.append(causa_id)
+    sql += " ORDER BY a.fecha ASC, a.hora ASC"
+    with get_conn() as conn:
+        rows = conn.execute(sql, params).fetchall()
+    return [dict(r) for r in rows]
+
+
+def audiencias_hoy() -> list[dict]:
+    from datetime import date
+    return listar_audiencias(desde=date.today().isoformat(),
+                             hasta=date.today().isoformat(),
+                             estado="programada")
+
+
+def audiencias_proximos_dias(dias: int = 7) -> list[dict]:
+    from datetime import date, timedelta
+    hoy = date.today()
+    return listar_audiencias(desde=hoy.isoformat(),
+                             hasta=(hoy + timedelta(days=dias)).isoformat())
+
+
+def stats_audiencias() -> dict:
+    from datetime import date
+    hoy = date.today().isoformat()
+    with get_conn() as conn:
+        total     = conn.execute("SELECT COUNT(*) as n FROM audiencias").fetchone()["n"]
+        proximas  = conn.execute(
+            "SELECT COUNT(*) as n FROM audiencias WHERE fecha >= ? AND estado='programada'",
+            (hoy,)).fetchone()["n"]
+        hoy_n     = conn.execute(
+            "SELECT COUNT(*) as n FROM audiencias WHERE fecha = ? AND estado='programada'",
+            (hoy,)).fetchone()["n"]
+        realizadas = conn.execute(
+            "SELECT COUNT(*) as n FROM audiencias WHERE estado='realizada'").fetchone()["n"]
+        ausentes  = conn.execute(
+            "SELECT COUNT(*) as n FROM audiencias WHERE estado='ausente'").fetchone()["n"]
+    return {"total": total, "proximas": proximas, "hoy": hoy_n,
+            "realizadas": realizadas, "ausentes": ausentes}
+
+
+# ── Perfil del imputado ────────────────────────────────────────────────────────
+
+def perfil_persona(persona_id: int) -> dict:
+    """Devuelve datos completos de una persona: causas, seguimientos, audiencias."""
+    with get_conn() as conn:
+        persona = conn.execute(
+            "SELECT * FROM personas WHERE id=?", (persona_id,)
+        ).fetchone()
+        if not persona:
+            return {}
+        causas = conn.execute(
+            "SELECT * FROM causas WHERE persona_id=? ORDER BY created_at DESC",
+            (persona_id,)
+        ).fetchall()
+    causas_list = [dict(c) for c in causas]
+    causa_ids = [c["id"] for c in causas_list]
+
+    seguimientos_p = []
+    audiencias_p   = []
+    for cid in causa_ids:
+        seg = get_seguimiento_por_causa(cid)
+        if seg:
+            seguimientos_p.append(seg)
+        auds = listar_audiencias(causa_id=cid)
+        audiencias_p.extend(auds)
+
+    antecedentes = contar_antecedentes(persona_id)
+    return {
+        "persona":      dict(persona),
+        "causas":       causas_list,
+        "seguimientos": seguimientos_p,
+        "audiencias":   audiencias_p,
+        "antecedentes": antecedentes,
+        "total_causas": len(causas_list),
     }

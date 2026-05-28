@@ -412,15 +412,147 @@ def pdf_citacion(caso, fiscal_nombre, unidad_key, motivo="audiencia"):
     return buf.getvalue()
 
 
+# -- Acta de compromiso -------------------------------------------------------
+
+def pdf_acta_compromiso(caso, condiciones_lista, fiscal_nombre, unidad_key, meses=6):
+    inf = TIPOS_INFRACCION.get(caso["tipo"], {})
+    fecha = _fecha_formal()
+    meses_str = {3:"TRES", 6:"SEIS", 9:"NUEVE", 12:"DOCE"}.get(meses, str(meses))
+
+    pdf = PDFMPFBase(unidad_key)
+    pdf.alias_nb_pages()
+    pdf.add_page()
+
+    pdf.titulo_documento("Acta de Compromiso — Suspension del Proceso a Prueba")
+    pdf.metadatos(caso.get("numero", "S/N"), fecha)
+
+    pdf.seccion("COMPARECIENTE",
+        f"En la ciudad de Cordoba, a los {fecha}, comparece ante esta Unidad "
+        f"el/la Sr./Sra. {caso['imputado']}, D.N.I. N. {caso['dni']}, de {caso.get('edad','')} "
+        f"anios de edad, con domicilio en {_s(caso.get('domicilio') or 'el declarado en autos')}, "
+        f"en los autos caratulados \"{caso['imputado'].upper()} - infraccion al "
+        f"{inf.get('articulo','Codigo de Convivencia Ciudadana')}\".")
+
+    pdf.seccion("OBJETO",
+        f"Por la presente, el/la compareciente presta su conformidad con la suspension "
+        f"del proceso a prueba otorgada por esta Fiscalia por el termino de {meses} ({meses_str}) "
+        f"meses a partir de la fecha, comprometiendose al cumplimiento de las siguientes condiciones:")
+
+    pdf.ln(2)
+    pdf._sf("B", 9)
+    pdf.set_text_color(*AZUL_MPF)
+    pdf.cell(0, 6, "CONDICIONES IMPUESTAS:", ln=True)
+    pdf.set_text_color(*NEGRO)
+    pdf.ln(2)
+    for i, cond in enumerate(condiciones_lista, 1):
+        pdf.item_lista(i, _s(cond))
+    pdf.ln(3)
+
+    pdf._sf("", 9)
+    pdf.multi_cell(0, 5,
+        "El/la compareciente declara conocer y aceptar las condiciones precedentes, "
+        "siendo debidamente informado/a de que el incumplimiento de cualquiera de ellas "
+        "habilitara la revocacion de la suspension y la continuacion del proceso "
+        "contravencional en los terminos del Codigo de Convivencia Ciudadana.\n\n"
+        "En prueba de conformidad, se firma la presente en dos ejemplares de un mismo "
+        "tenor y a un solo efecto, quedando uno en poder del/la imputado/a y otro "
+        "en las actuaciones.", align="J")
+    pdf.ln(8)
+
+    # Dos firmas
+    pdf.set_draw_color(*GRIS_LINEA)
+    pdf.set_line_width(0.3)
+    pdf.line(20,  pdf.get_y(), 90,  pdf.get_y())
+    pdf.line(120, pdf.get_y(), 190, pdf.get_y())
+    pdf.ln(2)
+    pdf._sf("B", 9)
+    pdf.cell(90, 5, _s(caso["imputado"]).upper(), align="C")
+    pdf.cell(70, 5, _s(fiscal_nombre).upper(), align="C", ln=True)
+    pdf._sf("", 8)
+    pdf.cell(90, 4, "Imputado/a", align="C")
+    pdf.cell(70, 4, "Ayudante Fiscal", align="C", ln=True)
+    pdf.cell(90, 4, f"D.N.I. {caso['dni']}", align="C")
+    pdf.cell(70, 4, _s(pdf.unidad_str.split(" - ")[0].strip()), align="C", ln=True)
+
+    buf = BytesIO()
+    pdf.output(buf)
+    return buf.getvalue()
+
+
+# -- Informe de incumplimiento ------------------------------------------------
+
+def pdf_informe_incumplimiento(caso, seguimiento, condiciones_inc, fiscal_nombre, unidad_key):
+    inf = TIPOS_INFRACCION.get(caso["tipo"], {})
+    fecha = _fecha_formal()
+
+    pdf = PDFMPFBase(unidad_key)
+    pdf.alias_nb_pages()
+    pdf.add_page()
+
+    pdf.titulo_documento("Informe de Incumplimiento de Condiciones")
+    pdf.metadatos(caso.get("numero", "S/N"), fecha)
+
+    pdf.seccion("OBJETO",
+        f"La presente tiene por objeto informar el incumplimiento de las condiciones "
+        f"oportunamente impuestas en el marco de la suspension del proceso a prueba "
+        f"otorgada a {caso['imputado']}, D.N.I. N. {caso['dni']}, "
+        f"en los autos \"{caso['imputado'].upper()} - infraccion al "
+        f"{inf.get('articulo', 'Codigo de Convivencia Ciudadana')}\".")
+
+    pdf.seccion("ANTECEDENTES",
+        f"Que con fecha {_s(seguimiento.get('fecha_inicio',''))} se otorgo la suspension "
+        f"del proceso a prueba por el termino correspondiente, venciendo el periodo el "
+        f"{_s(seguimiento.get('fecha_fin',''))}. El/la imputado/a suscribio el acta de "
+        f"compromiso respectiva comprometiendose al cumplimiento de las condiciones establecidas.")
+
+    pdf._sf("B", 9)
+    pdf.set_text_color(*AZUL_MPF)
+    pdf.cell(0, 6, "CONDICIONES INCUMPLIDAS:", ln=True)
+    pdf.set_text_color(*NEGRO)
+    pdf.ln(2)
+    for i, cond in enumerate(condiciones_inc, 1):
+        desc = cond.get("descripcion", str(cond))
+        pdf.item_lista(i, _s(desc))
+    pdf.ln(3)
+
+    pdf._sf("B", 9)
+    pdf.set_text_color(*AZUL_MPF)
+    pdf.cell(0, 6, "CONCLUSION:", ln=True)
+    pdf.set_text_color(*NEGRO)
+    pdf._sf("", 9)
+    pdf.multi_cell(0, 5,
+        "En virtud del incumplimiento acreditado, esta Fiscalia concluye que el/la "
+        "imputado/a no ha dado cumplimiento a las condiciones impuestas, lo que habilita "
+        "la revocacion de la suspension del proceso a prueba y la continuacion del "
+        "proceso contravencional conforme las prescripciones del Codigo de Convivencia "
+        "Ciudadana de la Provincia de Cordoba.\n\n"
+        "Por lo expuesto, se eleva el presente informe a efectos de que se adopten "
+        "las medidas procesales que correspondan.", align="J")
+
+    pdf.linea_firma(fiscal_nombre, "Ayudante Fiscal", pdf.unidad_str.split(" - ")[0].strip())
+
+    buf = BytesIO()
+    pdf.output(buf)
+    return buf.getvalue()
+
+
 # -- Punto de entrada ---------------------------------------------------------
 
 def generar_pdf(tipo_doc, caso, clf, fiscal, unidad):
-    if "mediaci" in tipo_doc or "mediacion" in tipo_doc:
+    t = tipo_doc.lower()
+    if "mediaci" in t:
         return pdf_dictamen_mediacion(caso, clf, fiscal, unidad)
-    elif "suspensi" in tipo_doc or "prueba" in tipo_doc:
+    elif "suspensi" in t or "prueba" in t:
         return pdf_dictamen_suspension(caso, clf, fiscal, unidad)
-    elif "citaci" in tipo_doc or "citacion" in tipo_doc:
-        motivo = "mediacion" if "mediaci" in tipo_doc else "audiencia"
+    elif "acta" in t and "compromiso" in t:
+        condiciones = clf.get("condiciones", []) if clf else []
+        return pdf_acta_compromiso(caso, condiciones, fiscal, unidad)
+    elif "incumplimiento" in t:
+        seguimiento = clf.get("seguimiento", {}) if clf else {}
+        conds_inc   = clf.get("condiciones_inc", []) if clf else []
+        return pdf_informe_incumplimiento(caso, seguimiento, conds_inc, fiscal, unidad)
+    elif "citaci" in t:
+        motivo = "mediacion" if "mediaci" in t else ("acta" if "acta" in t else "audiencia")
         return pdf_citacion(caso, fiscal, unidad, motivo)
     else:
         return pdf_citacion(caso, fiscal, unidad)

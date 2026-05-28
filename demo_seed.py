@@ -216,6 +216,9 @@ def poblar():
         if caso.get("seg"):
             _crear_seg_demo(causa_id, caso, p)
 
+    # Audiencias vinculadas a las causas
+    _crear_audiencias_demo(numeros_causa)
+
     return True
 
 
@@ -312,3 +315,52 @@ def _crear_seg_demo(causa_id, caso, persona):
     # Cerrar seguimiento si corresponde
     if caso.get("seg_estado") in ("cumplido", "incumplido", "revocado"):
         db.cerrar_seguimiento(seg_id, caso["seg_estado"])
+
+
+def _crear_audiencias_demo(causa_ids_por_idx):
+    """Crea audiencias demo vinculadas a las causas generadas."""
+    from database import crear_audiencia
+    from datetime import date, timedelta
+
+    hoy = date.today()
+
+    # Programadas futuras (notificadas, clasificadas, en_mediacion)
+    audiencias = [
+        # (persona_idx, tipo, dias_desde_hoy, hora, estado)
+        (4,  "audiencia",       2,   "10:00", "programada"),   # Martinez rojo - urgente
+        (8,  "mediacion",       3,   "11:30", "programada"),   # Torres en mediacion
+        (9,  "audiencia",       5,   "09:00", "programada"),   # Ruiz clasificada
+        (5,  "acta_compromiso", 7,   "10:30", "programada"),   # Fernandez
+        (11, "audiencia",       10,  "09:00", "programada"),   # Moreno ingresada
+        # Ya realizadas
+        (0,  "audiencia",      -45,  "09:00", "realizada"),    # Garcia archivada
+        (1,  "mediacion",      -30,  "10:00", "realizada"),    # Perez resuelta
+        (2,  "audiencia",      -60,  "09:00", "realizada"),    # Rodriguez resuelta
+        (3,  "mediacion",      -50,  "11:00", "realizada"),    # Lopez resuelta
+        # Ausente (esto dispara alerta)
+        (7,  "audiencia",      -10,  "09:00", "ausente"),      # Diaz incumplida
+        # Reprogramada
+        (6,  "control_seg",    -5,   "09:30", "reprogramada"), # Gomez
+    ]
+
+    unidades_por_idx = {
+        0: "norte", 1: "sur", 2: "norte", 3: "sur", 4: "norte",
+        5: "sur", 6: "sur", 7: "norte", 8: "norte", 9: "norte",
+        10: "sur", 11: "sur",
+    }
+
+    for pidx, tipo, dias, hora, estado in audiencias:
+        cid = causa_ids_por_idx.get(pidx)
+        if not cid:
+            continue
+        u = unidades_por_idx.get(pidx, "norte")
+        lugar = {
+            "norte": "Unidad Contravencional Norte - Antonio del Viso 756",
+            "sur":   "Unidad Contravencional Sur - Guzman 1075",
+        }.get(u, "Sede de la Unidad")
+
+        fecha = (hoy + timedelta(days=dias)).isoformat()
+        aud_id = crear_audiencia(cid, tipo, fecha, hora, lugar, "")
+
+        if estado != "programada":
+            db.actualizar_estado_audiencia(aud_id, estado)

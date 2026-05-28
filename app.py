@@ -27,9 +27,16 @@ from database import (
     listar_seguimientos, stats_seguimiento,
 )
 from seguimiento_tab import render_tab_seguimiento
+from agenda_tab import render_tab_agenda
+from perfil_tab import render_buscador_perfil
 from demo_seed import poblar, ya_poblado
 from bienvenida import mostrar_si_primera_vez
 from export_excel import causas_a_excel, seguimientos_a_excel
+from database import (
+    audiencias_hoy, stats_audiencias, listar_audiencias,
+    crear_audiencia, actualizar_estado_audiencia,
+    perfil_persona, listar_personas,
+)
 
 # ── Init ───────────────────────────────────────────────────────────────────────
 init_db()
@@ -117,6 +124,14 @@ with st.sidebar:
                 else:
                     st.caption(f"🟡 {s['apellido_nombre'].split(',')[0]} — {dias}d")
 
+    # ── Audiencias del día ─────────────────────────────────────────────────
+    hoy_auds = audiencias_hoy()
+    if hoy_auds:
+        st.markdown("---")
+        st.markdown(f"**📅 Audiencias hoy ({len(hoy_auds)})**")
+        for a in hoy_auds:
+            st.caption(f"🔵 {a['hora']} — {a['apellido_nombre'].split(',')[0]} ({a['numero']})")
+
     st.markdown(f"*{datetime.now().strftime('%d/%m/%Y %H:%M')}*")
 
 # ── Bienvenida (primera vez por sesión) ────────────────────────────────────────
@@ -134,9 +149,9 @@ Ministerio Público Fiscal · Provincia de Córdoba &nbsp;|&nbsp; Código de Con
 """, unsafe_allow_html=True)
 
 # ── Tabs ───────────────────────────────────────────────────────────────────────
-tab_nuevo, tab_causas, tab_demo, tab_seg, tab_panel = st.tabs([
+tab_nuevo, tab_causas, tab_demo, tab_seg, tab_agenda, tab_perfil, tab_panel = st.tabs([
     "📋 Nuevo Caso", "📂 Gestión de Causas", "🗂️ Casos Demo",
-    "🔍 Seguimiento", "📊 Panel de Control"
+    "🔍 Seguimiento", "📅 Agenda", "👤 Perfil", "📊 Panel de Control"
 ])
 
 
@@ -416,17 +431,42 @@ with tab_causas:
                         "descripcion": c.get("descripcion",""),
                         "unidad": c.get("unidad","norte"),
                     }
-                    doc_opts_causa = (
-                        ["Dictamen de derivación a mediación", "Cédula de citación a mediación"]
-                        if c.get("carril") == "verde"
-                        else ["Dictamen de suspensión a prueba", "Cédula de citación", "Resumen ejecutivo"]
-                    )
+                    if c.get("carril") == "verde":
+                        doc_opts_causa = ["Dictamen de derivación a mediación", "Cédula de citación a mediación"]
+                    elif c.get("estado") in ("resuelta", "archivada"):
+                        doc_opts_causa = ["Dictamen de suspensión a prueba", "Acta de compromiso",
+                                          "Informe de incumplimiento", "Cédula de citación", "Resumen ejecutivo"]
+                    else:
+                        doc_opts_causa = ["Dictamen de suspensión a prueba", "Cédula de citación", "Resumen ejecutivo"]
                     doc_tipo = st.selectbox("Tipo", doc_opts_causa, key=f"dopt_{c['id']}", label_visibility="collapsed")
                     if st.button("Generar y guardar", key=f"gendoc_{c['id']}", use_container_width=True):
                         if doc_tipo == "Dictamen de derivación a mediación":
                             doc_txt = generar_dictamen_mediacion(caso_stored, clf_stored, fiscal_nombre, caso_stored["unidad"])
                         elif "suspensión" in doc_tipo or "prueba" in doc_tipo:
                             doc_txt = generar_dictamen_suspension(caso_stored, clf_stored, fiscal_nombre, caso_stored["unidad"])
+                        elif "Acta de compromiso" in doc_tipo:
+                            from data_cordoba import CONDICIONES_SUSPENSION
+                            cat = TIPOS_INFRACCION.get(caso_stored["tipo"], {}).get("categoria", "Convivencia")
+                            key_c = "transito_alcoholemia" if caso_stored["tipo"] == "transito_alcoholemia" else \
+                                    ("transito" if cat == "Tránsito" else ("comercio" if cat == "Comercio" else
+                                    ("integridad" if cat == "Integridad" else "convivencia")))
+                            conds_list = CONDICIONES_SUSPENSION.get(key_c, [])
+                            pdf_bytes = generar_pdf("acta compromiso", caso_stored, {"condiciones": conds_list}, fiscal_nombre, caso_stored["unidad"])
+                            st.download_button("⬇️ Descargar Acta PDF", data=pdf_bytes,
+                                file_name=f"{c['numero']}_acta_compromiso.pdf",
+                                mime="application/pdf", key=f"dl_acta_{c['id']}", type="primary")
+                            doc_txt = f"Acta de compromiso — {caso_stored['imputado']} — {c['numero']}"
+                        elif "Informe de incumplimiento" in doc_tipo:
+                            seg_info = db.get_seguimiento_por_causa(c["id"]) or {}
+                            conds_inc = [cd for cd in db.get_condiciones(seg_info.get("id", 0))
+                                         if cd["estado"] == "incumplido"] if seg_info else []
+                            pdf_bytes = generar_pdf("informe incumplimiento", caso_stored,
+                                                    {"seguimiento": seg_info, "condiciones_inc": conds_inc},
+                                                    fiscal_nombre, caso_stored["unidad"])
+                            st.download_button("⬇️ Descargar Informe PDF", data=pdf_bytes,
+                                file_name=f"{c['numero']}_informe_incumplimiento.pdf",
+                                mime="application/pdf", key=f"dl_inf_{c['id']}", type="primary")
+                            doc_txt = f"Informe de incumplimiento — {caso_stored['imputado']} — {c['numero']}"
                         elif "citación" in doc_tipo:
                             doc_txt = generar_citacion(caso_stored, fiscal_nombre, caso_stored["unidad"])
                         else:
@@ -506,7 +546,23 @@ with tab_seg:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# TAB 5 — PANEL DE CONTROL
+# TAB 5 — AGENDA
+# ══════════════════════════════════════════════════════════════════════════════
+with tab_agenda:
+    render_tab_agenda(fiscal_nombre)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 6 — PERFIL DEL IMPUTADO
+# ══════════════════════════════════════════════════════════════════════════════
+with tab_perfil:
+    st.header("👤 Perfil del Imputado/a")
+    st.caption("Historial completo de causas, seguimientos y audiencias de una persona.")
+    render_buscador_perfil()
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 7 — PANEL DE CONTROL
 # ══════════════════════════════════════════════════════════════════════════════
 with tab_panel:
     st.subheader("Panel de Control")
@@ -646,6 +702,76 @@ with tab_panel:
                                  column_config={"Días": st.column_config.NumberColumn("Días rest.")})
                 else:
                     st.info("No hay seguimientos activos.")
+
+        # ── Bloque audiencias ──────────────────────────────────────────────
+        st.markdown("---")
+        st.subheader("📅 Audiencias")
+        aud_s = stats_audiencias()
+        if aud_s["total"] == 0:
+            st.info("No hay audiencias registradas aún.")
+        else:
+            ca1, ca2, ca3, ca4, ca5 = st.columns(5)
+            ca1.metric("Total agendadas",  aud_s["total"])
+            ca2.metric("🔵 Hoy",           aud_s["hoy"],
+                       delta="HOY" if aud_s["hoy"] else None)
+            ca3.metric("📆 Próx. 7 días",  aud_s["proximas"])
+            ca4.metric("🟢 Realizadas",    aud_s["realizadas"])
+            ca5.metric("🔴 Ausencias",     aud_s["ausentes"],
+                       delta=f"⚠️ {aud_s['ausentes']}" if aud_s["ausentes"] else None,
+                       delta_color="inverse")
+
+            col_a1, col_a2 = st.columns(2)
+            with col_a1:
+                labels_aud = ["Programadas", "Realizadas", "Ausentes", "Reprogramadas", "Canceladas"]
+                vals_aud   = [
+                    aud_s["total"] - aud_s["realizadas"] - aud_s["ausentes"],
+                    aud_s["realizadas"], aud_s["ausentes"],
+                    0, 0,
+                ]
+                # get actual breakdown from DB
+                from database import listar_audiencias as _la
+                all_auds = _la()
+                from collections import Counter
+                conteo = Counter(a["estado"] for a in all_auds)
+                vals_aud = [
+                    conteo.get("programada", 0),
+                    conteo.get("realizada", 0),
+                    conteo.get("ausente", 0),
+                    conteo.get("reprogramada", 0),
+                    conteo.get("cancelada", 0),
+                ]
+                if sum(vals_aud) > 0:
+                    fig_aud = go.Figure(go.Pie(
+                        labels=labels_aud,
+                        values=vals_aud,
+                        marker_colors=["#cce5ff", "#d4edda", "#f8d7da", "#fff3cd", "#e2e3e5"],
+                        hole=0.4, textinfo="label+value",
+                    ))
+                    fig_aud.update_layout(title="Estado de audiencias",
+                                          showlegend=False, height=280)
+                    st.plotly_chart(fig_aud, use_container_width=True)
+
+            with col_a2:
+                # Proximas audiencias table
+                from datetime import date as _d3
+                proximas_auds = _la(desde=_d3.today().isoformat())
+                proximas_auds = sorted(proximas_auds, key=lambda x: (x["fecha"], x["hora"]))[:8]
+                if proximas_auds:
+                    rows_aud = []
+                    for a in proximas_auds:
+                        rows_aud.append({
+                            "Fecha": a["fecha"],
+                            "Hora":  a["hora"],
+                            "Imputado": a["apellido_nombre"].split(",")[0],
+                            "Tipo": a.get("tipo","").replace("_"," ").capitalize(),
+                            "Estado": a.get("estado","").capitalize(),
+                        })
+                    st.dataframe(
+                        pd.DataFrame(rows_aud),
+                        use_container_width=True, hide_index=True,
+                    )
+                else:
+                    st.info("No hay audiencias programadas próximas.")
 
         # ── Exportación a Excel ────────────────────────────────────────────
         st.markdown("---")
