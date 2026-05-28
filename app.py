@@ -827,6 +827,21 @@ with tab_panel:
                 )
                 st.plotly_chart(fig_t, use_container_width=True)
 
+        # Total time saved banner
+        if tiempos:
+            _total_dias_ahorrados = sum(
+                (t["tradicional"] - (t["dias_promedio"] or t["tradicional"])) * t["n"]
+                for t in tiempos.values()
+            )
+            _total_causas_resueltas = sum(t["n"] for t in tiempos.values())
+            if _total_dias_ahorrados > 0:
+                st.success(
+                    f"💡 **Impacto acumulado estimado:** SIATC habría ahorrado "
+                    f"**{_total_dias_ahorrados:,} días-expediente** en las "
+                    f"{_total_causas_resueltas} causas ya resueltas "
+                    f"({round(_total_dias_ahorrados / max(_total_causas_resueltas, 1))} días promedio por causa)."
+                )
+
         if stats["personas"]:
             st.markdown("---")
             col_r1, col_r2 = st.columns(2)
@@ -1108,10 +1123,12 @@ with tab_panel:
                     st.rerun()
             with col_r2:
                 st.info("💡 **¿Cómo usar para una demo?**\n\n"
-                        "1. Ingresá a **📋 Nuevo Caso** e ingresá el DNI `38.421.667` "
-                        "(detecta antecedentes automáticamente).\n"
-                        "2. Ajustá los parámetros y observá el triaje en tiempo real.\n"
-                        "3. Descargá el PDF del dictamen.\n"
-                        "4. Cargá la causa y buscala en **📂 Gestión de Causas**.\n"
-                        "5. Mostrá el **🔍 Seguimiento** con los casos activos cargados.\n"
-                        "6. Revisá el **📊 Panel** para ver cómo escala el sistema.")
+                        "1. Ingresá a **📋 Nuevo Caso** con DNI `38.421.667` "
+                        "(detecta antecedentes y auto-completa).\n"
+                        "2. Observá el triaje automático → generá y descargá el PDF.\n"
+                        "3. Guardá la causa → aparece en **📂 Gestión de Causas**.\n"
+                        "4. Desde la causa, agendá audiencia con ▶ popover y explorá el perfil.\n"
+                        "5. En **📅 Agenda** verás la semana completa con tu audiencia.\n"
+                        "6. En **👤 Perfil** buscá `García` → descargá la ficha PDF.\n"
+                        "7. En **📊 Panel** mostrá gráficos, KPIs y tiempos de resolución.\n"
+                        "8. Exportá a Excel o generá el Reporte del día en PDF.")
