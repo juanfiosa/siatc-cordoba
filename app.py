@@ -48,6 +48,23 @@ init_db()
 if not ya_poblado():
     poblar()
 
+# ── Cached DB helpers (TTL=60s — evita re-queries en cada rerun) ───────────────
+@st.cache_data(ttl=60)
+def _c_stats_generales():
+    return stats_generales()
+
+@st.cache_data(ttl=60)
+def _c_stats_seguimiento():
+    return stats_seguimiento()
+
+@st.cache_data(ttl=60)
+def _c_stats_audiencias():
+    return stats_audiencias()
+
+@st.cache_data(ttl=60)
+def _c_sin_audiencia():
+    return causas_sin_audiencia_programada()
+
 st.set_page_config(
     page_title="SIATC — Sistema Inteligente Contravencional",
     page_icon="⚖️",
@@ -83,7 +100,7 @@ with st.sidebar:
         format_func=lambda k: {"norte":"Norte","sur":"Sur","genero":"Género"}[k],
     )
     st.markdown("---")
-    stats = stats_generales()
+    stats = _c_stats_generales()
     st.metric("Causas totales", stats["total"])
     col1, col2 = st.columns(2)
     col1.metric("🟢", stats["por_carril"].get("verde", 0))
@@ -93,7 +110,7 @@ with st.sidebar:
 
     # ── Alertas de seguimiento ─────────────────────────────────────────────
     st.markdown("---")
-    seg_stats = stats_seguimiento()
+    seg_stats = _c_stats_seguimiento()
     if seg_stats["total"] > 0:
         st.markdown("**🔔 Seguimientos activos**")
         col_s1, col_s2 = st.columns(2)
@@ -138,13 +155,13 @@ with st.sidebar:
             st.caption(f"🔵 {a['hora']} — {a['apellido_nombre'].split(',')[0]} ({a['numero']})")
 
     # Próximas audiencias esta semana
-    aud_s = stats_audiencias()
+    aud_s = _c_stats_audiencias()
     if aud_s["proximas"] > 0:
         st.markdown("---")
         st.markdown(f"**📆 Esta semana: {aud_s['proximas']} audiencia(s)**")
 
     # Causas sin audiencia programada (sidebar alert)
-    _sin_aud_sb = causas_sin_audiencia_programada()
+    _sin_aud_sb = _c_sin_audiencia()
     if _sin_aud_sb:
         st.markdown("---")
         st.error(f"📋 {len(_sin_aud_sb)} sin audiencia")
@@ -199,17 +216,17 @@ from datetime import date as _date_now
 _hoy_str = _date_now.today().isoformat()
 
 # Audiencias de hoy sin gestionar
-_aud_hoy_count = stats_audiencias()["hoy"]
+_aud_hoy_count = _c_stats_audiencias()["hoy"]
 if _aud_hoy_count:
     _alertas.append(f"📅 **{_aud_hoy_count} audiencia(s) HOY** — revisá la pestaña Agenda")
 
 # Seguimientos vencidos sin cierre
-_venc = stats_seguimiento()["vencidos"]
+_venc = _c_stats_seguimiento()["vencidos"]
 if _venc:
     _alertas.append(f"⚠️ **{_venc} seguimiento(s) vencido(s)** sin cierre formal")
 
 # Causas incumplidas
-_inc = stats_seguimiento()["incumplidos"]
+_inc = _c_stats_seguimiento()["incumplidos"]
 if _inc:
     _alertas.append(f"❌ **{_inc} seguimiento(s) incumplido(s)** — evaluar revocación")
 
@@ -222,7 +239,7 @@ if _ausentes_rec:
     _alertas.append(f"🚨 **{_ausentes_rec} incomparecencia(s)** en los últimos 7 días")
 
 # Causas sin audiencia programada
-_sin_aud = causas_sin_audiencia_programada()
+_sin_aud = _c_sin_audiencia()
 if _sin_aud:
     _alertas.append(f"📋 **{len(_sin_aud)} causa(s) notificada(s) o clasificada(s)** sin audiencia programada")
 
@@ -331,6 +348,17 @@ with tab_nuevo:
         tipo_opciones = {k: v["label"]+f"  ({v['categoria']})" for k,v in TIPOS_INFRACCION.items()}
         tipo = st.selectbox("Tipo de infracción", options=list(tipo_opciones.keys()),
                             format_func=lambda k: tipo_opciones[k])
+        # Info card para el tipo seleccionado
+        _inf_sel = TIPOS_INFRACCION.get(tipo, {})
+        if _inf_sel:
+            _grav_txt  = {1: "Baja", 2: "Media", 3: "Alta"}.get(_inf_sel.get("gravedad_base", 1), "—")
+            _grav_icon = {1: "🟢", 2: "🟡", 3: "🔴"}.get(_inf_sel.get("gravedad_base", 1), "⚪")
+            _vec_txt   = "⚠️ Conflicto vecinal" if _inf_sel.get("es_conflicto_vecinal") else "🚦 No vecinal"
+            st.info(
+                f"**{_inf_sel.get('articulo', '')}** &nbsp;|&nbsp; "
+                f"Categoría: **{_inf_sel.get('categoria', '')}** &nbsp;|&nbsp; "
+                f"Gravedad base: {_grav_icon} **{_grav_txt}** &nbsp;|&nbsp; {_vec_txt}"
+            )
         from datetime import date as _date_form
         col_desc, col_fech = st.columns([3, 1])
         with col_desc:
@@ -407,6 +435,7 @@ with tab_nuevo:
 
             if guardar:
                 causa_id = guardar_causa(caso, clf, fiscal_nombre)
+                st.cache_data.clear()   # invalidar cache tras mutación
                 c_saved  = get_causa(causa_id)
                 numero_guardado = c_saved["numero"] if c_saved else f"ID#{causa_id}"
                 st.success(
@@ -562,6 +591,17 @@ with tab_causas:
                 }
             )
             st.caption("💡 Cambiá a vista '📋 Detalle' para acceder a acciones, documentos y gestión de estado.")
+            # CSV export for the current filtered view
+            import io as _io_gc
+            _csv_buf = _io_gc.StringIO()
+            pd.DataFrame(_rows_gc).to_csv(_csv_buf, index=False, encoding="utf-8")
+            st.download_button(
+                "⬇️ Exportar lista (CSV)",
+                data=_csv_buf.getvalue().encode("utf-8"),
+                file_name=f"causas_filtradas_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                mime="text/csv",
+                key="gc_csv_export",
+            )
 
         # ── Vista detalle (expanders) ──────────────────────────────────────
         # Selector de causa para ver detalle
@@ -594,7 +634,9 @@ with tab_causas:
 
                 with col_info:
                     _col_dni, _col_pfil = st.columns([3, 1])
-                    _col_dni.markdown(f"**DNI:** {c['persona_dni']}  |  **Unidad:** {unidad_label}  |  **Fiscal:** {c.get('fiscal_asignado','—')}")
+                    _art_gc = TIPOS_INFRACCION.get(c.get("tipo_infraccion",""),{}).get("articulo","")
+                    _art_str = f"  |  **Art.:** {_art_gc}" if _art_gc else ""
+                    _col_dni.markdown(f"**DNI:** {c['persona_dni']}  |  **Unidad:** {unidad_label}  |  **Fiscal:** {c.get('fiscal_asignado','—')}{_art_str}")
                     if _col_pfil.button("👤 Ver perfil", key=f"pfil_{c['id']}", use_container_width=True):
                         st.session_state["perfil_busqueda"] = c["persona_dni"]
                         st.session_state["goto_perfil"] = True
@@ -666,6 +708,7 @@ with tab_causas:
                         obs_estado = st.text_input("Observaciones", key=f"obs_{c['id']}", placeholder="Opcional")
                         if st.button("Actualizar estado", key=f"upd_{c['id']}", use_container_width=True):
                             avanzar_estado(c["id"], nuevo_estado, fiscal_nombre, obs_estado)
+                            st.cache_data.clear()
                             st.success(f"Estado actualizado a {ESTADOS_LABEL[nuevo_estado]}")
                             st.rerun()
                     else:
@@ -680,6 +723,7 @@ with tab_causas:
                         if st.button("Guardar nota", key=f"nota_btn_{c['id']}", type="primary"):
                             if _nota_txt and _nota_txt.strip():
                                 agregar_nota_causa(c["id"], _nota_txt, fiscal_nombre)
+                                st.cache_data.clear()
                                 st.success("Nota registrada en el historial")
                                 st.rerun()
                             else:
@@ -714,6 +758,7 @@ with tab_causas:
                                            _fecha_aud.isoformat(),
                                            _hora_aud.strftime("%H:%M"),
                                            _lugar_aud, "")
+                            st.cache_data.clear()
                             st.success(f"Audiencia agendada para {_fecha_aud.strftime('%d/%m/%Y')} {_hora_aud.strftime('%H:%M')}")
                             st.rerun()
 
@@ -846,6 +891,7 @@ with tab_demo:
                     {**cd, "victima": False, "lesiones": False, "resistencia": False, "domicilio": ""},
                     clf, fiscal_nombre
                 )
+                st.cache_data.clear()
                 st.success(f"Causa cargada — ID #{causa_id}. Verla en 📂 Gestión de Causas.")
                 st.rerun()
 
@@ -1597,6 +1643,7 @@ with tab_panel:
                         st.warning(f"Reset parcial: {_re}")
                     init_db()
                     poblar()
+                    st.cache_data.clear()
                     st.session_state.intro_vista = True   # no mostrar bienvenida de nuevo
                     st.success("Datos restablecidos correctamente.")
                     st.rerun()
