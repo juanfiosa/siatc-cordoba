@@ -56,6 +56,21 @@ def clasificar_caso(tipo_infraccion: str, antecedentes: int, victima_identificad
     if tipo_infraccion == "transito_alcoholemia" and antecedentes == 0:
         fundamento.append("Primera infracción por alcoholemia — elegible para suspensión con condiciones")
 
+    # Pisos de seguridad — casos que no pueden bajar de cierto carril
+    if categoria == "Integridad" and score <= 1.5:
+        # Violencia/amenazas: nunca verde independientemente del score
+        score = 1.6
+        fundamento.append("Categoría Integridad: derivación a mediación no aplica — piso mínimo amarillo")
+
+    if victima_identificada and score <= 1.5:
+        # Víctima identificada: no puede ser derivada a mediación sin revisión fiscal
+        score = 1.6
+        fundamento.append("Víctima identificada: requiere análisis fiscal antes de derivar a mediación")
+
+    if tipo_infraccion in ("agresion_fisica_leve", "acoso_callejero") and score < 3:
+        score = max(score, 2.0)   # al menos amarillo para estos tipos
+        fundamento.append("Tipo de infracción con impacto sobre la integridad personal — mínimo suspensión")
+
     # Clasificación final
     if score <= 1.5:
         carril = "verde"
