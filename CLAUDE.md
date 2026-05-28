@@ -99,10 +99,15 @@ Requires OAuth in browser — cannot be done headlessly.
 | `stats_seguimiento()` | total, activos, cumplidos, incumplidos, vencidos |
 | `stats_audiencias()` | total, proximas, hoy, realizadas, ausentes |
 | `perfil_persona(id)` | {persona, causas, seguimientos, audiencias, antecedentes, total_causas} |
-| `listar_causas(...)` | rows include persona_edad, persona_domicilio, persona_telefono |
+| `listar_causas(estado, carril, unidad, busqueda, tipo_infraccion, limit)` | rows include persona_edad, domicilio, telefono |
+| `causas_similares(tipo_infraccion, exclude_persona_id, limit)` | causas of same type excluding a given persona |
 | `causas_sin_audiencia_programada(estados)` | causas in active states with no upcoming programada audiencia |
+| `causas_mes_actual_vs_anterior()` | {actual, anterior, delta, pct_cambio} — MoM comparison |
 | `personas_reincidentes(min_causas)` | personas with ≥ min_causas, with carriles and estados |
 | `agregar_nota_causa(causa_id, nota, usuario)` | insert note into estados_causa (anterior==nuevo), touch updated_at |
+| `actividad_reciente(limit)` | global feed joining estados_causa + causas + personas |
+| `stats_edad()` | {bucket: count} for 5 age groups (16-25, 26-35, 36-45, 46-55, 56+) |
+| `stats_edad_por_carril()` | cross-tab: {bucket: {verde, amarillo, rojo}} counts of causas |
 
 ## PDF functions (pdf_gen.py)
 
@@ -113,6 +118,7 @@ Requires OAuth in browser — cannot be done headlessly.
 | `pdf_citacion(caso, fiscal, unidad, motivo)` | Cédula de notificación/citación |
 | `pdf_acta_compromiso(caso, condiciones, fiscal, unidad)` | Acta de compromiso |
 | `pdf_informe_incumplimiento(caso, seg, conds_inc, fiscal, unidad)` | Informe incumplimiento |
+| `pdf_informe_seguimiento(seg, condiciones, prog, fiscal, unidad)` | Informe de avance del seguimiento post-resolución |
 | `pdf_reporte_diario(stats, auds_hoy, causas_pend, fiscal, unidad)` | Reporte ejecutivo diario |
 | `pdf_perfil_persona(perfil, fiscal, unidad)` | Ficha institucional del imputado/a |
 | `pdf_requerimiento_apertura(caso, clf, fiscal, unidad)` | Requerimiento Fiscal de Apertura del Proceso |
@@ -149,7 +155,10 @@ must handle all six categories.
 - Causas por mes — evolución temporal (bar + line)
 - Causas por fiscal (horizontal bar)
 - **Tiempos de resolución** vs. proceso tradicional (grouped bar) — uses `stats_tiempos_resolucion()`
+- **Mes actual vs. anterior** banner (warning/success/info)
+- **Resumen ejecutivo automático** collapsible — natural language bullet-point status
 - KPIs: tasa comparecencia, resolver sin condena %, resueltas %, archivadas
+- **Perfil demográfico**: age distribution bar chart + stacked carril-by-age chart
 - Seguimientos: estado pie + tabla activos con días restantes
 - Audiencias: estado pie + tabla próximas
 - **Causas sin audiencia programada** — dataframe of causas with no upcoming audiencia
@@ -174,12 +183,33 @@ Each causa expander shows:
 - **Nota rápida** popover: free-text note saved without state change
 - Audiencia popover: schedule hearing from within causa
 - Documento generator: per-carril options including Requerimiento apertura for rojo
+- Vista Tabla toggle: compact dataframe view vs. full detail expanders
 
 ## Nuevo Caso (app.py Tab 1)
-Form fields: DNI (auto-lookup), nombre, edad, domicilio, **teléfono** (3-col layout),
-tipo infracción, descripción, fecha_hecho, víctima/lesiones/resistencia checkboxes.
+Form fields: DNI (auto-lookup with format validation), nombre, edad, domicilio,
+**teléfono** (3-col layout), tipo infracción, descripción, fecha_hecho,
+víctima/lesiones/resistencia checkboxes.
 Name-based fallback search: expander with text input → selectbox → "Usar esta persona".
 All person data (including telefono) saved via `upsert_persona()`.
+DNI validation: warns on non-digit chars, <7 digits, >9 digits.
+
+## Agenda (agenda_tab.py)
+On audiencia state change:
+- **ausente**: auto-insert INCOMPARECENCIA nota in causa timeline with date + hearing type
+- **realizada**: auto-insert confirmation nota with optional observation
+Both use `agregar_nota_causa()` for the audit trail.
+
+## Seguimiento (seguimiento_tab.py)
+- Auto-suggest close banner when all conditions are `cumplido`
+- Error banner when conditions are `incumplido`
+- Close button becomes primary (blue) when all conditions met
+- On close (cumplido/incumplido/revocado): auto-insert causa timeline note
+- **Informe PDF** download button per seguimiento (uses `pdf_informe_seguimiento()`)
+
+## Perfil (perfil_tab.py)
+- Visual Gantt timeline (px.timeline) showing causas/seguimientos/audiencias over time
+- "Causas similares" expander per infraction type (uses `causas_similares()`)
+- Editable contact form (nombre, edad, domicilio, teléfono) via `upsert_persona()`
 
 ## Known issues / decisions
 - `demo_seed.py → ya_poblado()` checks `n >= 5` (not `>= 15`), so adding
