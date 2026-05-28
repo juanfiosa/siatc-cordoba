@@ -1,0 +1,314 @@
+# -*- coding: utf-8 -*-
+"""
+Poblar la base de datos con datos demo realistas.
+SIATC - MPF Córdoba
+"""
+
+import sqlite3
+from datetime import datetime, date, timedelta
+import database as db
+
+# ---------------------------------------------------------------------------
+# Datos de personas e imputados ficticios
+# ---------------------------------------------------------------------------
+
+PERSONAS_DEMO = [
+    {"dni": "38421667", "apellido_nombre": "Garcia, Lucas Damian",    "edad": 24, "domicilio": "Av. Colon 1200, Córdoba", "telefono": "351-4521001"},
+    {"dni": "30112445", "apellido_nombre": "Perez, Marcelo Ariel",    "edad": 41, "domicilio": "Rivadavia 456, Córdoba",  "telefono": "351-4522002"},
+    {"dni": "33887021", "apellido_nombre": "Rodriguez, Sebastian Omar","edad": 29, "domicilio": "Figueroa Alcorta 890",   "telefono": "351-4523003"},
+    {"dni": "27334891", "apellido_nombre": "Lopez, Maria Fernanda",   "edad": 55, "domicilio": "Plaza V. Sarsfield s/n", "telefono": "351-4524004"},
+    {"dni": "25661003", "apellido_nombre": "Martinez, Jorge Alberto", "edad": 48, "domicilio": "Galeria Comercial Local 12","telefono": "351-4525005"},
+    {"dni": "40112233", "apellido_nombre": "Fernandez, Valentina",    "edad": 22, "domicilio": "Bv. Chacabuco 550",       "telefono": "351-4526006"},
+    {"dni": "29887654", "apellido_nombre": "Gomez, Ricardo Hernan",   "edad": 37, "domicilio": "Calle Lima 320",          "telefono": "351-4527007"},
+    {"dni": "35441122", "apellido_nombre": "Diaz, Carolina Beatriz",  "edad": 32, "domicilio": "Bv. Illia 1100",          "telefono": "351-4528008"},
+    {"dni": "22334455", "apellido_nombre": "Torres, Hector Manuel",   "edad": 62, "domicilio": "Calle Tucuman 780",       "telefono": "351-4529009"},
+    {"dni": "41556677", "apellido_nombre": "Ruiz, Agustina Paola",    "edad": 21, "domicilio": "Dean Funes 234",          "telefono": "351-4530010"},
+    {"dni": "36778899", "apellido_nombre": "Sanchez, Pablo Eduardo",  "edad": 35, "domicilio": "Av. Maipú 1450",         "telefono": "351-4531011"},
+    {"dni": "28990011", "apellido_nombre": "Moreno, Claudia Ines",    "edad": 44, "domicilio": "Calle Obispo Trejo 890", "telefono": "351-4532012"},
+]
+
+CASOS_SEED = [
+    # Estado: archivada (seguimiento cumplido)
+    {"persona_idx": 0, "tipo": "transito_sin_documentacion", "unidad": "norte",
+     "desc": "Circulaba en motocicleta Yamaha sin portar licencia de conducir. Control rutina.",
+     "antec": 0, "estado": "archivada", "carril": "verde",
+     "dias_atras": 120, "seg": True, "seg_estado": "cumplido", "seg_meses": 6},
+
+    # Estado: resuelta (seguimiento activo, al 60%)
+    {"persona_idx": 1, "tipo": "ruidos_molestos_nocturnos", "unidad": "sur",
+     "desc": "Música a alto volumen desde departamento 4B, 00:30hs del sábado.",
+     "antec": 1, "estado": "resuelta", "carril": "amarillo",
+     "dias_atras": 45, "seg": True, "seg_estado": "activo", "seg_meses": 6},
+
+    # Estado: resuelta (seguimiento activo, próximo a vencer)
+    {"persona_idx": 2, "tipo": "transito_alcoholemia", "unidad": "norte",
+     "desc": "Alcotest positivo 0.85 g/l en Av. Figueroa Alcorta. Sin accidente.",
+     "antec": 0, "estado": "resuelta", "carril": "amarillo",
+     "dias_atras": 160, "seg": True, "seg_estado": "activo", "seg_meses": 6},
+
+    # Estado: resuelta (seguimiento activo, casi cumplido)
+    {"persona_idx": 3, "tipo": "animales_sueltos", "unidad": "sur",
+     "desc": "Perro mediano suelto en plaza Vélez Sársfield que mordió a otro animal.",
+     "antec": 0, "estado": "resuelta", "carril": "verde",
+     "dias_atras": 70, "seg": True, "seg_estado": "activo", "seg_meses": 3},
+
+    # Estado: notificada (sin seguimiento aún)
+    {"persona_idx": 4, "tipo": "riña_verbal_vecinal", "unidad": "norte",
+     "desc": "Altercado verbal con insultos en galería comercial. Testigos presentes.",
+     "antec": 2, "estado": "notificada", "carril": "rojo",
+     "dias_atras": 10, "seg": False},
+
+    # Estado: clasificada
+    {"persona_idx": 5, "tipo": "consumo_alcohol_via_publica", "unidad": "sur",
+     "desc": "Consumo de bebida alcohólica en banco de plaza. Personal preventor constató.",
+     "antec": 0, "estado": "clasificada", "carril": "verde",
+     "dias_atras": 3, "seg": False},
+
+    # Estado: archivada (cumplido)
+    {"persona_idx": 6, "tipo": "establecimiento_horario", "unidad": "sur",
+     "desc": "Local bailable con música a las 5:30hs, fuera del horario habilitado.",
+     "antec": 0, "estado": "archivada", "carril": "amarillo",
+     "dias_atras": 200, "seg": True, "seg_estado": "cumplido", "seg_meses": 12},
+
+    # Estado: resuelta (seguimiento incumplido)
+    {"persona_idx": 7, "tipo": "amenazas_leves", "unidad": "norte",
+     "desc": "Amenazas por conflicto de medianera. Víctima identificada. Sin arma.",
+     "antec": 1, "estado": "resuelta", "carril": "rojo",
+     "dias_atras": 95, "seg": True, "seg_estado": "incumplido", "seg_meses": 6},
+
+    # Estado: en_mediacion
+    {"persona_idx": 8, "tipo": "obstruccion_espacio_publico", "unidad": "norte",
+     "desc": "Vehículo obstruye acceso peatonal de edificio. Denuncia vecinal reiterada.",
+     "antec": 0, "estado": "en_mediacion", "carril": "verde",
+     "dias_atras": 15, "seg": False},
+
+    # Estado: clasificada
+    {"persona_idx": 9, "tipo": "transito_exceso_velocidad", "unidad": "norte",
+     "desc": "Radar detectó 98 km/h en zona de 60 km/h. Av. Rafael Núñez al 3200.",
+     "antec": 0, "estado": "clasificada", "carril": "amarillo",
+     "dias_atras": 5, "seg": False},
+
+    # Estado: resuelta (seguimiento activo, vencido sin cierre)
+    {"persona_idx": 10, "tipo": "deterioro_bienes_publicos", "unidad": "sur",
+     "desc": "Grafiti en fachada de edificio histórico en la peatonal. Filmado por cámaras.",
+     "antec": 0, "estado": "resuelta", "carril": "amarillo",
+     "dias_atras": 220, "seg": True, "seg_estado": "activo", "seg_meses": 6},
+
+    # Estado: ingresada (reciente)
+    {"persona_idx": 11, "tipo": "establecimiento_ruidos", "unidad": "sur",
+     "desc": "Bar con música en vivo supera decibeles permitidos. Medición técnica realizada.",
+     "antec": 0, "estado": "ingresada", "carril": "amarillo",
+     "dias_atras": 1, "seg": False},
+]
+
+# Condiciones pre-armadas por tipo de seguimiento
+CONDICIONES_SEED = {
+    "transito_sin_documentacion": [
+        ("otro", "No reincidir en infracciones de tránsito por 6 meses", 0, "", ""),
+        ("curso", "Realizar Curso de Educación Vial - Dirección de Tránsito", 0, "", ""),
+    ],
+    "ruidos_molestos_nocturnos": [
+        ("otro", "No reincidir en conductas perturbadoras por 6 meses", 0, "", ""),
+        ("trabajo_comunitario", "Trabajo comunitario", 20, "horas", ""),
+        ("curso", "Taller de resolución pacífica de conflictos", 0, "", ""),
+    ],
+    "transito_alcoholemia": [
+        ("abstencion", "Abstenerse de conducir bajo efectos del alcohol por 1 año", 0, "", ""),
+        ("curso", "Curso de Conducción Responsable y Prevención Alcohol al Volante", 0, "", ""),
+        ("presentacion", "Controles de alcoholemia en los próximos 6 meses", 2, "controles", ""),
+        ("trabajo_comunitario", "Trabajo comunitario", 40, "horas", ""),
+    ],
+    "animales_sueltos": [
+        ("otro", "No reincidir en conductas perturbadoras por 6 meses", 0, "", ""),
+        ("trabajo_comunitario", "Trabajo comunitario en organismo a designar", 20, "horas", ""),
+    ],
+    "amenazas_leves": [
+        ("abstencion", "No acercarse a menos de 200 metros de la víctima por 6 meses", 0, "", ""),
+        ("otro", "No reincidir en conductas similares", 0, "", ""),
+        ("trabajo_comunitario", "Trabajo comunitario", 40, "horas", ""),
+        ("curso", "Programa de manejo de conflictos del Ministerio de Justicia", 0, "", ""),
+    ],
+    "establecimiento_horario": [
+        ("otro", "Adecuar establecimiento a horarios habilitados en 30 días", 0, "", ""),
+        ("otro", "No reincidir en infracciones similares por 1 año", 0, "", ""),
+        ("trabajo_comunitario", "Trabajo comunitario", 30, "horas", ""),
+    ],
+    "deterioro_bienes_publicos": [
+        ("otro", "No reincidir en conductas perturbadoras por 6 meses", 0, "", ""),
+        ("trabajo_comunitario", "Trabajo comunitario", 20, "horas", ""),
+    ],
+}
+
+# Avances parciales para condiciones con meta cuantitativa
+AVANCES_SEED = {
+    # persona_idx: {tipo_cond: avances}
+    1: {"trabajo_comunitario": [8, 8, 4]},    # Perez: 20h objetivo, 20 cargadas (cumplido)
+    2: {"trabajo_comunitario": [8, 8, 8, 8],  # Rodriguez: 40h objetivo, 32 cargadas
+        "controles": [1]},                     # 1 de 2 controles
+    3: {"trabajo_comunitario": [16, 4]},       # Lopez: 20h objetivo, 20 cargadas (cumplido)
+    10: {"trabajo_comunitario": [5]},          # Sanchez: apenas empezó
+}
+
+
+def _fecha(dias_atras):
+    return (date.today() - timedelta(days=dias_atras)).isoformat()
+
+
+def _dt(dias_atras):
+    return (datetime.now() - timedelta(days=dias_atras)).strftime("%Y-%m-%d %H:%M:%S")
+
+
+def ya_poblado():
+    with db.get_conn() as conn:
+        n = conn.execute("SELECT COUNT(*) as n FROM causas").fetchone()["n"]
+    return n >= 5
+
+
+def poblar():
+    """Inserta todos los datos demo en la base. Idempotente por DNI único."""
+    if ya_poblado():
+        return False
+
+    prefijos = {"norte": "UCN", "sur": "UCS", "genero": "UCG"}
+    numeros_causa = {}  # persona_idx -> causa_id
+
+    for idx, caso in enumerate(CASOS_SEED):
+        p = PERSONAS_DEMO[caso["persona_idx"]]
+
+        # Persona
+        pid = db.upsert_persona(p["dni"], p["apellido_nombre"], p["edad"],
+                                p["domicilio"], p["telefono"])
+
+        # Número de causa
+        pref = prefijos.get(caso["unidad"], "UCX")
+        numero = f"2025-{pref}-{idx+1:05d}"
+
+        clf = {"carril": caso["carril"], "accion": _accion(caso["carril"]),
+               "score": _score(caso["carril"])}
+
+        with db.get_conn() as conn:
+            existing = conn.execute("SELECT id FROM causas WHERE numero=?", (numero,)).fetchone()
+            if existing:
+                numeros_causa[caso["persona_idx"]] = existing["id"]
+                continue
+
+            cur = conn.execute("""
+                INSERT INTO causas
+                  (numero, persona_id, tipo_infraccion, descripcion, carril, accion,
+                   unidad, fiscal_asignado, estado, score_clasificacion, fecha_hecho, created_at, updated_at)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+            """, (
+                numero, pid, caso["tipo"], caso["desc"],
+                caso["carril"], clf["accion"],
+                caso["unidad"], "Dra. Ana Perez",
+                caso["estado"], clf["score"],
+                _fecha(caso["dias_atras"] + 3),
+                _dt(caso["dias_atras"]),
+                _dt(max(0, caso["dias_atras"] - 5)),
+            ))
+            causa_id = cur.lastrowid
+            numeros_causa[caso["persona_idx"]] = causa_id
+
+            # Timeline de estados
+            _insertar_timeline(conn, causa_id, caso["estado"], caso["dias_atras"])
+
+        # Seguimiento
+        if caso.get("seg"):
+            _crear_seg_demo(causa_id, caso, p)
+
+    return True
+
+
+def _accion(carril):
+    return {"verde": "Derivar a mediación", "amarillo": "Suspensión del proceso a prueba",
+            "rojo": "Proceso contravencional pleno"}.get(carril, "")
+
+
+def _score(carril):
+    return {"verde": 1.0, "amarillo": 2.2, "rojo": 3.8}.get(carril, 2.0)
+
+
+def _insertar_timeline(conn, causa_id, estado_final, dias_atras):
+    estados_map = {
+        "ingresada":    ["ingresada"],
+        "clasificada":  ["ingresada", "clasificada"],
+        "notificada":   ["ingresada", "clasificada", "notificada"],
+        "en_mediacion": ["ingresada", "clasificada", "notificada", "en_mediacion"],
+        "resuelta":     ["ingresada", "clasificada", "notificada", "resuelta"],
+        "archivada":    ["ingresada", "clasificada", "notificada", "resuelta", "archivada"],
+    }
+    estados = estados_map.get(estado_final, ["ingresada", "clasificada"])
+    step = max(1, dias_atras // len(estados))
+    ant = None
+    for i, est in enumerate(estados):
+        dias = dias_atras - i * step
+        conn.execute(
+            """INSERT INTO estados_causa
+               (causa_id, estado_anterior, estado_nuevo, usuario, observaciones, created_at)
+               VALUES (?,?,?,?,?,?)""",
+            (causa_id, ant, est, "Dra. Ana Perez", _obs(est), _dt(dias))
+        )
+        ant = est
+
+
+def _obs(estado):
+    return {
+        "ingresada":    "Causa ingresada por parte policial",
+        "clasificada":  "Clasificación automática SIATC",
+        "notificada":   "Cédula de citación emitida",
+        "en_mediacion": "Derivada al Centro Judicial de Mediación",
+        "resuelta":     "Dictamen de suspensión del proceso a prueba suscripto",
+        "archivada":    "Seguimiento completado satisfactoriamente. Causa archivada.",
+    }.get(estado, "")
+
+
+def _crear_seg_demo(causa_id, caso, persona):
+    tipo_res = "suspension" if caso["carril"] in ("amarillo", "rojo") else "mediacion"
+    meses = caso.get("seg_meses", 6)
+    dias = caso["dias_atras"]
+
+    fecha_inicio = _fecha(dias)
+    fecha_fin_dt = date.today() - timedelta(days=dias) + timedelta(days=meses * 30)
+    fecha_fin = fecha_fin_dt.isoformat()
+
+    seg_id = db.crear_seguimiento(
+        causa_id=causa_id,
+        tipo_resolucion=tipo_res,
+        fecha_inicio=fecha_inicio,
+        fecha_fin=fecha_fin,
+        fiscal="Dra. Ana Perez",
+        observaciones=""
+    )
+
+    # Condiciones
+    conds = CONDICIONES_SEED.get(caso["tipo"], [
+        ("otro", "No reincidir en conductas similares por 6 meses", 0, "", ""),
+        ("trabajo_comunitario", "Trabajo comunitario en organismo a designar", 20, "horas", ""),
+    ])
+
+    pid = caso["persona_idx"]
+    avances_persona = AVANCES_SEED.get(pid, {})
+
+    cond_ids = {}
+    for tipo, desc, objetivo, unidad, flim in conds:
+        cid = db.agregar_condicion(seg_id, tipo, desc, objetivo, unidad, flim)
+        cond_ids[tipo] = cid
+
+    # Registrar avances parciales
+    for tipo_cond, avances in avances_persona.items():
+        cid = cond_ids.get(tipo_cond)
+        if not cid:
+            continue
+        base_dia = dias - 5
+        for av in avances:
+            base_dia -= 7
+            db.registrar_avance(cid, _fecha(max(0, base_dia)), av, "Acreditado por certificado", "Dra. Ana Perez")
+
+    # Marcar condiciones como cumplidas si el seguimiento fue exitoso
+    if caso.get("seg_estado") == "cumplido":
+        for cid in cond_ids.values():
+            db.marcar_condicion(cid, "cumplido")
+
+    # Cerrar seguimiento si corresponde
+    if caso.get("seg_estado") in ("cumplido", "incumplido", "revocado"):
+        db.cerrar_seguimiento(seg_id, caso["seg_estado"])

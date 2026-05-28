@@ -24,11 +24,15 @@ from database import (
     guardar_causa, avanzar_estado, listar_causas, get_causa, get_timeline,
     guardar_documento, listar_documentos, stats_generales, causas_por_tipo,
     historial_persona, upsert_persona, ESTADOS, ESTADOS_LABEL,
+    listar_seguimientos, stats_seguimiento,
 )
 from seguimiento_tab import render_tab_seguimiento
+from demo_seed import poblar, ya_poblado
 
 # ── Init ───────────────────────────────────────────────────────────────────────
 init_db()
+if not ya_poblado():
+    poblar()
 
 st.set_page_config(
     page_title="SIATC — Sistema Inteligente Contravencional",
@@ -72,6 +76,45 @@ with st.sidebar:
     col2.metric("🟡", stats["por_carril"].get("amarillo", 0))
     col1.metric("🔴", stats["por_carril"].get("rojo", 0))
     col2.metric("👤 Personas", stats["personas"])
+
+    # ── Alertas de seguimiento ─────────────────────────────────────────────
+    st.markdown("---")
+    seg_stats = stats_seguimiento()
+    if seg_stats["total"] > 0:
+        st.markdown("**🔔 Seguimientos activos**")
+        col_s1, col_s2 = st.columns(2)
+        col_s1.metric("Activos", seg_stats["activos"])
+        col_s2.metric("Cumplidos", seg_stats["cumplidos"])
+        if seg_stats["vencidos"] > 0:
+            st.error(f"⚠️ {seg_stats['vencidos']} seguimiento(s) vencido(s) sin cierre")
+        if seg_stats["incumplidos"] > 0:
+            st.warning(f"❌ {seg_stats['incumplidos']} incumplido(s)")
+
+        # Próximos vencimientos
+        from datetime import date as _date
+        activos = listar_seguimientos(estado="activo")
+        proximos = []
+        for s in activos:
+            try:
+                fin = datetime.strptime(s["fecha_fin"], "%Y-%m-%d").date()
+                dias = (fin - _date.today()).days
+                if dias <= 30:
+                    proximos.append((dias, s))
+            except Exception:
+                pass
+        proximos.sort(key=lambda x: x[0])
+        if proximos:
+            st.markdown("**⏳ Vencen pronto:**")
+            for dias, s in proximos[:4]:
+                if dias < 0:
+                    st.caption(f"🔴 {s['apellido_nombre'].split(',')[0]} — vencido hace {abs(dias)}d")
+                elif dias == 0:
+                    st.caption(f"🔴 {s['apellido_nombre'].split(',')[0]} — vence HOY")
+                elif dias <= 7:
+                    st.caption(f"🟠 {s['apellido_nombre'].split(',')[0]} — {dias}d")
+                else:
+                    st.caption(f"🟡 {s['apellido_nombre'].split(',')[0]} — {dias}d")
+
     st.markdown(f"*{datetime.now().strftime('%d/%m/%Y %H:%M')}*")
 
 # ── Header ─────────────────────────────────────────────────────────────────────
@@ -536,3 +579,64 @@ with tab_panel:
                 st.plotly_chart(fig4, use_container_width=True)
 
         st.markdown(f"*Datos reales del sistema · {stats['personas']} personas registradas · {stats['reincidentes']} con más de una causa*")
+
+        # ── Bloque seguimiento ─────────────────────────────────────────────
+        st.markdown("---")
+        st.subheader("🔍 Seguimientos post-resolución")
+        seg_s = stats_seguimiento()
+        if seg_s["total"] == 0:
+            st.info("No hay seguimientos registrados aún.")
+        else:
+            cs1, cs2, cs3, cs4, cs5 = st.columns(5)
+            cs1.metric("Total", seg_s["total"])
+            cs2.metric("🟡 Activos", seg_s["activos"])
+            cs3.metric("🟢 Cumplidos", seg_s["cumplidos"])
+            cs4.metric("🔴 Incumplidos", seg_s["incumplidos"])
+            cs5.metric("⚠️ Vencidos s/cierre", seg_s["vencidos"],
+                       delta="revisar" if seg_s["vencidos"] else None,
+                       delta_color="inverse")
+
+            # Gráfico de estados de seguimiento
+            col_sg1, col_sg2 = st.columns(2)
+            with col_sg1:
+                labels_seg = ["Activos", "Cumplidos", "Incumplidos", "Revocados"]
+                valores_seg = [
+                    seg_s["activos"], seg_s["cumplidos"],
+                    seg_s["incumplidos"],
+                    seg_s["total"] - seg_s["activos"] - seg_s["cumplidos"] - seg_s["incumplidos"]
+                ]
+                valores_seg = [v for v in valores_seg if v >= 0]
+                if sum(valores_seg) > 0:
+                    fig_seg = go.Figure(go.Pie(
+                        labels=labels_seg[:len(valores_seg)],
+                        values=valores_seg,
+                        marker_colors=["#F39C12","#2ECC71","#E74C3C","#95A5A6"],
+                        hole=0.4, textinfo="label+value",
+                    ))
+                    fig_seg.update_layout(title="Estado de seguimientos", showlegend=False, height=280)
+                    st.plotly_chart(fig_seg, use_container_width=True)
+
+            with col_sg2:
+                # Tabla de seguimientos activos con días restantes
+                from datetime import date as _d2
+                activos_list = listar_seguimientos(estado="activo")
+                if activos_list:
+                    rows_seg = []
+                    for s in activos_list:
+                        try:
+                            fin = datetime.strptime(s["fecha_fin"], "%Y-%m-%d").date()
+                            dias = (fin - _d2.today()).days
+                        except Exception:
+                            dias = 0
+                        rows_seg.append({
+                            "Imputado": s["apellido_nombre"].split(",")[0],
+                            "Expediente": s["numero"],
+                            "Vencimiento": s["fecha_fin"],
+                            "Días": dias,
+                            "Alerta": "🔴 VENCIDO" if dias < 0 else ("🟠 URGENTE" if dias <= 7 else ("🟡 PRONTO" if dias <= 30 else "🟢 OK"))
+                        })
+                    df_seg = pd.DataFrame(rows_seg).sort_values("Días")
+                    st.dataframe(df_seg, use_container_width=True, hide_index=True,
+                                 column_config={"Días": st.column_config.NumberColumn("Días rest.")})
+                else:
+                    st.info("No hay seguimientos activos.")
