@@ -49,7 +49,8 @@ def render_perfil(persona_id: int):
   <h3 style='margin:0'>{p['apellido_nombre']}</h3>
   <p style='margin:0.2rem 0 0 0;opacity:0.85'>
     DNI: {p['dni']} &nbsp;|&nbsp; Edad: {p.get('edad','-')} años &nbsp;|&nbsp;
-    Domicilio: {p.get('domicilio','-')}
+    Tel.: {p.get('telefono') or '—'} &nbsp;|&nbsp;
+    Dom.: {p.get('domicilio','-')}
   </p>
 </div>
 """, unsafe_allow_html=True)

@@ -301,7 +301,8 @@ def listar_causas(estado: str = None, carril: str = None, unidad: str = None,
                   busqueda: str = None, limit: int = 200) -> list[dict]:
     sql = """
         SELECT c.*, p.apellido_nombre, p.dni as persona_dni,
-               p.edad as persona_edad, p.domicilio as persona_domicilio
+               p.edad as persona_edad, p.domicilio as persona_domicilio,
+               p.telefono as persona_telefono
         FROM causas c
         LEFT JOIN personas p ON c.persona_id = p.id
         WHERE 1=1

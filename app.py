@@ -253,11 +253,14 @@ with tab_nuevo:
         edad_default   = persona_encontrada["edad"]             if persona_encontrada else 30
 
         nombre = st.text_input("Apellido y nombre", value=nombre_default, placeholder="Ej: García, Lucas Damián")
-        col_e, col_d = st.columns(2)
+        col_e, col_d, col_t = st.columns(3)
         with col_e:
             edad = st.number_input("Edad", min_value=16, max_value=99, value=edad_default)
         with col_d:
             domicilio = st.text_input("Domicilio", value=persona_encontrada.get("domicilio","") if persona_encontrada else "")
+        with col_t:
+            telefono = st.text_input("Teléfono", value=persona_encontrada.get("telefono","") if persona_encontrada else "",
+                                     placeholder="Ej: (0351) 4123456")
 
         # Antecedentes: DB tiene prioridad, manual como fallback
         if persona_encontrada:
@@ -296,7 +299,7 @@ with tab_nuevo:
                 "tipo": tipo, "imputado": nombre, "dni": dni_input,
                 "edad": edad, "antecedentes": antecedentes,
                 "descripcion": descripcion, "unidad": unidad_key,
-                "domicilio": domicilio,
+                "domicilio": domicilio, "telefono": telefono,
                 "victima": victima, "lesiones": lesiones, "resistencia": resistencia,
                 "fecha_hecho": fecha_hecho.isoformat(),
             }
@@ -490,6 +493,9 @@ with tab_causas:
                     if _col_pfil.button("👤 Ver perfil", key=f"pfil_{c['id']}", use_container_width=True):
                         st.session_state["perfil_busqueda"] = c["persona_dni"]
                         st.session_state["goto_perfil"] = True
+                    _tel = c.get("persona_telefono") or "—"
+                    _dom = c.get("persona_domicilio") or "—"
+                    st.markdown(f"📞 **Tel.:** {_tel}  |  🏠 **Dom.:** {_dom}")
                     st.markdown(f"**Descripción:** {c.get('descripcion') or '—'}")
                     _fh = c.get("fecha_hecho","")
                     _fecha_hecho_str = _fh[:10] if _fh else "—"
