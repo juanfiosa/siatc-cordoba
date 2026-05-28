@@ -7,6 +7,7 @@ Ministerio Público Fiscal de Córdoba
 import streamlit as st
 from datetime import date, datetime, timedelta
 import database as db
+from database import agregar_nota_causa
 from data_cordoba import TIPOS_INFRACCION, UNIDADES
 
 CARRIL_COLOR = {"verde": "🟢", "amarillo": "🟡", "rojo": "🔴"}
@@ -182,12 +183,25 @@ def _lista_audiencias(fiscal):
                     if nuevo != "programada":
                         if st.button("Aplicar", key=f"aud_apply_{a['id']}", type="primary"):
                             db.actualizar_estado_audiencia(a["id"], nuevo, obs_aud)
-                            # Si hubo ausencia, agregar nota en la causa
+                            # Si hubo ausencia, registrar nota automática en la causa
                             if nuevo == "ausente":
-                                db.avanzar_estado(
-                                    a["causa_id"], "notificada", fiscal,
-                                    f"Incomparecencia a audiencia del {a['fecha']}. Se evalúa continuación del proceso."
-                                ) if False else None  # solo informativo
+                                _tipo_lbl = TIPO_LABEL.get(a.get("tipo", ""), a.get("tipo", ""))
+                                db.agregar_nota_causa(
+                                    a["causa_id"],
+                                    f"INCOMPARECENCIA: Imputado/a no se presentó a {_tipo_lbl} "
+                                    f"del {a['fecha']} a las {a.get('hora','')}.  "
+                                    f"Se registra incumplimiento de citación. Evaluar continuación del proceso.",
+                                    fiscal,
+                                )
+                            elif nuevo == "realizada":
+                                _tipo_lbl = TIPO_LABEL.get(a.get("tipo", ""), a.get("tipo", ""))
+                                db.agregar_nota_causa(
+                                    a["causa_id"],
+                                    f"AUDIENCIA REALIZADA: {_tipo_lbl} del {a['fecha']} a las "
+                                    f"{a.get('hora','')} efectuada con presencia del imputado/a."
+                                    + (f" Obs: {obs_aud}" if obs_aud.strip() else ""),
+                                    fiscal,
+                                )
                             st.rerun()
                 else:
                     st.markdown(f"**Estado:** {ESTADO_BADGE.get(a['estado'], a['estado'])}")

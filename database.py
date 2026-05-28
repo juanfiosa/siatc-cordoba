@@ -567,6 +567,21 @@ def stats_tiempos_resolucion() -> dict:
     return por_carril
 
 
+def causas_mes_actual_vs_anterior() -> dict:
+    """Compara causas ingresadas este mes vs. el anterior.
+    Retorna {actual, anterior, delta, pct_cambio}."""
+    with get_conn() as conn:
+        actual = conn.execute(
+            "SELECT COUNT(*) as n FROM causas WHERE strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now', 'localtime')"
+        ).fetchone()["n"]
+        anterior = conn.execute(
+            "SELECT COUNT(*) as n FROM causas WHERE strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now', '-1 month', 'localtime')"
+        ).fetchone()["n"]
+    delta = actual - anterior
+    pct = round(delta * 100 / anterior) if anterior else None
+    return {"actual": actual, "anterior": anterior, "delta": delta, "pct_cambio": pct}
+
+
 def causas_por_fiscal() -> list[dict]:
     """Retorna cantidad de causas por fiscal asignado."""
     with get_conn() as conn:

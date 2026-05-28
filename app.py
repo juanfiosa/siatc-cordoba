@@ -29,6 +29,7 @@ from database import (
     get_seguimiento_por_causa, get_condiciones, stats_tiempos_resolucion,
     causas_inactivas, causas_sin_audiencia_programada, personas_reincidentes,
     actividad_reciente, stats_edad, stats_edad_por_carril,
+    causas_mes_actual_vs_anterior,
 )
 from seguimiento_tab import render_tab_seguimiento
 from agenda_tab import render_tab_agenda
@@ -248,6 +249,16 @@ with tab_nuevo:
         st.markdown("#### Datos del imputado/a")
 
         dni_input = st.text_input("D.N.I.", placeholder="Ej: 38.421.667", key="dni_nuevo")
+
+        # Validación de formato DNI
+        _dni_digits = dni_input.replace(".", "").replace("-", "").replace(" ", "")
+        if dni_input and _dni_digits:
+            if not _dni_digits.isdigit():
+                st.warning("⚠️ El DNI solo debe contener dígitos (y opcionalmente puntos o guiones).")
+            elif len(_dni_digits) < 7:
+                st.warning("⚠️ DNI demasiado corto — los DNI argentinos tienen 7 a 8 dígitos.")
+            elif len(_dni_digits) > 9:
+                st.warning("⚠️ DNI demasiado largo — verificá el número ingresado.")
 
         # Lookup automático por DNI
         persona_encontrada = None
@@ -885,6 +896,22 @@ with tab_panel:
         col3.metric("🟡 Suspensión",  amarillo_n, f"{amarillo_n*100//total}%" if total else "")
         col4.metric("🔴 Proceso",     rojo_n,     f"{rojo_n*100//total}%" if total else "")
         col5.metric("Sin condena", f"{no_punitivo*100//total}%" if total else "0%")
+
+        # Mes actual vs. anterior
+        _mom = causas_mes_actual_vs_anterior()
+        _delta_lbl = (f"+{_mom['delta']}" if _mom["delta"] >= 0 else str(_mom["delta"]))
+        _pct_lbl   = (f" ({_mom['pct_cambio']:+d}% vs. mes anterior)" if _mom["pct_cambio"] is not None else "")
+        _col_mom_txt = (
+            f"📅 **Este mes:** {_mom['actual']} causas &nbsp;|&nbsp; "
+            f"Mes anterior: {_mom['anterior']} &nbsp;|&nbsp; "
+            f"Diferencia: **{_delta_lbl}{_pct_lbl}**"
+        )
+        if _mom["delta"] > 0:
+            st.warning(_col_mom_txt)
+        elif _mom["delta"] < 0:
+            st.success(_col_mom_txt)
+        else:
+            st.info(_col_mom_txt)
 
         st.markdown("---")
         col_g1, col_g2 = st.columns(2)
