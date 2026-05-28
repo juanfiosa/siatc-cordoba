@@ -292,6 +292,20 @@ with tab_nuevo:
             for f in clf["fundamento"]:
                 st.markdown(f"• {f}")
 
+            # Casos similares (misma infracción, en el sistema)
+            _similares = listar_causas(limit=100)
+            _similares = [c for c in _similares if c.get("tipo_infraccion") == tipo][:4]
+            if _similares:
+                with st.expander(f"📂 {len(_similares)} caso(s) similar(es) en el sistema"):
+                    for sc in _similares:
+                        _sc_inf = TIPOS_INFRACCION.get(sc["tipo_infraccion"], {})
+                        _ic     = {"verde":"🟢","amarillo":"🟡","rojo":"🔴"}.get(sc.get("carril",""),"⚪")
+                        _est    = ESTADOS_LABEL.get(sc["estado"], sc["estado"])
+                        st.markdown(
+                            f"**{sc['numero']}** — {sc.get('apellido_nombre','').split(',')[0]} &nbsp; "
+                            f"{_ic} {sc.get('carril','').capitalize()} &nbsp;|&nbsp; {_est}"
+                        )
+
             st.markdown("---")
 
             # Documento
