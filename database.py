@@ -154,6 +154,26 @@ def init_db():
         """)
 
 
+def reset_db():
+    """Trunca todas las tablas y reinicia las secuencias de autoincrement.
+    Más confiable que eliminar el archivo cuando Streamlit mantiene conexiones abiertas."""
+    with get_conn() as conn:
+        conn.executescript("""
+        DELETE FROM registros_cumplimiento;
+        DELETE FROM condiciones;
+        DELETE FROM seguimientos;
+        DELETE FROM audiencias;
+        DELETE FROM documentos;
+        DELETE FROM estados_causa;
+        DELETE FROM causas;
+        DELETE FROM personas;
+        DELETE FROM sqlite_sequence WHERE name IN (
+            'registros_cumplimiento','condiciones','seguimientos','audiencias',
+            'documentos','estados_causa','causas','personas'
+        );
+        """)
+
+
 # ── Personas ───────────────────────────────────────────────────────────────────
 
 def buscar_persona_por_dni(dni: str) -> dict | None:

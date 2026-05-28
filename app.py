@@ -21,7 +21,7 @@ from document_gen import (
 )
 from pdf_gen import generar_pdf, pdf_reporte_diario
 from database import (
-    init_db, buscar_persona_por_dni, contar_antecedentes,
+    init_db, reset_db, buscar_persona_por_dni, contar_antecedentes,
     guardar_causa, avanzar_estado, agregar_nota_causa, listar_causas, get_causa, get_timeline,
     guardar_documento, listar_documentos, stats_generales, causas_por_tipo,
     historial_persona, upsert_persona, ESTADOS, ESTADOS_LABEL,
@@ -155,9 +155,25 @@ with st.sidebar:
     if _q_rapid:
         st.session_state["busqueda_rapida_causas"] = _q_rapid
 
+    # Últimas causas modificadas
+    _ultimas = listar_causas(limit=4)
+    if _ultimas:
+        st.markdown("---")
+        st.markdown("**📂 Últimas causas**")
+        for _uc in _ultimas:
+            _ic_uc = {"verde":"🟢","amarillo":"🟡","rojo":"🔴"}.get(_uc.get("carril",""),"⚪")
+            _nombre_c = (_uc.get("apellido_nombre","") or "").split(",")[0]
+            if st.button(
+                f"{_ic_uc} {_uc['numero'][:14]}\n{_nombre_c}",
+                key=f"sb_uc_{_uc['id']}",
+                use_container_width=True,
+            ):
+                st.session_state["gc_busqueda"] = _uc["numero"]
+                st.session_state["causa_sel_id"] = _uc["id"]
+
     st.markdown("---")
     st.caption(
-        f"v1.0-demo · {datetime.now().strftime('%d/%m/%Y')}\n\n"
+        f"v1.1-demo · {datetime.now().strftime('%d/%m/%Y')}\n\n"
         "[GitHub](https://github.com/juanfiosa/siatc-cordoba)"
     )
 
@@ -1339,12 +1355,10 @@ with tab_panel:
                 confirmar = st.checkbox("Confirmo que quiero borrar todos los datos")
                 if st.button("🔄 Restablecer datos demo", disabled=not confirmar,
                              type="secondary"):
-                    import os
-                    from database import DB_PATH
                     try:
-                        os.remove(DB_PATH)
-                    except Exception:
-                        pass
+                        reset_db()   # trunca tablas (más confiable que borrar el archivo)
+                    except Exception as _re:
+                        st.warning(f"Reset parcial: {_re}")
                     init_db()
                     poblar()
                     st.session_state.intro_vista = True   # no mostrar bienvenida de nuevo
