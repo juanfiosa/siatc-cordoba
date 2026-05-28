@@ -218,6 +218,77 @@ AYUDANTE FISCAL
 """.strip()
 
 
+def generar_requerimiento_apertura(caso: dict, clasificacion: dict, fiscal_nombre: str, unidad_key: str) -> str:
+    """
+    Requerimiento Fiscal de Apertura del Proceso Contravencional.
+    Aplicable a causas en carril rojo (proceso pleno).
+    """
+    infraccion = TIPOS_INFRACCION.get(caso["tipo"], {})
+    unidad = UNIDADES.get(unidad_key, UNIDADES["norte"])
+    fecha = _fecha_formal()
+
+    agravantes = []
+    if caso.get("antecedentes", 0) >= 2:
+        agravantes.append(f"reincidencia comprobada ({caso['antecedentes']} causas previas)")
+    if caso.get("lesiones"):
+        agravantes.append("lesiones físicas constatadas")
+    if caso.get("resistencia"):
+        agravantes.append("resistencia o desobediencia a la autoridad policial")
+    agravantes_str = " / ".join(agravantes) if agravantes else "gravedad objetiva del hecho"
+
+    return f"""
+MINISTERIO PÚBLICO FISCAL DE LA PROVINCIA DE CÓRDOBA
+{unidad.upper()}
+
+─────────────────────────────────────────────────────────────────
+REQUERIMIENTO FISCAL DE APERTURA DEL PROCESO CONTRAVENCIONAL
+─────────────────────────────────────────────────────────────────
+
+Expediente N°: {_numero_expediente(caso['numero'])}
+Córdoba, {fecha}
+
+AL SR./SRA. JUEZ/A CONTRAVENCIONAL:
+
+El/la Ayudante Fiscal que suscribe, {fiscal_nombre}, a cargo de la Unidad
+Contravencional {unidad_key.capitalize()}, en la causa caratulada:
+"{caso['imputado'].upper()} — infracción al {infraccion.get('articulo', 'Código de Convivencia Ciudadana')}",
+Expte. N° {_numero_expediente(caso['numero'])}, dice:
+
+I. HECHO IMPUTADO
+
+Se le imputa a {caso['imputado']}, D.N.I. N° {caso['dni']}, de {caso['edad']} años de
+edad, haber incurrido en la conducta encuadrable en el {infraccion.get('articulo', 'artículo pertinente')}
+de la Ley Provincial N° 10.326 (Código de Convivencia Ciudadana de Córdoba).
+
+Descripción del hecho: {caso.get('descripcion', '—')}
+
+II. FUNDAMENTOS DE LA APERTURA
+
+Esta Fiscalía considera que el presente caso NO resulta procedente para las vías
+alternativas (mediación o suspensión del proceso a prueba), en atención a:
+
+  a) {agravantes_str.capitalize()}.
+  b) La naturaleza del hecho imputado requiere una investigación y debate oral.
+  c) El resultado del sistema de triaje automatizado SIATC arroja CARRIL ROJO
+     (score: {clasificacion.get('score', '—')}) conforme a los parámetros de la
+     Resolución General de este Ministerio.
+
+III. PETITORIO
+
+Por los fundamentos expuestos, esta Fiscalía REQUIERE:
+
+  1. La apertura formal del proceso contravencional.
+  2. Se convoque a {caso['imputado']} a audiencia en los términos del art. 56
+     y ss. del Código de Convivencia Ciudadana.
+  3. Se adopten las medidas cautelares que el Tribunal considere pertinentes.
+
+{"—" * 64}
+{fiscal_nombre.upper()}
+AYUDANTE FISCAL
+{unidad}
+""".strip()
+
+
 def generar_resumen_ejecutivo(caso: dict, clasificacion: dict) -> str:
     infraccion = TIPOS_INFRACCION.get(caso["tipo"], {})
     t = clasificacion

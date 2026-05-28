@@ -772,6 +772,103 @@ def pdf_perfil_persona(perfil: dict, fiscal_nombre: str, unidad_key: str) -> byt
     return buf.getvalue()
 
 
+# -- Requerimiento de apertura -------------------------------------------------
+
+def pdf_requerimiento_apertura(caso: dict, clf: dict, fiscal_nombre: str, unidad_key: str) -> bytes:
+    """Requerimiento Fiscal de Apertura del Proceso Contravencional (carril rojo)."""
+    from data_cordoba import TIPOS_INFRACCION, UNIDADES
+    infraccion = TIPOS_INFRACCION.get(caso.get("tipo", ""), {})
+    unidad_str = UNIDADES.get(unidad_key, UNIDADES.get("norte", ""))
+
+    pdf = PDFMPFBase()
+    pdf.add_page()
+
+    # Encabezado del documento
+    pdf.titulo_documento("REQUERIMIENTO FISCAL DE APERTURA DEL PROCESO CONTRAVENCIONAL")
+    pdf.ln(4)
+
+    # Expediente y fecha
+    numero_exp = caso.get("numero", "")
+    pdf._sf("B", 10)
+    pdf.set_text_color(*AZUL_MPF)
+    pdf.cell(35, 6, "Expediente N:")
+    pdf._sf("", 10)
+    pdf.set_text_color(*NEGRO)
+    pdf.cell(0, 6, _s(numero_exp), ln=True)
+    pdf._sf("B", 10)
+    pdf.set_text_color(*AZUL_MPF)
+    pdf.cell(35, 6, "Fecha:")
+    pdf._sf("", 10)
+    pdf.set_text_color(*NEGRO)
+    meses = ["enero","febrero","marzo","abril","mayo","junio",
+             "julio","agosto","septiembre","octubre","noviembre","diciembre"]
+    now = datetime.now()
+    pdf.cell(0, 6, _s(f"{now.day} de {meses[now.month-1]} de {now.year}"), ln=True)
+    pdf.ln(4)
+
+    # Destinatario
+    pdf.set_fill_color(240, 243, 250)
+    pdf._sf("B", 10)
+    pdf.set_text_color(*AZUL_MPF)
+    pdf.cell(0, 7, "AL SR./SRA. JUEZ/A CONTRAVENCIONAL:", fill=True, ln=True)
+    pdf.set_text_color(*NEGRO)
+    pdf.ln(3)
+
+    articulo = infraccion.get("articulo", "Codigo de Convivencia Ciudadana")
+    imputado = caso.get("imputado", "")
+    dni = caso.get("dni", "")
+    edad = caso.get("edad", "")
+    antec = caso.get("antecedentes", 0)
+    desc = caso.get("descripcion", "")
+    score = clf.get("score", "") if clf else ""
+
+    # Sección I
+    intro_hecho = (f"Se le imputa a {imputado}, D.N.I. N {dni}, de {edad} anos de edad, "
+                   f"haber incurrido en la conducta encuadrable en el {articulo} "
+                   f"de la Ley Provincial N 10.326 (Codigo de Convivencia Ciudadana). "
+                   f"Descripcion del hecho: {desc}")
+    pdf.seccion("I. HECHO IMPUTADO", intro_hecho)
+    pdf.ln(2)
+
+    # Sección II
+    fundamentos = ["Esta Fiscalia considera que el presente caso NO resulta procedente "
+                   "para las vias alternativas (mediacion o suspension del proceso a prueba):"]
+    if antec >= 2:
+        fundamentos.append(f"  - Reincidencia comprobada: {antec} causas contravencionales previas.")
+    if caso.get("lesiones"):
+        fundamentos.append("  - Lesiones fisicas constatadas por el personal policial interviniente.")
+    if caso.get("resistencia"):
+        fundamentos.append("  - Resistencia o desobediencia a la autoridad policial.")
+    fundamentos.append(f"  - Sistema SIATC asigna CARRIL ROJO (score: {score}).")
+    fundamentos.append("  - La gravedad objetiva del hecho requiere investigacion y debate oral.")
+    pdf.seccion("II. FUNDAMENTOS DE LA APERTURA", "\n".join(fundamentos))
+    pdf.ln(2)
+
+    # Sección III
+    petitorio_txt = (f"Por los fundamentos expuestos, esta Fiscalia REQUIERE: "
+                     f"1) La apertura formal del proceso contravencional. "
+                     f"2) Se convoque a {imputado} a audiencia conforme arts. 56 y ss. del CCC. "
+                     f"3) Se adopten las medidas cautelares que el Tribunal considere pertinentes.")
+    pdf.seccion("III. PETITORIO", petitorio_txt)
+    pdf.ln(8)
+
+    # Firma
+    pdf.set_draw_color(*AZUL_MPF)
+    pdf.line(pdf.get_x(), pdf.get_y(), pdf.get_x() + 70, pdf.get_y())
+    pdf.ln(3)
+    pdf._sf("B", 10)
+    pdf.set_text_color(*AZUL_MPF)
+    pdf.cell(0, 5, _s(fiscal_nombre.upper()), ln=True)
+    pdf._sf("", 9)
+    pdf.set_text_color(*NEGRO)
+    pdf.cell(0, 5, "AYUDANTE FISCAL", ln=True)
+    pdf.cell(0, 5, _s(unidad_str), ln=True)
+
+    buf = BytesIO()
+    pdf.output(buf)
+    return buf.getvalue()
+
+
 # -- Punto de entrada ---------------------------------------------------------
 
 def generar_pdf(tipo_doc, caso, clf, fiscal, unidad):
@@ -787,7 +884,9 @@ def generar_pdf(tipo_doc, caso, clf, fiscal, unidad):
         caso.setdefault("antecedentes", 0)
         caso.setdefault("domicilio",    caso.get("persona_domicilio", ""))
     t = tipo_doc.lower()
-    if "mediaci" in t:
+    if "requerimiento" in t or "apertura" in t:
+        return pdf_requerimiento_apertura(caso, clf, fiscal, unidad)
+    elif "mediaci" in t:
         return pdf_dictamen_mediacion(caso, clf, fiscal, unidad)
     elif "suspensi" in t or "prueba" in t:
         return pdf_dictamen_suspension(caso, clf, fiscal, unidad)

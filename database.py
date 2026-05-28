@@ -317,8 +317,9 @@ def listar_causas(estado: str = None, carril: str = None, unidad: str = None,
         sql += " AND c.unidad = ?"
         params.append(unidad)
     if busqueda:
-        sql += " AND (p.apellido_nombre LIKE ? OR c.numero LIKE ? OR p.dni LIKE ?)"
-        params.extend([f"%{busqueda}%"] * 3)
+        sql += """ AND (p.apellido_nombre LIKE ? OR c.numero LIKE ? OR p.dni LIKE ?
+                        OR c.tipo_infraccion LIKE ? OR c.descripcion LIKE ?)"""
+        params.extend([f"%{busqueda}%"] * 5)
     sql += " ORDER BY c.created_at DESC LIMIT ?"
     params.append(limit)
     with get_conn() as conn:

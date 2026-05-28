@@ -17,6 +17,7 @@ from document_gen import (
     generar_dictamen_suspension,
     generar_citacion,
     generar_resumen_ejecutivo,
+    generar_requerimiento_apertura,
 )
 from pdf_gen import generar_pdf, pdf_reporte_diario
 from database import (
@@ -340,7 +341,7 @@ with tab_nuevo:
             elif clf["carril"] == "amarillo":
                 doc_ops = ["Dictamen de suspensión del proceso a prueba", "Cédula de citación", "Dictamen de derivación a mediación"]
             else:
-                doc_ops = ["Cédula de citación a audiencia", "Resumen ejecutivo del caso"]
+                doc_ops = ["Requerimiento de apertura del proceso", "Cédula de citación a audiencia", "Resumen ejecutivo del caso"]
             doc_sel = st.selectbox("Documento a generar", doc_ops)
 
             col_btn1, col_btn2 = st.columns(2)
@@ -366,6 +367,8 @@ with tab_nuevo:
                     doc = generar_dictamen_mediacion(caso_doc, clf, fiscal_nombre, unidad_key)
                 elif doc_sel == "Dictamen de suspensión del proceso a prueba":
                     doc = generar_dictamen_suspension(caso_doc, clf, fiscal_nombre, unidad_key)
+                elif "Requerimiento" in doc_sel:
+                    doc = generar_requerimiento_apertura(caso_doc, clf, fiscal_nombre, unidad_key)
                 elif "citación" in doc_sel.lower():
                     motivo = "mediacion" if "mediación" in doc_sel else "audiencia"
                     doc = generar_citacion(caso_doc, fiscal_nombre, unidad_key, motivo)
@@ -605,6 +608,11 @@ with tab_causas:
                     }
                     if c.get("carril") == "verde":
                         doc_opts_causa = ["Dictamen de derivación a mediación", "Cédula de citación a mediación"]
+                    elif c.get("carril") == "rojo":
+                        doc_opts_causa = ["Requerimiento de apertura del proceso", "Cédula de citación a audiencia",
+                                          "Resumen ejecutivo"]
+                        if c.get("estado") in ("resuelta", "archivada"):
+                            doc_opts_causa += ["Informe de incumplimiento"]
                     elif c.get("estado") in ("resuelta", "archivada"):
                         doc_opts_causa = ["Dictamen de suspensión a prueba", "Acta de compromiso",
                                           "Informe de incumplimiento", "Cédula de citación", "Resumen ejecutivo"]
@@ -615,6 +623,8 @@ with tab_causas:
                         _needs_rerun = True
                         if doc_tipo == "Dictamen de derivación a mediación":
                             doc_txt = generar_dictamen_mediacion(caso_stored, clf_stored, fiscal_nombre, caso_stored["unidad"])
+                        elif "Requerimiento" in doc_tipo:
+                            doc_txt = generar_requerimiento_apertura(caso_stored, clf_stored, fiscal_nombre, caso_stored["unidad"])
                         elif "suspensión" in doc_tipo or "prueba" in doc_tipo:
                             doc_txt = generar_dictamen_suspension(caso_stored, clf_stored, fiscal_nombre, caso_stored["unidad"])
                         elif "Acta de compromiso" in doc_tipo:
