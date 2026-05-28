@@ -411,7 +411,9 @@ with tab_causas:
         from collections import Counter as _Cnt
         _cnt = _Cnt(c.get("carril","") for c in causas)
         _cnt_est = _Cnt(c.get("estado","") for c in causas)
-        st.markdown(
+
+        _sum_col, _ord_col = st.columns([4, 1])
+        _sum_col.markdown(
             f"**{len(causas)} causa{'s' if len(causas)!=1 else ''}** &nbsp;—&nbsp; "
             f"🟢 {_cnt.get('verde',0)} &nbsp; 🟡 {_cnt.get('amarillo',0)} &nbsp; 🔴 {_cnt.get('rojo',0)} "
             f"&nbsp;|&nbsp; "
@@ -419,6 +421,18 @@ with tab_causas:
             f"Notificadas: {_cnt_est.get('notificada',0)} &nbsp; "
             f"Resueltas: {_cnt_est.get('resuelta',0)}",
         )
+        _orden = _ord_col.selectbox(
+            "Ordenar por",
+            ["Recientes", "Más antiguas", "Carril", "Estado"],
+            label_visibility="collapsed", key="causas_orden"
+        )
+        if _orden == "Más antiguas":
+            causas = sorted(causas, key=lambda x: x.get("created_at",""))
+        elif _orden == "Carril":
+            _carril_ord = {"rojo": 0, "amarillo": 1, "verde": 2}
+            causas = sorted(causas, key=lambda x: _carril_ord.get(x.get("carril",""), 3))
+        elif _orden == "Estado":
+            causas = sorted(causas, key=lambda x: ESTADOS.index(x["estado"]) if x["estado"] in ESTADOS else 99)
 
         # Selector de causa para ver detalle
         causa_sel_id = st.session_state.get("causa_sel_id")
