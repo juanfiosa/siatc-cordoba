@@ -918,6 +918,186 @@ def pdf_requerimiento_apertura(caso: dict, clf: dict, fiscal_nombre: str, unidad
     return buf.getvalue()
 
 
+# -- Informe de seguimiento post-resolucion -----------------------------------
+
+def pdf_informe_seguimiento(seg: dict, condiciones: list, prog: dict,
+                             fiscal_nombre: str, unidad_key: str) -> bytes:
+    """
+    Genera un informe formal de avance del seguimiento post-resolucion.
+    seg: fila de seguimientos (incluye numero, apellido_nombre, dni, fecha_inicio/fin, estado)
+    condiciones: lista de condiciones (tipo, descripcion, estado, valor_objetivo, unidad)
+    prog: resultado de progress_seguimiento()
+    """
+    fecha = _fecha_formal()
+    numero  = _s(seg.get("numero", ""))
+    nombre  = _s(seg.get("apellido_nombre", ""))
+    dni     = _s(str(seg.get("dni", "")))
+    tipo_res_label = {
+        "suspension": "Suspension del Proceso a Prueba",
+        "mediacion":  "Acuerdo de Mediacion",
+        "acuerdo":    "Acuerdo Conciliatorio",
+    }.get(seg.get("tipo_resolucion", ""), seg.get("tipo_resolucion", ""))
+    fi  = _s(seg.get("fecha_inicio", ""))
+    ff  = _s(seg.get("fecha_fin", ""))
+    est = _s(seg.get("estado", "")).capitalize()
+
+    pdf = PDFMPFBase(unidad_key)
+    pdf.alias_nb_pages()
+    pdf.add_page()
+
+    pdf.titulo_documento("Informe de Seguimiento Post-Resolucion")
+    pdf.metadatos(numero, fecha)
+
+    # -- Datos del caso --
+    pdf._sf("B", 10)
+    pdf.set_text_color(*AZUL_MPF)
+    pdf.set_fill_color(235, 240, 250)
+    pdf.cell(0, 7, "DATOS DEL CASO", fill=True, ln=True)
+    pdf.set_text_color(*NEGRO)
+    pdf._sf("", 9)
+    pdf.ln(2)
+
+    pdf.cell(55, 5, "Expediente N.:")
+    pdf._sf("B", 9)
+    pdf.cell(0, 5, numero, ln=True)
+    pdf._sf("", 9)
+    pdf.cell(55, 5, "Imputado/a:")
+    pdf.cell(0, 5, nombre, ln=True)
+    pdf.cell(55, 5, "D.N.I.:")
+    pdf.cell(0, 5, dni, ln=True)
+    pdf.cell(55, 5, "Tipo de resolucion:")
+    pdf.cell(0, 5, tipo_res_label, ln=True)
+    pdf.cell(55, 5, "Periodo de cumplimiento:")
+    pdf.cell(0, 5, _s(f"{fi} al {ff}"), ln=True)
+    pdf.cell(55, 5, "Estado del seguimiento:")
+    pdf._sf("B", 9)
+    pdf.cell(0, 5, est, ln=True)
+    pdf._sf("", 9)
+    pdf.ln(5)
+
+    # -- Resumen de cumplimiento --
+    pdf._sf("B", 10)
+    pdf.set_text_color(*AZUL_MPF)
+    pdf.set_fill_color(235, 240, 250)
+    pdf.cell(0, 7, "RESUMEN DE CUMPLIMIENTO", fill=True, ln=True)
+    pdf.set_text_color(*NEGRO)
+    pdf._sf("", 9)
+    pdf.ln(2)
+
+    # Metrics row
+    pct = prog.get("pct", 0)
+    if pct >= 100:
+        pdf.set_fill_color(212, 237, 218)   # verde
+    elif pct >= 50:
+        pdf.set_fill_color(255, 243, 205)   # amarillo
+    else:
+        pdf.set_fill_color(248, 215, 218)   # rojo
+
+    pdf._sf("B", 11)
+    pdf.set_text_color(*AZUL_MPF)
+    pdf.cell(0, 8, _s(f"Nivel de cumplimiento global: {pct}%"), fill=True, align="C", ln=True)
+    pdf.set_text_color(*NEGRO)
+    pdf._sf("", 9)
+    pdf.ln(3)
+
+    pdf.cell(47, 5, f"Total de condiciones: {prog.get('total', 0)}")
+    pdf.cell(47, 5, f"Cumplidas: {prog.get('cumplidas', 0)}")
+    pdf.cell(47, 5, f"En curso: {prog.get('en_curso', 0)}")
+    pdf.cell(0,  5, f"Pendientes: {prog.get('pendientes', 0)}", ln=True)
+    if prog.get("incumplidas", 0):
+        pdf._sf("B", 9)
+        pdf.set_text_color(180, 0, 0)
+        pdf.cell(0, 5, _s(f"INCUMPLIDAS: {prog['incumplidas']}"), ln=True)
+        pdf.set_text_color(*NEGRO)
+        pdf._sf("", 9)
+    pdf.ln(5)
+
+    # -- Detalle de condiciones --
+    pdf._sf("B", 10)
+    pdf.set_text_color(*AZUL_MPF)
+    pdf.set_fill_color(235, 240, 250)
+    pdf.cell(0, 7, "DETALLE DE CONDICIONES", fill=True, ln=True)
+    pdf.set_text_color(*NEGRO)
+    pdf.ln(3)
+
+    ESTADO_COND_STR = {
+        "pendiente":  "Pendiente",
+        "en_curso":   "En curso",
+        "cumplido":   "CUMPLIDO",
+        "incumplido": "INCUMPLIDO",
+    }
+    ESTADO_COND_CLR = {
+        "pendiente":  (200, 200, 200),
+        "en_curso":   (255, 190, 50),
+        "cumplido":   (40, 167, 69),
+        "incumplido": (220, 53, 69),
+    }
+
+    for i, cond in enumerate(condiciones, 1):
+        est_c  = cond.get("estado", "pendiente")
+        est_lbl = _s(ESTADO_COND_STR.get(est_c, est_c.capitalize()))
+        r, g, b = ESTADO_COND_CLR.get(est_c, (180, 180, 180))
+
+        pdf._sf("B", 9)
+        pdf.set_text_color(r, g, b)
+        pdf.cell(12, 5, f"[{est_lbl[:3].upper()}]")
+        pdf.set_text_color(*NEGRO)
+        pdf._sf("", 9)
+        pdf.multi_cell(0, 5, _s(f"{i}. {cond.get('descripcion', '')}"))
+
+        if cond.get("valor_objetivo", 0) > 0:
+            from database import acumulado_condicion
+            try:
+                acum = acumulado_condicion(cond["id"])
+            except Exception:
+                acum = 0
+            obj  = cond["valor_objetivo"]
+            unid = cond.get("unidad", "")
+            pdf.set_x(25)
+            pdf._sf("I", 8)
+            pdf.set_text_color(*GRIS_TEXTO)
+            pct_c = min(100, int(acum / obj * 100)) if obj else 0
+            pdf.cell(0, 4, _s(f"   Progreso: {acum:.0f} / {obj:.0f} {unid} ({pct_c}%)"), ln=True)
+            pdf.set_text_color(*NEGRO)
+            pdf._sf("", 9)
+        pdf.ln(2)
+
+    pdf.ln(4)
+
+    # -- Observaciones y recomendacion --
+    if pct >= 100:
+        rec = ("Todas las condiciones han sido cumplidas en su totalidad. "
+               "Se recomienda dictar el cierre del seguimiento y archivar las actuaciones.")
+    elif prog.get("incumplidas", 0) > 0:
+        rec = (f"Se registran {prog['incumplidas']} condicion(es) incumplida(s). "
+               "Se recomienda evaluar la revocacion de la suspension y la continuacion "
+               "del proceso contravencional conforme el Codigo de Convivencia Ciudadana.")
+    else:
+        pendientes = prog.get("pendientes", 0) + prog.get("en_curso", 0)
+        rec = (f"El seguimiento se encuentra en curso. {pendientes} condicion(es) resta(n) "
+               "por acreditarse antes del vencimiento del plazo establecido.")
+
+    pdf.seccion("RECOMENDACION FISCAL", rec)
+    pdf.ln(2)
+
+    pdf.linea_firma(
+        fiscal_nombre or "Fiscal Interviniente",
+        "Fiscal / Ayudante Fiscal",
+        _s(UNIDADES.get(unidad_key, "")),
+    )
+
+    pdf.ln(4)
+    pdf._sf("I", 7)
+    pdf.set_text_color(*GRIS_TEXTO)
+    pdf.cell(0, 4,
+        _s(f"Generado por SIATC - MPF Cordoba - {datetime.now().strftime('%d/%m/%Y %H:%M')}"),
+        ln=True, align="C")
+
+    buf = BytesIO()
+    pdf.output(buf)
+    return buf.getvalue()
+
+
 # -- Punto de entrada ---------------------------------------------------------
 
 def generar_pdf(tipo_doc, caso, clf, fiscal, unidad):

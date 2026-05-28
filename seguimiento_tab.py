@@ -8,6 +8,7 @@ import streamlit as st
 from datetime import datetime, date, timedelta
 import database as db
 from data_cordoba import TIPOS_INFRACCION, CONDICIONES_SUSPENSION
+from pdf_gen import pdf_informe_seguimiento
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -261,6 +262,20 @@ def _panel_seguimientos(fiscal):
                     st.error(f"⚠️ {prog['incumplidas']} condición(es) incumplida(s)")
                 if prog["en_curso"]:
                     st.info(f"🔄 {prog['en_curso']} en curso")
+                # PDF informe de seguimiento
+                try:
+                    _unidad_seg = seg.get("unidad", "norte")
+                    _pdf_seg = pdf_informe_seguimiento(seg, condiciones, prog, fiscal, _unidad_seg)
+                    st.download_button(
+                        "⬇️ Informe PDF",
+                        data=_pdf_seg,
+                        file_name=f"informe_seg_{seg['numero']}.pdf",
+                        mime="application/pdf",
+                        key=f"dl_seg_{seg['id']}",
+                        use_container_width=True,
+                    )
+                except Exception as _e_pdf:
+                    st.caption(f"PDF no disponible: {_e_pdf}")
 
             # Detalle de condiciones
             st.markdown("##### Condiciones")
