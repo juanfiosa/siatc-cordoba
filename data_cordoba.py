@@ -170,9 +170,9 @@ CONDICIONES_SUSPENSION = {
 }
 
 UNIDADES = {
-    "norte": "Unidad Contravencional Norte — Antonio del Viso 756, Barrio Alta Córdoba",
-    "sur": "Unidad Contravencional Sur — Guzmán 1075, Centro",
-    "genero": "Unidad Contravencional de Violencia de Género — Entre Ríos 680",
+    "norte": "Unidad Contravencional Norte - Antonio del Viso 756, Barrio Alta Cordoba",
+    "sur": "Unidad Contravencional Sur - Guzman 1075, Centro",
+    "genero": "Unidad Contravencional de Violencia de Genero - Entre Rios 680",
 }
 
 CASOS_DEMO = [

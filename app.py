@@ -18,6 +18,7 @@ from document_gen import (
     generar_citacion,
     generar_resumen_ejecutivo,
 )
+from pdf_gen import generar_pdf
 from database import (
     init_db, buscar_persona_por_dni, contar_antecedentes,
     guardar_causa, avanzar_estado, listar_causas, get_causa, get_timeline,
@@ -216,9 +217,23 @@ with tab_nuevo:
 
                 st.markdown("##### Vista previa")
                 st.markdown(f"<div class='doc-preview'>{doc}</div>", unsafe_allow_html=True)
-                st.download_button("⬇️ Descargar (.txt)", data=doc,
-                                   file_name=f"borrador_{doc_sel[:20].replace(' ','_')}.txt",
-                                   mime="text/plain", use_container_width=True)
+                col_pdf, col_txt = st.columns(2)
+                pdf_bytes = generar_pdf(doc_sel, caso_doc, clf, fiscal_nombre, unidad_key)
+                col_pdf.download_button(
+                    "⬇️ Descargar PDF",
+                    data=pdf_bytes,
+                    file_name=f"borrador_{doc_sel[:20].replace(' ','_')}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True,
+                    type="primary",
+                )
+                col_txt.download_button(
+                    "📄 Descargar .txt",
+                    data=doc,
+                    file_name=f"borrador_{doc_sel[:20].replace(' ','_')}.txt",
+                    mime="text/plain",
+                    use_container_width=True,
+                )
         else:
             st.info("Completá DNI, nombre y tipo de infracción para ver la clasificación.")
 
@@ -291,13 +306,22 @@ with tab_causas:
                         for d in docs:
                             with st.expander(f"📄 {d['tipo_documento']} — {d['created_at'][:16]}"):
                                 st.markdown(f"<div class='doc-preview'>{d['contenido']}</div>", unsafe_allow_html=True)
-                                st.download_button(
-                                    "⬇️ Descargar",
-                                    data=d["contenido"],
-                                    file_name=f"{c['numero']}_{d['tipo_documento']}.txt",
-                                    mime="text/plain",
-                                    key=f"dl_doc_{d['id']}",
-                                )
+                                _caso_d = {"numero": c["numero"], "tipo": c["tipo_infraccion"],
+                                           "imputado": c["apellido_nombre"], "dni": c["persona_dni"],
+                                           "edad": c.get("persona_edad", 0), "domicilio": ""}
+                                _clf_d  = {"carril": c.get("carril","amarillo"), "score": c.get("score_clasificacion",2),
+                                           "categoria": TIPOS_INFRACCION.get(c["tipo_infraccion"],{}).get("categoria",""),
+                                           "accion": "", "fundamento": [], "icono": "", "descripcion": "", "color": ""}
+                                try:
+                                    _pdf = generar_pdf(d["tipo_documento"], _caso_d, _clf_d, d.get("generado_por",""), c.get("unidad","norte"))
+                                    st.download_button("⬇️ Descargar PDF", data=_pdf,
+                                                       file_name=f"{c['numero']}_{d['tipo_documento']}.pdf",
+                                                       mime="application/pdf", key=f"dl_pdf_{d['id']}",
+                                                       type="primary")
+                                except Exception:
+                                    st.download_button("⬇️ Descargar .txt", data=d["contenido"],
+                                                       file_name=f"{c['numero']}_{d['tipo_documento']}.txt",
+                                                       mime="text/plain", key=f"dl_doc_{d['id']}")
 
                 with col_acciones:
                     st.markdown("**Avanzar estado:**")
@@ -396,20 +420,31 @@ with tab_demo:
                 st.rerun()
 
             if col_b2.button("📄 Ver dictamen", key=f"dict_{i}", use_container_width=True):
+                tipo_doc_demo = "mediacion" if clf["carril"]=="verde" else "suspension prueba"
                 doc = (generar_dictamen_mediacion(cd, clf, fiscal_nombre, cd["unidad"])
                        if clf["carril"]=="verde"
                        else generar_dictamen_suspension(cd, clf, fiscal_nombre, cd["unidad"]))
                 st.markdown(f"<div class='doc-preview'>{doc}</div>", unsafe_allow_html=True)
-                st.download_button("⬇️ Descargar", data=doc,
-                                   file_name=f"{cd['numero']}_dictamen.txt",
-                                   mime="text/plain", key=f"dl_demo_{i}")
+                pdf_d = generar_pdf(tipo_doc_demo, cd, clf, fiscal_nombre, cd["unidad"])
+                col_pa, col_ta = st.columns(2)
+                col_pa.download_button("⬇️ PDF", data=pdf_d,
+                                       file_name=f"{cd['numero']}_dictamen.pdf",
+                                       mime="application/pdf", key=f"dl_pdf_demo_{i}", type="primary")
+                col_ta.download_button("📄 .txt", data=doc,
+                                       file_name=f"{cd['numero']}_dictamen.txt",
+                                       mime="text/plain", key=f"dl_demo_{i}")
 
             if col_b3.button("📬 Ver citación", key=f"cit_{i}", use_container_width=True):
                 doc = generar_citacion(cd, fiscal_nombre, cd["unidad"])
                 st.markdown(f"<div class='doc-preview'>{doc}</div>", unsafe_allow_html=True)
-                st.download_button("⬇️ Descargar", data=doc,
-                                   file_name=f"{cd['numero']}_citacion.txt",
-                                   mime="text/plain", key=f"dl_cit_{i}")
+                pdf_c = generar_pdf("citacion audiencia", cd, clf, fiscal_nombre, cd["unidad"])
+                col_pc, col_tc = st.columns(2)
+                col_pc.download_button("⬇️ PDF", data=pdf_c,
+                                       file_name=f"{cd['numero']}_citacion.pdf",
+                                       mime="application/pdf", key=f"dl_pdf_cit_{i}", type="primary")
+                col_tc.download_button("📄 .txt", data=doc,
+                                       file_name=f"{cd['numero']}_citacion.txt",
+                                       mime="text/plain", key=f"dl_cit_{i}")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
