@@ -253,7 +253,8 @@ def _panel_seguimientos(fiscal):
             # Detalle de condiciones
             st.markdown("##### Condiciones")
             condiciones = db.get_condiciones(seg["id"])
-            for cond in condiciones:
+            sid = seg["id"]   # prefijo único por seguimiento
+            for ci, cond in enumerate(condiciones):
                 acum = db.acumulado_condicion(cond["id"]) if cond["valor_objetivo"] > 0 else 0
                 col_c1, col_c2, col_c3 = st.columns([4, 2, 2])
                 with col_c1:
@@ -264,26 +265,28 @@ def _panel_seguimientos(fiscal):
                         st.progress(pct_c / 100,
                                     text=f"{acum:.0f} / {cond['valor_objetivo']:.0f} {cond['unidad']}")
                 with col_c2:
+                    estados_list = ["pendiente", "en_curso", "cumplido", "incumplido"]
+                    idx_actual = estados_list.index(cond["estado"]) if cond["estado"] in estados_list else 0
                     nuevo_estado = st.selectbox(
                         "Estado",
-                        ["pendiente", "en_curso", "cumplido", "incumplido"],
-                        index=["pendiente", "en_curso", "cumplido", "incumplido"].index(cond["estado"]),
-                        key=f"est_{cond['id']}"
+                        estados_list,
+                        index=idx_actual,
+                        key=f"s{sid}_est_{ci}"
                     )
                     if nuevo_estado != cond["estado"]:
-                        if st.button("Aplicar", key=f"apply_{cond['id']}"):
+                        if st.button("Aplicar", key=f"s{sid}_apply_{ci}"):
                             db.marcar_condicion(cond["id"], nuevo_estado)
                             st.rerun()
                 with col_c3:
                     if cond["valor_objetivo"] > 0:
-                        with st.popover("📝 Registrar avance"):
+                        with st.popover("📝 Registrar avance", use_container_width=True):
                             val = st.number_input(
                                 f"Avance ({cond['unidad']})",
                                 min_value=0.0, step=1.0,
-                                key=f"av_val_{cond['id']}"
+                                key=f"s{sid}_avval_{ci}"
                             )
-                            obs_av = st.text_input("Observación", key=f"av_obs_{cond['id']}")
-                            if st.button("Guardar", key=f"av_save_{cond['id']}"):
+                            obs_av = st.text_input("Observación", key=f"s{sid}_avobs_{ci}")
+                            if st.button("Guardar avance", key=f"s{sid}_avsave_{ci}"):
                                 db.registrar_avance(
                                     cond["id"],
                                     date.today().isoformat(),
@@ -295,7 +298,8 @@ def _panel_seguimientos(fiscal):
                         # Mini historial
                         registros = db.get_registros(cond["id"])
                         if registros:
-                            with st.expander("Historial de avances"):
+                            with st.expander(f"Historial ({len(registros)} registros)",
+                                             expanded=False):
                                 for r in registros:
                                     st.caption(f"{r['fecha']} | +{r['valor_parcial']:.0f} {cond['unidad']} — {r['observaciones']}")
 
