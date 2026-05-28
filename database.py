@@ -469,6 +469,30 @@ def causas_por_fiscal() -> list[dict]:
     return [dict(r) for r in rows]
 
 
+def causas_inactivas(dias: int = 30, estados: list = None) -> list[dict]:
+    """
+    Retorna causas en estados activos (notificada/clasificada/en_mediacion)
+    cuya última actualización supera `dias` días.
+    Útil para detectar causas que se están "enfriando" sin resolución.
+    """
+    if estados is None:
+        estados = ["clasificada", "notificada", "en_mediacion"]
+    placeholders = ",".join(["?" for _ in estados])
+    sql = f"""
+        SELECT c.*, p.apellido_nombre, p.dni as persona_dni, p.edad as persona_edad,
+               CAST(JULIANDAY('now','localtime') - JULIANDAY(c.updated_at) AS INTEGER) as dias_inactivo
+        FROM causas c
+        LEFT JOIN personas p ON c.persona_id = p.id
+        WHERE c.estado IN ({placeholders})
+          AND JULIANDAY('now','localtime') - JULIANDAY(c.updated_at) > ?
+        ORDER BY dias_inactivo DESC
+    """
+    params = estados + [dias]
+    with get_conn() as conn:
+        rows = conn.execute(sql, params).fetchall()
+    return [dict(r) for r in rows]
+
+
 def historial_persona(persona_id: int) -> list[dict]:
     with get_conn() as conn:
         rows = conn.execute(

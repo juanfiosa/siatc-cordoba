@@ -26,6 +26,7 @@ from database import (
     historial_persona, upsert_persona, ESTADOS, ESTADOS_LABEL,
     listar_seguimientos, stats_seguimiento, causas_por_mes, causas_por_fiscal,
     get_seguimiento_por_causa, get_condiciones, stats_tiempos_resolucion,
+    causas_inactivas,
 )
 from seguimiento_tab import render_tab_seguimiento
 from agenda_tab import render_tab_agenda
@@ -1054,6 +1055,35 @@ with tab_panel:
                 )
             except Exception as e:
                 st.error(f"Error reporte: {e}")
+
+        # ── Causas sin actividad reciente ─────────────────────────────────
+        st.markdown("---")
+        st.subheader("🔔 Causas que requieren atención")
+        _col_inact1, _col_inact2 = st.columns([3, 1])
+        with _col_inact2:
+            _dias_inact = st.selectbox("Sin actividad desde (días)",
+                                       [7, 14, 30, 60], index=1,
+                                       key="dias_inactividad")
+        inactivas = causas_inactivas(dias=_dias_inact)
+        with _col_inact1:
+            st.caption(f"Causas en estado activo sin actualización en más de {_dias_inact} días")
+        if not inactivas:
+            st.success(f"✅ Todas las causas activas tuvieron movimiento en los últimos {_dias_inact} días.")
+        else:
+            _rows_inact = []
+            for c in inactivas:
+                _rows_inact.append({
+                    "Expediente":  c["numero"],
+                    "Imputado/a":  (c.get("apellido_nombre","") or "").split(",")[0],
+                    "Estado":      ESTADOS_LABEL.get(c["estado"], c["estado"]),
+                    "Carril":      {"verde":"🟢","amarillo":"🟡","rojo":"🔴"}.get(c.get("carril",""),"⚪"),
+                    "Sin act. (días)": c.get("dias_inactivo", "?"),
+                    "Fiscal":      c.get("fiscal_asignado",""),
+                })
+            st.warning(f"⚠️ **{len(inactivas)} causa(s)** sin movimiento en más de {_dias_inact} días:")
+            _df_inact = pd.DataFrame(_rows_inact).sort_values("Sin act. (días)", ascending=False)
+            st.dataframe(_df_inact, use_container_width=True, hide_index=True,
+                         column_config={"Sin act. (días)": st.column_config.NumberColumn("Sin act. (días)", format="%d días")})
 
         # ── Opciones de demostración ───────────────────────────────────────
         st.markdown("---")
