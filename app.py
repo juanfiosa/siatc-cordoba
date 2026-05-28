@@ -923,6 +923,51 @@ with tab_panel:
         else:
             st.info(_col_mom_txt)
 
+        # Resumen ejecutivo en lenguaje natural
+        with st.expander("📝 Resumen ejecutivo automático", expanded=False):
+            _activas_n = (stats["por_estado"].get("clasificada",0)
+                          + stats["por_estado"].get("notificada",0)
+                          + stats["por_estado"].get("en_mediacion",0))
+            _resueltas_n = (stats["por_estado"].get("resuelta",0)
+                            + stats["por_estado"].get("archivada",0))
+            _pct_no_pun = round((verde_n + amarillo_n)*100/total) if total else 0
+            _seg_s = stats_seguimiento()
+            _aud_s = stats_audiencias()
+            _sin_a = causas_sin_audiencia_programada()
+
+            _partes = [
+                f"El sistema SIATC registra **{total} causas contravencionales** en total, "
+                f"de las cuales **{_activas_n} se encuentran activas** (clasificadas, notificadas o en mediación) "
+                f"y **{_resueltas_n} han sido resueltas o archivadas**.",
+
+                f"El triaje automático derivó el **{_pct_no_pun}%** de las causas a vías no punitivas "
+                f"({verde_n} a mediación 🟢, {amarillo_n} a suspensión a prueba 🟡, {rojo_n} a proceso pleno 🔴).",
+            ]
+
+            if _aud_s["hoy"] > 0:
+                _partes.append(f"⚡ **{_aud_s['hoy']} audiencia(s) HOY** requieren gestión inmediata.")
+            if _seg_s["vencidos"] > 0:
+                _partes.append(f"⚠️ **{_seg_s['vencidos']} seguimiento(s) vencido(s)** sin cierre formal.")
+            if _seg_s["incumplidos"] > 0:
+                _partes.append(f"❌ **{_seg_s['incumplidos']} seguimiento(s) incumplido(s)** — evaluar revocación.")
+            if _sin_a:
+                _partes.append(f"📋 **{len(_sin_a)} causa(s) activa(s)** sin audiencia programada.")
+            if stats["reincidentes"] > 0:
+                _partes.append(f"🔄 **{stats['reincidentes']} persona(s) reincidente(s)** en el padrón.")
+            if _mom["pct_cambio"] is not None:
+                _tend = "en aumento" if _mom["delta"] > 0 else ("en baja" if _mom["delta"] < 0 else "estable")
+                _partes.append(
+                    f"La actividad mensual está **{_tend}** "
+                    f"({_mom['actual']} causas este mes vs. {_mom['anterior']} el mes anterior, "
+                    f"{'+'if _mom['delta']>=0 else ''}{_mom['delta']})."
+                )
+
+            for _p in _partes:
+                st.markdown(f"• {_p}")
+
+            _ts_res = f"_{datetime.now().strftime('%d/%m/%Y %H:%M')} — generado automáticamente por SIATC_"
+            st.caption(_ts_res)
+
         st.markdown("---")
         col_g1, col_g2 = st.columns(2)
 

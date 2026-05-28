@@ -5,11 +5,13 @@ Vista consolidada de una persona: causas, seguimientos y audiencias.
 """
 
 import streamlit as st
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 import database as db
 from data_cordoba import TIPOS_INFRACCION, UNIDADES
 from pdf_gen import pdf_perfil_persona
 from database import causas_similares
+import plotly.express as px
+import pandas as pd
 
 CARRIL_CSS = {
     "verde":    ("🟢", "#d4edda", "#28a745"),
@@ -63,6 +65,79 @@ def render_perfil(persona_id: int):
     col_m4.metric("Audiencias",     len(auds))
 
     st.markdown(_badge_antecedentes(antec), unsafe_allow_html=True)
+
+    # ── Línea de tiempo visual ────────────────────────────────────────────────
+    _gantt_rows = []
+    _today = date.today().isoformat()
+
+    for c in causas:
+        _inf_lbl = TIPOS_INFRACCION.get(c.get("tipo_infraccion",""), {}).get("label", c.get("tipo_infraccion",""))
+        _start = (c.get("created_at") or _today)[:10]
+        _fin   = (c.get("updated_at") or _today)[:10]
+        # Ensure finish > start so Gantt renders a visible bar
+        if _fin <= _start:
+            _fin = (datetime.strptime(_start, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d")
+        _carril = c.get("carril", "")
+        _gantt_rows.append({
+            "Evento": f"Causa: {_inf_lbl[:25]}",
+            "Inicio": _start,
+            "Fin":    _fin,
+            "Categoría": {"verde":"🟢 Mediación","amarillo":"🟡 Suspensión","rojo":"🔴 Proceso"}.get(_carril, "Causa"),
+            "Detalle": f"{c.get('numero','')} — {c.get('estado','').capitalize()}",
+        })
+
+    for seg in segs:
+        _gantt_rows.append({
+            "Evento": "Seguimiento",
+            "Inicio": (seg.get("fecha_inicio") or _today)[:10],
+            "Fin":    (seg.get("fecha_fin") or _today)[:10],
+            "Categoría": "🔍 Seguimiento",
+            "Detalle": f"{seg.get('tipo_resolucion','').replace('_',' ').capitalize()} — {seg.get('estado','').capitalize()}",
+        })
+
+    for a in auds:
+        _a_date = a.get("fecha", _today)
+        _a_fin  = (datetime.strptime(_a_date, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d")
+        _gantt_rows.append({
+            "Evento": f"Audiencia",
+            "Inicio": _a_date,
+            "Fin":    _a_fin,
+            "Categoría": {"realizada":"📅 Audiencia realizada","ausente":"🚨 Incomparecencia",
+                          "programada":"🔵 Audiencia programada"}.get(a.get("estado",""), "📅 Audiencia"),
+            "Detalle": f"{a.get('tipo','').replace('_',' ').capitalize()} — {a.get('hora','')} {a.get('estado','').capitalize()}",
+        })
+
+    if _gantt_rows:
+        _df_gantt = pd.DataFrame(_gantt_rows)
+        _color_map = {
+            "🟢 Mediación":           "#2ECC71",
+            "🟡 Suspensión":          "#F39C12",
+            "🔴 Proceso":             "#E74C3C",
+            "🔍 Seguimiento":         "#2e5090",
+            "📅 Audiencia realizada": "#28a745",
+            "🚨 Incomparecencia":     "#dc3545",
+            "🔵 Audiencia programada":"#007bff",
+            "📅 Audiencia":           "#5a8de4",
+        }
+        try:
+            fig_tl = px.timeline(
+                _df_gantt,
+                x_start="Inicio", x_end="Fin",
+                y="Evento", color="Categoría",
+                hover_data=["Detalle"],
+                color_discrete_map=_color_map,
+                title="Línea de tiempo del imputado/a",
+            )
+            fig_tl.update_yaxes(autorange="reversed")
+            fig_tl.update_layout(
+                height=max(180, 60 + len(_gantt_rows) * 35),
+                margin=dict(l=0, r=0, t=40, b=10),
+                legend=dict(orientation="h", y=1.18),
+                showlegend=True,
+            )
+            st.plotly_chart(fig_tl, use_container_width=True)
+        except Exception:
+            pass   # si plotly.timeline no está disponible, omitir
 
     # PDF export button
     try:
