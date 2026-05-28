@@ -240,6 +240,8 @@ def _panel_seguimientos(fiscal):
         dias = dias_restantes(seg["fecha_fin"])
         prog = db.progress_seguimiento(seg["id"])
         pct  = prog["pct"]
+        # Fetch condiciones early so they are available for PDF generation below
+        condiciones = db.get_condiciones(seg["id"])
 
         with st.expander(
             f"{SEG_ESTADO_COLOR.get(seg['estado'], seg['estado'])} | "
@@ -279,8 +281,7 @@ def _panel_seguimientos(fiscal):
 
             # Detalle de condiciones
             st.markdown("##### Condiciones")
-            condiciones = db.get_condiciones(seg["id"])
-            sid = seg["id"]   # prefijo único por seguimiento
+            sid = seg["id"]   # prefijo único por seguimiento para widget keys
             for ci, cond in enumerate(condiciones):
                 acum = db.acumulado_condicion(cond["id"]) if cond["valor_objetivo"] > 0 else 0
                 col_c1, col_c2, col_c3 = st.columns([4, 2, 2])
