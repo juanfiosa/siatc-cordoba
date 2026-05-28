@@ -98,13 +98,13 @@ Tramitación completa ante el Tribunal.<br>
 
 def _render_tabs():
     tabs_info = [
-        ("📋 Nuevo Caso",        "Ingresá DNI para autocompletar datos del imputado/a. El sistema clasifica automáticamente y genera el documento correspondiente (PDF + .txt)."),
-        ("📂 Gestión de Causas", "Buscá, filtrá y gestioná todas las causas activas. Avanzá estados, consultá la línea de tiempo y descargá documentos."),
-        ("🗂️ Casos Demo",       "Casos representativos de una semana real. Cargalos al sistema con un clic para explorar el flujo completo."),
-        ("🔍 Seguimiento",       "Registrá los períodos de prueba y las condiciones impuestas. Monitoreá avances, registrá acreditaciones y cerrá seguimientos."),
-        ("📅 Agenda",            "Visualizá la agenda de audiencias por semana o lista. Programá nuevas audiencias y actualizá su estado."),
-        ("👤 Perfil",            "Vista consolidada de una persona: todas sus causas, audiencias y seguimientos en una sola pantalla."),
-        ("📊 Panel de Control",  "Dashboard con métricas en tiempo real: distribución por carril, audiencias, seguimientos activos y exportación a Excel."),
+        ("📋 Nuevo Caso",        "Ingresá DNI para autocompletar datos del imputado/a (nombre, domicilio, teléfono, antecedentes). Triaje automático con documento PDF listo para descargar."),
+        ("📂 Gestión de Causas", "Buscá por nombre, DNI o descripción. Vista detalle o tabla compacta. Agregá notas rápidas, agendá audiencias y generá documentos desde cada causa."),
+        ("🗂️ Casos Demo",       "15 casos representativos de una semana real. Cargalos con un clic para explorar el flujo completo."),
+        ("🔍 Seguimiento",       "Registrá períodos de prueba y condiciones. Monitoreá avances, registrá acreditaciones parciales y cerrá seguimientos con un clic."),
+        ("📅 Agenda",            "Vista semanal y lista de audiencias. Programá nuevas, actualizá estados (realizada/ausente/reprogramada) y exportá a Excel con teléfono."),
+        ("👤 Perfil",            "Historial completo de una persona: causas, audiencias, seguimientos. Editá domicilio y teléfono directamente. Descargá la ficha institucional en PDF."),
+        ("📊 Panel de Control",  "Dashboard completo: carriles, categorías, tiempos vs. proceso tradicional, KPIs, actividad reciente, alertas y exportación a Excel / reporte PDF del día."),
     ]
     for emoji_nombre, desc in tabs_info:
         st.markdown(f"""<div class="tab-card">

@@ -1440,13 +1440,14 @@ with tab_panel:
                     st.success("Datos restablecidos correctamente.")
                     st.rerun()
             with col_r2:
-                st.info("💡 **¿Cómo usar para una demo?**\n\n"
-                        "1. Ingresá a **📋 Nuevo Caso** con DNI `38.421.667` "
-                        "(detecta antecedentes y auto-completa).\n"
-                        "2. Observá el triaje automático → generá y descargá el PDF.\n"
-                        "3. Guardá la causa → aparece en **📂 Gestión de Causas**.\n"
-                        "4. Desde la causa, agendá audiencia con ▶ popover y explorá el perfil.\n"
-                        "5. En **📅 Agenda** verás la semana completa con tu audiencia.\n"
-                        "6. En **👤 Perfil** buscá `García` → descargá la ficha PDF.\n"
-                        "7. En **📊 Panel** mostrá gráficos, KPIs y tiempos de resolución.\n"
-                        "8. Exportá a Excel o generá el Reporte del día en PDF.")
+                st.info("💡 **Guía de demostración (v1.1)**\n\n"
+                        "1. **📋 Nuevo Caso** → DNI `38.421.667` (auto-completa nombre, tel., antecedentes)\n"
+                        "   → triaje automático → descargá el PDF → guardá la causa.\n"
+                        "2. **📂 Gestión** → filtrá por carril Rojo → expandí la causa → agregá una nota rápida\n"
+                        "   → agendá audiencia desde el popover → cambiá a vista Tabla para escaneo rápido.\n"
+                        "3. **📅 Agenda** → semana actual → audiencias del día con tel. y domicilio.\n"
+                        "4. **🔍 Seguimiento** → Panel → mostrá cumplimiento de condiciones con progreso.\n"
+                        "5. **👤 Perfil** → buscá `García` → mostrá 2 causas (reincidente) → editá tel.\n"
+                        "   → descargá ficha PDF institucional.\n"
+                        "6. **📊 Panel** → mostrá categorías, carriles, tiempos vs. proceso tradicional\n"
+                        "   → KPIs → actividad reciente → alertas → exportá Excel / Reporte del día.")
