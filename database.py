@@ -297,6 +297,28 @@ def _registrar_estado(conn, causa_id, anterior, nuevo, usuario, obs=""):
     )
 
 
+def agregar_nota_causa(causa_id: int, nota: str, usuario: str) -> bool:
+    """Registra una nota libre en la causa sin cambiar su estado.
+    Aparece en el historial con estado_anterior == estado_nuevo."""
+    if not nota or not nota.strip():
+        return False
+    with get_conn() as conn:
+        row = conn.execute("SELECT estado FROM causas WHERE id=?", (causa_id,)).fetchone()
+        if not row:
+            return False
+        estado_actual = row["estado"]
+        # Touch updated_at so the causa appears as recently active
+        conn.execute(
+            "UPDATE causas SET updated_at=datetime('now','localtime') WHERE id=?",
+            (causa_id,)
+        )
+        conn.execute(
+            "INSERT INTO estados_causa (causa_id,estado_anterior,estado_nuevo,usuario,observaciones) VALUES (?,?,?,?,?)",
+            (causa_id, estado_actual, estado_actual, usuario, nota.strip())
+        )
+    return True
+
+
 def listar_causas(estado: str = None, carril: str = None, unidad: str = None,
                   busqueda: str = None, limit: int = 200) -> list[dict]:
     sql = """

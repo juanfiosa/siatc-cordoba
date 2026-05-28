@@ -22,7 +22,7 @@ from document_gen import (
 from pdf_gen import generar_pdf, pdf_reporte_diario
 from database import (
     init_db, buscar_persona_por_dni, contar_antecedentes,
-    guardar_causa, avanzar_estado, listar_causas, get_causa, get_timeline,
+    guardar_causa, avanzar_estado, agregar_nota_causa, listar_causas, get_causa, get_timeline,
     guardar_documento, listar_documentos, stats_generales, causas_por_tipo,
     historial_persona, upsert_persona, ESTADOS, ESTADOS_LABEL,
     listar_seguimientos, stats_seguimiento, causas_por_mes, causas_por_fiscal,
@@ -248,6 +248,32 @@ with tab_nuevo:
                     )
                 else:
                     st.markdown('<span class="antec-ok">✔ Sin antecedentes</span>', unsafe_allow_html=True)
+            else:
+                st.caption("DNI no encontrado en el sistema — ingresá los datos manualmente.")
+
+        # Búsqueda por nombre si no se encontró por DNI
+        if not persona_encontrada:
+            with st.expander("🔎 Buscar persona existente por nombre"):
+                _nombre_busq = st.text_input("Apellido o nombre", placeholder="Ej: García",
+                                              key="nuevo_busq_nombre")
+                if _nombre_busq and len(_nombre_busq) >= 3:
+                    _matches = listar_personas(busqueda=_nombre_busq)
+                    if _matches:
+                        _opts = {f"{p['apellido_nombre']} — DNI {p['dni']}": p for p in _matches}
+                        _sel_p = st.selectbox("Resultado(s)", list(_opts.keys()), key="nuevo_sel_persona")
+                        if st.button("Usar esta persona", key="nuevo_usar_persona"):
+                            _p_sel = _opts[_sel_p]
+                            st.session_state["_nuevo_persona_override"] = _p_sel
+                            st.rerun()
+                    else:
+                        st.caption("Sin resultados.")
+
+        # Si el usuario seleccionó una persona por nombre, usarla
+        if "nuevos_persona_override" not in st.session_state:
+            _persona_override = st.session_state.pop("_nuevo_persona_override", None)
+            if _persona_override and not persona_encontrada:
+                persona_encontrada = _persona_override
+                antecedentes_db = contar_antecedentes(persona_encontrada["id"])
 
         nombre_default = persona_encontrada["apellido_nombre"] if persona_encontrada else ""
         edad_default   = persona_encontrada["edad"]             if persona_encontrada else 30
@@ -506,13 +532,22 @@ with tab_causas:
                     if timeline:
                         st.markdown("**Historial de estados:**")
                         for t in timeline:
-                            ant = ESTADOS_LABEL.get(t["estado_anterior"],"—") if t["estado_anterior"] else "—"
-                            nvo = ESTADOS_LABEL.get(t["estado_nuevo"], t["estado_nuevo"])
-                            obs = f" — {t['observaciones']}" if t.get("observaciones") else ""
-                            st.markdown(
-                                f"<div class='timeline-item'>{t['created_at'][:16]}  →  {ant} ➜ {nvo}{obs}</div>",
-                                unsafe_allow_html=True
-                            )
+                            _es_nota = t.get("estado_anterior") == t.get("estado_nuevo") and t.get("estado_anterior")
+                            if _es_nota:
+                                st.markdown(
+                                    f"<div class='timeline-item' style='border-color:#6c757d'>"
+                                    f"📝 {t['created_at'][:16]}  —  {t.get('usuario','')}: "
+                                    f"<em>{t.get('observaciones','')}</em></div>",
+                                    unsafe_allow_html=True
+                                )
+                            else:
+                                ant = ESTADOS_LABEL.get(t["estado_anterior"],"—") if t["estado_anterior"] else "—"
+                                nvo = ESTADOS_LABEL.get(t["estado_nuevo"], t["estado_nuevo"])
+                                obs = f" — {t['observaciones']}" if t.get("observaciones") else ""
+                                st.markdown(
+                                    f"<div class='timeline-item'>{t['created_at'][:16]}  →  {ant} ➜ {nvo}{obs}</div>",
+                                    unsafe_allow_html=True
+                                )
 
                     # Documentos previos
                     docs = listar_documentos(c["id"])
@@ -556,6 +591,20 @@ with tab_causas:
                             st.rerun()
                     else:
                         st.info("Causa archivada")
+
+                    st.markdown("---")
+                    st.markdown("**📝 Nota rápida:**")
+                    with st.popover("Agregar nota a la causa", use_container_width=True):
+                        _nota_txt = st.text_area("Texto de la nota", height=80,
+                                                  placeholder="Ej: Imputado se comunicó para avisar viaje. Se reprograma notificación.",
+                                                  key=f"nota_txt_{c['id']}")
+                        if st.button("Guardar nota", key=f"nota_btn_{c['id']}", type="primary"):
+                            if _nota_txt and _nota_txt.strip():
+                                agregar_nota_causa(c["id"], _nota_txt, fiscal_nombre)
+                                st.success("Nota registrada en el historial")
+                                st.rerun()
+                            else:
+                                st.warning("Ingresá el texto de la nota.")
 
                     st.markdown("---")
                     st.markdown("**Programar audiencia:**")
@@ -815,6 +864,39 @@ with tab_panel:
                 fig2.update_layout(height=320, coloraxis_showscale=False,
                                    yaxis_title="", xaxis_title="Causas")
                 st.plotly_chart(fig2, use_container_width=True)
+
+        # Causas por categoría (derivado de tipos)
+        _tipos_all = causas_por_tipo()
+        _cat_counts: dict[str, int] = {}
+        for _t in _tipos_all:
+            _cat = TIPOS_INFRACCION.get(_t.get("tipo_infraccion",""), {}).get("categoria", "Otro")
+            _cat_counts[_cat] = _cat_counts.get(_cat, 0) + _t["n"]
+        if _cat_counts:
+            _cat_colors = {
+                "Tránsito":      "#2e5090",
+                "Convivencia":   "#28a745",
+                "Comercio":      "#ffc107",
+                "Integridad":    "#dc3545",
+                "Espacio Público": "#6f42c1",
+                "Otro":          "#6c757d",
+            }
+            _cat_labels = list(_cat_counts.keys())
+            _cat_vals   = list(_cat_counts.values())
+            _cat_clrs   = [_cat_colors.get(l, "#6c757d") for l in _cat_labels]
+            col_cat1, col_cat2 = st.columns(2)
+            with col_cat1:
+                fig_cat = go.Figure(go.Pie(
+                    labels=_cat_labels, values=_cat_vals,
+                    marker_colors=_cat_clrs,
+                    hole=0.4, textinfo="label+value",
+                ))
+                fig_cat.update_layout(title="Causas por categoría", showlegend=False, height=280)
+                st.plotly_chart(fig_cat, use_container_width=True)
+            with col_cat2:
+                _rows_cat = [{"Categoría": k, "Causas": v,
+                               "% del total": f"{v*100//total}%"} for k,v in sorted(_cat_counts.items(), key=lambda x:-x[1])]
+                st.dataframe(pd.DataFrame(_rows_cat), use_container_width=True, hide_index=True)
+        st.markdown("---")
 
         # Estados
         col_g3, col_g4 = st.columns(2)
