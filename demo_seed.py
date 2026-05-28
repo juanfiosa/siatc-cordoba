@@ -200,7 +200,9 @@ def poblar():
             """, (
                 numero, pid, caso["tipo"], caso["desc"],
                 caso["carril"], clf["accion"],
-                caso["unidad"], "Dra. Ana Perez",
+                caso["unidad"],
+                {"norte": "Dra. Ana Perez", "sur": "Dr. Carlos Medina",
+                 "genero": "Dra. Laura Suarez"}.get(caso["unidad"], "Dra. Ana Perez"),
                 caso["estado"], clf["score"],
                 _fecha(caso["dias_atras"] + 3),
                 _dt(caso["dias_atras"]),
@@ -210,7 +212,9 @@ def poblar():
             numeros_causa[caso["persona_idx"]] = causa_id
 
             # Timeline de estados
-            _insertar_timeline(conn, causa_id, caso["estado"], caso["dias_atras"])
+            fiscal_caso = {"norte": "Dra. Ana Perez", "sur": "Dr. Carlos Medina",
+                           "genero": "Dra. Laura Suarez"}.get(caso["unidad"], "Dra. Ana Perez")
+            _insertar_timeline(conn, causa_id, caso["estado"], caso["dias_atras"], fiscal_caso)
 
         # Seguimiento
         if caso.get("seg"):
@@ -231,7 +235,7 @@ def _score(carril):
     return {"verde": 1.0, "amarillo": 2.2, "rojo": 3.8}.get(carril, 2.0)
 
 
-def _insertar_timeline(conn, causa_id, estado_final, dias_atras):
+def _insertar_timeline(conn, causa_id, estado_final, dias_atras, usuario="Dra. Ana Perez"):
     estados_map = {
         "ingresada":    ["ingresada"],
         "clasificada":  ["ingresada", "clasificada"],
@@ -249,7 +253,7 @@ def _insertar_timeline(conn, causa_id, estado_final, dias_atras):
             """INSERT INTO estados_causa
                (causa_id, estado_anterior, estado_nuevo, usuario, observaciones, created_at)
                VALUES (?,?,?,?,?,?)""",
-            (causa_id, ant, est, "Dra. Ana Perez", _obs(est), _dt(dias))
+            (causa_id, ant, est, usuario, _obs(est), _dt(dias))
         )
         ant = est
 
@@ -269,6 +273,8 @@ def _crear_seg_demo(causa_id, caso, persona):
     tipo_res = "suspension" if caso["carril"] in ("amarillo", "rojo") else "mediacion"
     meses = caso.get("seg_meses", 6)
     dias = caso["dias_atras"]
+    fiscal_seg = {"norte": "Dra. Ana Perez", "sur": "Dr. Carlos Medina",
+                  "genero": "Dra. Laura Suarez"}.get(caso["unidad"], "Dra. Ana Perez")
 
     fecha_inicio = _fecha(dias)
     fecha_fin_dt = date.today() - timedelta(days=dias) + timedelta(days=meses * 30)
@@ -279,7 +285,7 @@ def _crear_seg_demo(causa_id, caso, persona):
         tipo_resolucion=tipo_res,
         fecha_inicio=fecha_inicio,
         fecha_fin=fecha_fin,
-        fiscal="Dra. Ana Perez",
+        fiscal=fiscal_seg,
         observaciones=""
     )
 

@@ -420,6 +420,19 @@ def causas_por_mes(meses: int = 12) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+def causas_por_fiscal() -> list[dict]:
+    """Retorna cantidad de causas por fiscal asignado."""
+    with get_conn() as conn:
+        rows = conn.execute(
+            """SELECT fiscal_asignado, COUNT(*) as n
+               FROM causas
+               WHERE fiscal_asignado IS NOT NULL AND fiscal_asignado != ''
+               GROUP BY fiscal_asignado
+               ORDER BY n DESC"""
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
 def historial_persona(persona_id: int) -> list[dict]:
     with get_conn() as conn:
         rows = conn.execute(

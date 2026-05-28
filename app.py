@@ -24,7 +24,7 @@ from database import (
     guardar_causa, avanzar_estado, listar_causas, get_causa, get_timeline,
     guardar_documento, listar_documentos, stats_generales, causas_por_tipo,
     historial_persona, upsert_persona, ESTADOS, ESTADOS_LABEL,
-    listar_seguimientos, stats_seguimiento, causas_por_mes,
+    listar_seguimientos, stats_seguimiento, causas_por_mes, causas_por_fiscal,
 )
 from seguimiento_tab import render_tab_seguimiento
 from agenda_tab import render_tab_agenda
@@ -650,38 +650,52 @@ with tab_panel:
                 fig4.update_layout(title="Causas por unidad", height=280)
                 st.plotly_chart(fig4, use_container_width=True)
 
-        # Evolución temporal
-        meses_data = causas_por_mes(18)
-        if len(meses_data) >= 2:
-            col_time, col_resumen = st.columns([3, 1])
-            with col_time:
+        # Evolución temporal + por fiscal
+        meses_data  = causas_por_mes(18)
+        fiscal_data = causas_por_fiscal()
+        col_time, col_fiscal = st.columns(2)
+
+        with col_time:
+            if len(meses_data) >= 2:
                 df_mes = pd.DataFrame(meses_data)
-                fig5 = go.Figure(go.Bar(
-                    x=df_mes["mes"],
-                    y=df_mes["n"],
-                    marker_color="#2e5090",
-                ))
-                fig5.add_trace(go.Scatter(
-                    x=df_mes["mes"], y=df_mes["n"],
+                fig5 = go.Figure()
+                fig5.add_trace(go.Bar(x=df_mes["mes"], y=df_mes["n"],
+                                      marker_color="#2e5090", name="Causas"))
+                fig5.add_trace(go.Scatter(x=df_mes["mes"], y=df_mes["n"],
                     mode="lines+markers",
-                    line=dict(color="#28a745", width=2),
-                    marker=dict(size=6),
-                    name="Tendencia",
-                ))
-                fig5.update_layout(
-                    title="Causas ingresadas por mes",
-                    height=260, showlegend=False,
-                    xaxis_title="", yaxis_title="Causas",
-                )
+                    line=dict(color="#28a745", width=2), marker=dict(size=6),
+                    name="Tendencia"))
+                fig5.update_layout(title="Causas ingresadas por mes", height=260,
+                                   showlegend=False, xaxis_title="", yaxis_title="Causas")
                 st.plotly_chart(fig5, use_container_width=True)
-            with col_resumen:
-                st.markdown(f"*{stats['personas']} personas*")
-                st.markdown(f"*{stats['reincidentes']} con más de una causa*")
-                if stats["reincidentes"] and stats["personas"]:
+            else:
+                st.caption("Se necesitan al menos 2 meses de datos para mostrar la evolución.")
+
+        with col_fiscal:
+            if fiscal_data:
+                df_f = pd.DataFrame(fiscal_data)
+                fig6 = go.Figure(go.Bar(
+                    x=df_f["n"],
+                    y=[n.replace("Dra. ","").replace("Dr. ","") for n in df_f["fiscal_asignado"]],
+                    orientation="h",
+                    marker_color=["#2e5090","#F39C12","#9B59B6"][:len(df_f)],
+                    text=df_f["n"], textposition="auto",
+                ))
+                fig6.update_layout(title="Causas por fiscal", height=260,
+                                   xaxis_title="Causas", yaxis_title="")
+                st.plotly_chart(fig6, use_container_width=True)
+            else:
+                st.caption("Sin datos de fiscales.")
+
+        if stats["personas"]:
+            col_r1, col_r2 = st.columns(2)
+            with col_r1:
+                st.caption(f"{stats['personas']} personas registradas")
+            with col_r2:
+                if stats["reincidentes"]:
                     pct_r = round(stats["reincidentes"] * 100 / stats["personas"], 1)
-                    st.metric("Tasa reincidencia", f"{pct_r}%")
-        else:
-            st.markdown(f"*Datos reales · {stats['personas']} personas · {stats['reincidentes']} con más de una causa*")
+                    st.metric("Tasa reincidencia", f"{pct_r}%",
+                              delta=f"{stats['reincidentes']} personas")
 
         # ── Bloque seguimiento ─────────────────────────────────────────────
         st.markdown("---")
