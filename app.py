@@ -795,12 +795,17 @@ with tab_demo:
     st.subheader("Casos de demostración")
     st.markdown("Casos representativos de una semana típica. Cargalos al sistema con un clic.")
 
+    # Check which demo cases are already in the DB (by numero)
+    _numeros_en_db = {c["numero"] for c in listar_causas(limit=500)}
+
     for i, cd in enumerate(CASOS_DEMO):
         inf  = TIPOS_INFRACCION.get(cd["tipo"], {})
         clf  = clasificar_caso(cd["tipo"], cd["antecedentes"], False)
+        _ya_cargada = cd.get("numero","") in _numeros_en_db
 
         with st.expander(
-            f"{clf['icono']} {cd['numero']} — {cd['imputado']}  |  {inf.get('label','')}",
+            f"{clf['icono']} {cd['numero']} — {cd['imputado']}  |  {inf.get('label','')}"
+            + (" ✅" if _ya_cargada else ""),
             expanded=(i==0)
         ):
             col1, col2 = st.columns([3,1])
@@ -808,13 +813,18 @@ with tab_demo:
                 st.markdown(f"**Descripción:** {cd['descripcion']}")
                 st.markdown(f"**Antecedentes previos:** {cd['antecedentes']}")
                 st.markdown(f"**Unidad:** {UNIDADES[cd['unidad']]}")
+                if _ya_cargada:
+                    st.success("✅ Ya cargada en el sistema")
             with col2:
                 st.markdown(f"""<div class="carril-{clf['carril']}">
 <strong>{clf['icono']} {clf['accion']}</strong></div>""", unsafe_allow_html=True)
 
             col_b1, col_b2, col_b3 = st.columns(3)
 
-            if col_b1.button("📥 Cargar al sistema", key=f"carga_{i}", use_container_width=True):
+            if _ya_cargada:
+                col_b1.button("✅ Ya en el sistema", key=f"carga_{i}",
+                              use_container_width=True, disabled=True)
+            elif col_b1.button("📥 Cargar al sistema", key=f"carga_{i}", use_container_width=True):
                 causa_id = guardar_causa(
                     {**cd, "victima": False, "lesiones": False, "resistencia": False, "domicilio": ""},
                     clf, fiscal_nombre

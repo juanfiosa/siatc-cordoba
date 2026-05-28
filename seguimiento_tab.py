@@ -318,22 +318,56 @@ def _panel_seguimientos(fiscal):
             # Cierre del seguimiento
             if seg["estado"] == "activo":
                 st.divider()
+
+                # Auto-sugerencia de cierre cuando todas las condiciones están cumplidas
+                if condiciones and prog["total"] > 0 and prog["cumplidas"] == prog["total"]:
+                    st.success(
+                        f"🎉 **¡Todas las condiciones cumplidas!** ({prog['total']}/{prog['total']})\n\n"
+                        "Podés cerrar este seguimiento como **cumplido** y archivar la causa."
+                    )
+                elif condiciones and prog["incumplidas"] > 0:
+                    st.error(
+                        f"⚠️ **{prog['incumplidas']} condición(es) incumplida(s).** "
+                        "Evaluá revocar o marcar el seguimiento como incumplido."
+                    )
+
                 col_btn1, col_btn2, col_btn3 = st.columns(3)
                 with col_btn1:
-                    if st.button("✅ Marcar cumplido", key=f"seg_ok_{seg['id']}"):
+                    _btn_ok_type = "primary" if (prog["total"] > 0 and prog["cumplidas"] == prog["total"]) else "secondary"
+                    if st.button("✅ Marcar cumplido", key=f"seg_ok_{seg['id']}",
+                                 type=_btn_ok_type):
                         db.cerrar_seguimiento(seg["id"], "cumplido")
                         db.avanzar_estado(seg["causa_id"], "archivada", fiscal,
                                           "Seguimiento completado satisfactoriamente")
+                        db.agregar_nota_causa(
+                            seg["causa_id"],
+                            f"SEGUIMIENTO CERRADO: Todas las condiciones del período "
+                            f"{seg['fecha_inicio']} → {seg['fecha_fin']} fueron cumplidas. "
+                            "Causa archivada.",
+                            fiscal,
+                        )
                         st.success("Seguimiento cerrado como cumplido. Causa archivada.")
                         st.rerun()
                 with col_btn2:
                     if st.button("❌ Marcar incumplido", key=f"seg_inc_{seg['id']}"):
                         db.cerrar_seguimiento(seg["id"], "incumplido")
+                        db.agregar_nota_causa(
+                            seg["causa_id"],
+                            f"SEGUIMIENTO INCUMPLIDO: Se cierra el período "
+                            f"{seg['fecha_inicio']} → {seg['fecha_fin']} por incumplimiento. "
+                            "La causa puede retomar proceso contravencional pleno.",
+                            fiscal,
+                        )
                         st.error("Seguimiento marcado como incumplido. La causa puede retomar proceso.")
                         st.rerun()
                 with col_btn3:
                     if st.button("⚫ Revocar", key=f"seg_rev_{seg['id']}"):
                         db.cerrar_seguimiento(seg["id"], "revocado")
+                        db.agregar_nota_causa(
+                            seg["causa_id"],
+                            f"SEGUIMIENTO REVOCADO: El período de prueba fue revocado por disposición fiscal.",
+                            fiscal,
+                        )
                         st.warning("Seguimiento revocado.")
                         st.rerun()
 
