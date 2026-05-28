@@ -8,6 +8,7 @@ import streamlit as st
 from datetime import date, datetime
 import database as db
 from data_cordoba import TIPOS_INFRACCION, UNIDADES
+from pdf_gen import pdf_perfil_persona
 
 CARRIL_CSS = {
     "verde":    ("🟢", "#d4edda", "#28a745"),
@@ -53,13 +54,28 @@ def render_perfil(persona_id: int):
 </div>
 """, unsafe_allow_html=True)
 
-    col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+    col_m1, col_m2, col_m3, col_m4, col_m5 = st.columns(5)
     col_m1.metric("Causas totales", perfil["total_causas"])
     col_m2.metric("Antecedentes",   antec)
     col_m3.metric("Seguimientos",   len(segs))
     col_m4.metric("Audiencias",     len(auds))
 
     st.markdown(_badge_antecedentes(antec), unsafe_allow_html=True)
+
+    # PDF export button
+    try:
+        _unidad_k = causas[0].get("unidad","norte") if causas else "norte"
+        _pdf_pfil = pdf_perfil_persona(perfil, "", _unidad_k)
+        col_m5.download_button(
+            "⬇️ Ficha PDF",
+            data=_pdf_pfil,
+            file_name=f"perfil_{p['dni']}.pdf",
+            mime="application/pdf",
+            use_container_width=True,
+            key=f"dl_perfil_{p['id']}",
+        )
+    except Exception:
+        pass
     st.markdown("")
 
     # ── Historial de causas ──────────────────────────────────────────────────

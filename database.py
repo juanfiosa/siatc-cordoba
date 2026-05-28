@@ -420,6 +420,42 @@ def causas_por_mes(meses: int = 12) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+def stats_tiempos_resolucion() -> dict:
+    """
+    Calcula tiempos promedio de resolución (días entre ingresada → resuelta)
+    por carril. Compara con el proceso tradicional estimado.
+    """
+    TIEMPO_TRADICIONAL = {"verde": 90, "amarillo": 150, "rojo": 240}
+    with get_conn() as conn:
+        rows = conn.execute(
+            """
+            SELECT c.carril,
+                   ROUND(AVG(
+                       JULIANDAY(ec_res.created_at) - JULIANDAY(c.created_at)
+                   )) as dias_promedio,
+                   COUNT(*) as n
+            FROM causas c
+            JOIN estados_causa ec_res
+              ON ec_res.causa_id = c.id AND ec_res.estado_nuevo = 'resuelta'
+            WHERE c.carril IS NOT NULL
+            GROUP BY c.carril
+            """
+        ).fetchall()
+
+    por_carril = {}
+    for r in rows:
+        carril = r["carril"]
+        dias   = int(r["dias_promedio"]) if r["dias_promedio"] else None
+        trad   = TIEMPO_TRADICIONAL.get(carril, 120)
+        por_carril[carril] = {
+            "dias_promedio": dias,
+            "tradicional":   trad,
+            "reduccion_pct": round((trad - dias) / trad * 100) if dias else None,
+            "n":             r["n"],
+        }
+    return por_carril
+
+
 def causas_por_fiscal() -> list[dict]:
     """Retorna cantidad de causas por fiscal asignado."""
     with get_conn() as conn:

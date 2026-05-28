@@ -631,6 +631,145 @@ def pdf_reporte_diario(stats, audiencias_hoy, causas_pendientes, fiscal_nombre, 
     return buf.getvalue()
 
 
+# -- Perfil del imputado ------------------------------------------------------
+
+def pdf_perfil_persona(perfil: dict, fiscal_nombre: str, unidad_key: str) -> bytes:
+    """Genera una ficha institucional con el historial completo de una persona."""
+    p       = perfil.get("persona", {})
+    causas  = perfil.get("causas", [])
+    segs    = perfil.get("seguimientos", [])
+    auds    = perfil.get("audiencias", [])
+    antec   = perfil.get("antecedentes", 0)
+    fecha   = _fecha_formal()
+
+    pdf = PDFMPFBase(unidad_key)
+    pdf.alias_nb_pages()
+    pdf.add_page()
+
+    pdf.titulo_documento("Ficha del Imputado/a — Historial Contravencional")
+    pdf.metadatos(f"DNI {_s(p.get('dni', ''))}", fecha)
+
+    # -- Datos personales --
+    pdf._sf("B", 10)
+    pdf.set_text_color(*AZUL_MPF)
+    pdf.set_fill_color(235, 240, 250)
+    pdf.cell(0, 7, "DATOS PERSONALES", fill=True, ln=True)
+    pdf.set_text_color(*NEGRO)
+    pdf._sf("", 9)
+    pdf.ln(2)
+
+    pdf.cell(50, 6, "Apellido y Nombre:")
+    pdf._sf("B", 9)
+    pdf.cell(0, 6, _s(p.get("apellido_nombre", "")), ln=True)
+    pdf._sf("", 9)
+    pdf.cell(50, 6, "D.N.I.:")
+    pdf.cell(60, 6, _s(str(p.get("dni", ""))))
+    pdf.cell(30, 6, "Edad:")
+    pdf._sf("B", 9)
+    pdf.cell(0, 6, _s(str(p.get("edad", ""))), ln=True)
+    pdf._sf("", 9)
+    pdf.cell(50, 6, "Domicilio:")
+    pdf.cell(0, 6, _s(p.get("domicilio") or "No registrado"), ln=True)
+    pdf.cell(50, 6, "Telefono:")
+    pdf.cell(0, 6, _s(p.get("telefono") or "No registrado"), ln=True)
+    pdf.ln(2)
+
+    # Antecedentes highlight
+    if antec == 0:
+        pdf.set_fill_color(212, 237, 218)
+        antec_txt = "Sin antecedentes contravencionales registrados"
+    elif antec == 1:
+        pdf.set_fill_color(255, 243, 205)
+        antec_txt = f"1 antecedente contravencional registrado"
+    else:
+        pdf.set_fill_color(248, 215, 218)
+        antec_txt = f"{antec} antecedentes contravencionales registrados"
+    pdf._sf("B", 9)
+    pdf.cell(0, 7, _s(antec_txt), fill=True, align="C", ln=True)
+    pdf.ln(4)
+
+    # -- Causas --
+    pdf._sf("B", 10)
+    pdf.set_text_color(*AZUL_MPF)
+    pdf.set_fill_color(235, 240, 250)
+    pdf.cell(0, 7, f"HISTORIAL DE CAUSAS ({len(causas)})", fill=True, ln=True)
+    pdf.set_text_color(*NEGRO)
+    pdf.ln(2)
+
+    CARRIL_STR = {"verde": "VERDE (Mediacion)", "amarillo": "AMARILLO (Suspension)", "rojo": "ROJO (Proceso pleno)"}
+    for c in causas:
+        inf = TIPOS_INFRACCION.get(c.get("tipo_infraccion", ""), {})
+        pdf._sf("B", 9)
+        pdf.cell(0, 5, _s(f"* {c.get('numero','')} — {inf.get('label', c.get('tipo_infraccion',''))}"), ln=True)
+        pdf._sf("", 9)
+        pdf.cell(10, 5, "")
+        pdf.cell(40, 5, "Estado:")
+        pdf.cell(60, 5, _s(c.get("estado","").capitalize()))
+        pdf.cell(30, 5, "Carril:")
+        pdf.cell(0, 5, _s(CARRIL_STR.get(c.get("carril",""), "")), ln=True)
+        pdf.cell(10, 5, "")
+        pdf.cell(40, 5, "Infraccion:")
+        pdf.multi_cell(0, 5, _s(inf.get("articulo", "")))
+        if c.get("descripcion"):
+            pdf.cell(10, 5, "")
+            pdf.cell(40, 5, "Hechos:")
+            pdf.multi_cell(0, 5, _s(str(c.get("descripcion",""))[:200]))
+        pdf.ln(2)
+
+    if not causas:
+        pdf._sf("", 9)
+        pdf.cell(0, 5, "Sin causas registradas.", ln=True)
+    pdf.ln(2)
+
+    # -- Seguimientos --
+    if segs:
+        pdf._sf("B", 10)
+        pdf.set_text_color(*AZUL_MPF)
+        pdf.set_fill_color(235, 240, 250)
+        pdf.cell(0, 7, f"SEGUIMIENTOS POST-RESOLUCION ({len(segs)})", fill=True, ln=True)
+        pdf.set_text_color(*NEGRO)
+        pdf.ln(2)
+        for s in segs:
+            pdf._sf("B", 9)
+            tipo_s = {"suspension":"Suspension a Prueba","mediacion":"Acuerdo de Mediacion","acuerdo":"Acuerdo Conciliatorio"}.get(s.get("tipo_resolucion",""), s.get("tipo_resolucion",""))
+            pdf.cell(0, 5, _s(f"* {tipo_s} — {s.get('estado','').capitalize()}"), ln=True)
+            pdf._sf("", 9)
+            pdf.cell(10, 5, "")
+            pdf.cell(40, 5, "Periodo:")
+            pdf.cell(0, 5, _s(f"{s.get('fecha_inicio','')} a {s.get('fecha_fin','')}"), ln=True)
+            pdf.ln(2)
+
+    # -- Audiencias --
+    if auds:
+        pdf._sf("B", 10)
+        pdf.set_text_color(*AZUL_MPF)
+        pdf.set_fill_color(235, 240, 250)
+        pdf.cell(0, 7, f"AUDIENCIAS ({len(auds)})", fill=True, ln=True)
+        pdf.set_text_color(*NEGRO)
+        pdf.ln(2)
+        TIPO_STR = {"audiencia":"Audiencia contravencional","mediacion":"Mediacion",
+                    "acta_compromiso":"Acta de compromiso","control_seg":"Control seguimiento",
+                    "reprogramada":"Reprogramada"}
+        for a in sorted(auds, key=lambda x: x.get("fecha",""), reverse=True)[:10]:
+            ESTADO_A = {"programada":"Programada","realizada":"Realizada",
+                        "ausente":"AUSENTE","reprogramada":"Reprogramada","cancelada":"Cancelada"}
+            pdf._sf("", 9)
+            pdf.cell(30, 5, _s(f"{a.get('fecha','')} {a.get('hora','')}"))
+            pdf.cell(70, 5, _s(TIPO_STR.get(a.get("tipo",""), a.get("tipo",""))))
+            pdf.cell(0, 5, _s(ESTADO_A.get(a.get("estado",""), a.get("estado","").capitalize())), ln=True)
+
+    pdf.ln(6)
+    pdf._sf("I", 8)
+    pdf.set_text_color(*GRIS_TEXTO)
+    pdf.cell(0, 4,
+        _s(f"Generado por SIATC - MPF Cordoba - {datetime.now().strftime('%d/%m/%Y %H:%M')} - {fiscal_nombre}"),
+        ln=True, align="C")
+
+    buf = BytesIO()
+    pdf.output(buf)
+    return buf.getvalue()
+
+
 # -- Punto de entrada ---------------------------------------------------------
 
 def generar_pdf(tipo_doc, caso, clf, fiscal, unidad):

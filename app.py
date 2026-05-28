@@ -25,6 +25,7 @@ from database import (
     guardar_documento, listar_documentos, stats_generales, causas_por_tipo,
     historial_persona, upsert_persona, ESTADOS, ESTADOS_LABEL,
     listar_seguimientos, stats_seguimiento, causas_por_mes, causas_por_fiscal,
+    get_seguimiento_por_causa, get_condiciones, stats_tiempos_resolucion,
 )
 from seguimiento_tab import render_tab_seguimiento
 from agenda_tab import render_tab_agenda
@@ -319,6 +320,8 @@ with tab_nuevo:
 # ══════════════════════════════════════════════════════════════════════════════
 with tab_causas:
     st.subheader("Gestión de Causas")
+    if st.session_state.pop("goto_perfil", False):
+        st.info("👤 El perfil del imputado/a se muestra en la pestaña **Perfil**.")
 
     # Filtros
     col_f1, col_f2, col_f3, col_f4 = st.columns([2,1,1,1])
@@ -368,7 +371,11 @@ with tab_causas:
                 col_info, col_acciones = st.columns([2,1])
 
                 with col_info:
-                    st.markdown(f"**DNI:** {c['persona_dni']}  |  **Unidad:** {unidad_label}  |  **Fiscal:** {c.get('fiscal_asignado','—')}")
+                    _col_dni, _col_pfil = st.columns([3, 1])
+                    _col_dni.markdown(f"**DNI:** {c['persona_dni']}  |  **Unidad:** {unidad_label}  |  **Fiscal:** {c.get('fiscal_asignado','—')}")
+                    if _col_pfil.button("👤 Ver perfil", key=f"pfil_{c['id']}", use_container_width=True):
+                        st.session_state["perfil_busqueda"] = c["persona_dni"]
+                        st.session_state["goto_perfil"] = True
                     st.markdown(f"**Descripción:** {c.get('descripcion') or '—'}")
                     st.markdown(f"**Ingresada:** {c['created_at']}")
 
@@ -509,8 +516,8 @@ with tab_causas:
                             doc_txt = f"Acta de compromiso — {caso_stored['imputado']} — {c['numero']}"
                             _needs_rerun = False   # show download before rerun
                         elif "Informe de incumplimiento" in doc_tipo:
-                            seg_info = db.get_seguimiento_por_causa(c["id"]) or {}
-                            conds_inc = [cd for cd in db.get_condiciones(seg_info.get("id", 0))
+                            seg_info = get_seguimiento_por_causa(c["id"]) or {}
+                            conds_inc = [cd for cd in get_condiciones(seg_info.get("id", 0))
                                          if cd["estado"] == "incumplido"] if seg_info else []
                             pdf_bytes = generar_pdf("informe incumplimiento", caso_stored,
                                                     {"seguimiento": seg_info, "condiciones_inc": conds_inc},
@@ -741,7 +748,46 @@ with tab_panel:
             else:
                 st.caption("Sin datos de fiscales.")
 
+        # ── Tiempos de resolución vs. proceso tradicional ──────────────────
+        tiempos = stats_tiempos_resolucion()
+        if tiempos:
+            st.markdown("---")
+            st.subheader("⏱️ Tiempos de resolución vs. proceso tradicional")
+            CARRIL_LABELS = {"verde": "🟢 Mediación", "amarillo": "🟡 Suspensión", "rojo": "🔴 Proceso pleno"}
+            t_cols = st.columns(len(tiempos))
+            for col, (carril, t) in zip(t_cols, tiempos.items()):
+                with col:
+                    if t["dias_promedio"] is not None:
+                        col.metric(
+                            CARRIL_LABELS.get(carril, carril),
+                            f"~{t['dias_promedio']} días",
+                            delta=f"-{t['tradicional'] - t['dias_promedio']}d vs. proceso tradicional",
+                            delta_color="inverse",
+                        )
+                        col.caption(f"Tradicional: ~{t['tradicional']} días · {t['n']} causa(s) resuelta(s)")
+                    else:
+                        col.metric(CARRIL_LABELS.get(carril, carril), "Sin datos")
+
+            # Gráfico comparativo
+            if len(tiempos) >= 1:
+                carriles  = list(tiempos.keys())
+                labels    = [CARRIL_LABELS.get(c, c) for c in carriles]
+                dias_siatc = [tiempos[c]["dias_promedio"] or 0 for c in carriles]
+                dias_trad  = [tiempos[c]["tradicional"] for c in carriles]
+                fig_t = go.Figure()
+                fig_t.add_trace(go.Bar(name="Proceso tradicional", x=labels,
+                                       y=dias_trad, marker_color="#adb5bd"))
+                fig_t.add_trace(go.Bar(name="Con SIATC", x=labels,
+                                       y=dias_siatc, marker_color="#2e5090"))
+                fig_t.update_layout(
+                    barmode="group", height=260,
+                    title="Días promedio hasta resolución",
+                    yaxis_title="Días", legend=dict(orientation="h", y=1.1),
+                )
+                st.plotly_chart(fig_t, use_container_width=True)
+
         if stats["personas"]:
+            st.markdown("---")
             col_r1, col_r2 = st.columns(2)
             with col_r1:
                 st.caption(f"{stats['personas']} personas registradas")
@@ -881,6 +927,35 @@ with tab_panel:
                     )
                 else:
                     st.info("No hay audiencias programadas próximas.")
+
+        # ── KPIs de eficiencia ─────────────────────────────────────────────
+        if aud_s["total"] > 0:
+            _comparecidas = aud_s["realizadas"]
+            _total_cerradas = aud_s["realizadas"] + aud_s["ausentes"]
+            _pct_comp = round(_comparecidas * 100 / _total_cerradas) if _total_cerradas else 0
+            _pct_sin_condena = round(no_punitivo * 100 / total) if total else 0
+
+            st.markdown("---")
+            st.subheader("📈 KPIs de eficiencia")
+            kc1, kc2, kc3, kc4 = st.columns(4)
+            kc1.metric("Tasa de comparecencia",
+                       f"{_pct_comp}%",
+                       delta=f"{_comparecidas} de {_total_cerradas}",
+                       help="Audiencias realizadas / (realizadas + ausencias)")
+            kc2.metric("Resolución sin condena",
+                       f"{_pct_sin_condena}%",
+                       delta=f"{no_punitivo} de {total} causas",
+                       help="Carriles verde + amarillo = mediación o suspensión a prueba")
+            _pct_resuelta = round(stats["por_estado"].get("resuelta", 0) * 100 / total) if total else 0
+            kc3.metric("Causas resueltas",
+                       f"{_pct_resuelta}%",
+                       delta=f"{stats['por_estado'].get('resuelta',0)} causa(s)",
+                       help="Porcentaje de causas en estado 'Resuelta'")
+            _archivadas = stats["por_estado"].get("archivada", 0)
+            kc4.metric("Causas archivadas",
+                       _archivadas,
+                       delta=f"seguimiento completo" if _archivadas else None,
+                       help="Causas con seguimiento completado y archivadas")
 
         # ── Exportación a Excel ────────────────────────────────────────────
         st.markdown("---")
