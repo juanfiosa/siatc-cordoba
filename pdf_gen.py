@@ -536,6 +536,101 @@ def pdf_informe_incumplimiento(caso, seguimiento, condiciones_inc, fiscal_nombre
     return buf.getvalue()
 
 
+# -- Reporte diario -----------------------------------------------------------
+
+def pdf_reporte_diario(stats, audiencias_hoy, causas_pendientes, fiscal_nombre, unidad_key):
+    """Genera un resumen ejecutivo del dia para la unidad."""
+    fecha = _fecha_formal()
+    now   = datetime.now()
+
+    pdf = PDFMPFBase(unidad_key)
+    pdf.alias_nb_pages()
+    pdf.add_page()
+
+    pdf.titulo_documento("Reporte Diario de Gestion Contravencional")
+    pdf._sf("B", 9)
+    pdf.set_text_color(*AZUL_CLARO)
+    pdf.cell(0, 6, f"Fecha: {fecha}  -  Generado: {now.strftime('%H:%M hs')}", ln=True)
+    pdf.set_text_color(*NEGRO)
+    pdf.ln(4)
+
+    # Estadisticas generales
+    pdf._sf("B", 10)
+    pdf.set_text_color(*AZUL_MPF)
+    pdf.set_fill_color(240, 244, 255)
+    pdf.cell(0, 7, "ESTADISTICAS GENERALES", fill=True, ln=True)
+    pdf.set_text_color(*NEGRO)
+    pdf._sf("", 9)
+    pdf.ln(2)
+    pdf.cell(95, 6, f"Total causas en el sistema: {stats.get('total', 0)}", ln=False)
+    pdf.cell(95, 6, f"Personas registradas: {stats.get('personas', 0)}", ln=True)
+    por_carril = stats.get("por_carril", {})
+    pdf.cell(95, 6, f"Carril Verde (mediacion): {por_carril.get('verde', 0)}", ln=False)
+    pdf.cell(95, 6, f"Carril Amarillo (suspension): {por_carril.get('amarillo', 0)}", ln=True)
+    pdf.cell(95, 6, f"Carril Rojo (proceso pleno): {por_carril.get('rojo', 0)}", ln=False)
+    pdf.cell(95, 6, f"Reincidentes: {stats.get('reincidentes', 0)}", ln=True)
+    pdf.ln(4)
+
+    # Audiencias del dia
+    pdf._sf("B", 10)
+    pdf.set_text_color(*AZUL_MPF)
+    pdf.set_fill_color(240, 244, 255)
+    n_aud = len(audiencias_hoy) if audiencias_hoy else 0
+    pdf.cell(0, 7, f"AUDIENCIAS DEL DIA ({n_aud})", fill=True, ln=True)
+    pdf.set_text_color(*NEGRO)
+    pdf._sf("", 9)
+    pdf.ln(2)
+    if audiencias_hoy:
+        for a in audiencias_hoy:
+            hora  = _s(a.get("hora", ""))
+            nom   = _s(a.get("apellido_nombre", "")).split(",")[0].strip()
+            num   = _s(a.get("numero", ""))
+            tipo  = _s(a.get("tipo","")).replace("_"," ").capitalize()
+            est   = _s(a.get("estado","")).capitalize()
+            pdf.cell(25, 5, hora, ln=False)
+            pdf.cell(60, 5, nom, ln=False)
+            pdf.cell(55, 5, num, ln=False)
+            pdf.cell(50, 5, tipo, ln=True)
+    else:
+        pdf.cell(0, 5, "No hay audiencias programadas para el dia de hoy.", ln=True)
+    pdf.ln(4)
+
+    # Causas pendientes de accion
+    pdf._sf("B", 10)
+    pdf.set_text_color(*AZUL_MPF)
+    pdf.set_fill_color(240, 244, 255)
+    n_pend = len(causas_pendientes) if causas_pendientes else 0
+    pdf.cell(0, 7, f"CAUSAS PENDIENTES DE ACCION ({n_pend})", fill=True, ln=True)
+    pdf.set_text_color(*NEGRO)
+    pdf._sf("", 9)
+    pdf.ln(2)
+    if causas_pendientes:
+        for c in causas_pendientes[:15]:
+            nom   = _s(c.get("apellido_nombre","")).split(",")[0].strip()
+            num   = _s(c.get("numero",""))
+            est   = _s(c.get("estado","")).capitalize()
+            tipo  = TIPOS_INFRACCION.get(c.get("tipo_infraccion",""), {}).get("label", "")
+            pdf.cell(55, 5, nom, ln=False)
+            pdf.cell(50, 5, num, ln=False)
+            pdf.cell(45, 5, _s(tipo)[:28], ln=False)
+            pdf.cell(40, 5, est, ln=True)
+        if len(causas_pendientes) > 15:
+            pdf.cell(0, 5, f"... y {len(causas_pendientes)-15} causas mas.", ln=True)
+    else:
+        pdf.cell(0, 5, "No hay causas pendientes de accion inmediata.", ln=True)
+    pdf.ln(6)
+
+    pdf._sf("I", 8)
+    pdf.set_text_color(*GRIS_TEXTO)
+    pdf.cell(0, 4,
+        f"Generado automaticamente por SIATC - MPF Cordoba - {now.strftime('%d/%m/%Y %H:%M')}",
+        ln=True, align="C")
+
+    buf = BytesIO()
+    pdf.output(buf)
+    return buf.getvalue()
+
+
 # -- Punto de entrada ---------------------------------------------------------
 
 def generar_pdf(tipo_doc, caso, clf, fiscal, unidad):

@@ -18,7 +18,7 @@ from document_gen import (
     generar_citacion,
     generar_resumen_ejecutivo,
 )
-from pdf_gen import generar_pdf
+from pdf_gen import generar_pdf, pdf_reporte_diario
 from database import (
     init_db, buscar_persona_por_dni, contar_antecedentes,
     guardar_causa, avanzar_estado, listar_causas, get_causa, get_timeline,
@@ -869,8 +869,22 @@ with tab_panel:
             except Exception as e:
                 st.error(f"Error generando Excel audiencias: {e}")
         with col_ex4:
-            st.caption("Los archivos Excel incluyen formato institucional MPF, "
-                       "dos hojas por reporte y colores de estado.")
+            try:
+                from database import listar_audiencias as _la2
+                from datetime import date as _d4
+                _auds_hoy  = _la2(desde=_d4.today().isoformat(), hasta=_d4.today().isoformat())
+                _pend      = listar_causas(estado="notificada") + listar_causas(estado="clasificada")
+                rpt_bytes  = pdf_reporte_diario(stats, _auds_hoy, _pend, fiscal_nombre, unidad_key)
+                st.download_button(
+                    "⬇️ Reporte del día (.pdf)",
+                    data=rpt_bytes,
+                    file_name=f"SIATC_reporte_{datetime.now().strftime('%Y%m%d')}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True,
+                    type="primary",
+                )
+            except Exception as e:
+                st.error(f"Error reporte: {e}")
 
         # ── Opciones de demostración ───────────────────────────────────────
         st.markdown("---")
