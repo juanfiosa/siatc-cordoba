@@ -192,6 +192,15 @@ def poblar():
                 numeros_causa[caso["persona_idx"]] = existing["id"]
                 continue
 
+            # updated_at ≈ last state change time (approximate)
+            _estados_count = {
+                "ingresada": 1, "clasificada": 2, "notificada": 3,
+                "en_mediacion": 4, "resuelta": 4, "archivada": 5,
+            }
+            _n_est = _estados_count.get(caso["estado"], 2)
+            _step  = max(1, caso["dias_atras"] // _n_est)
+            _updated_dias = max(0, _step)  # last state was ~1 step ago
+
             cur = conn.execute("""
                 INSERT INTO causas
                   (numero, persona_id, tipo_infraccion, descripcion, carril, accion,
@@ -206,7 +215,7 @@ def poblar():
                 caso["estado"], clf["score"],
                 _fecha(caso["dias_atras"] + 3),
                 _dt(caso["dias_atras"]),
-                _dt(max(0, caso["dias_atras"] - 5)),
+                _dt(_updated_dias),
             ))
             causa_id = cur.lastrowid
             numeros_causa[caso["persona_idx"]] = causa_id

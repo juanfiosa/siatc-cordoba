@@ -429,14 +429,16 @@ with tab_causas:
             infraccion_label = TIPOS_INFRACCION.get(c["tipo_infraccion"],{}).get("label", c["tipo_infraccion"])
             unidad_label = {"norte":"Norte","sur":"Sur","genero":"Género"}.get(c.get("unidad",""),"")
 
-            # Days in current state
-            try:
-                _upd = datetime.strptime(c["updated_at"][:16], "%Y-%m-%d %H:%M")
-                _dias_est = (datetime.now() - _upd).days
-                _dias_badge = (f"  🔴 {_dias_est}d sin actualizar" if _dias_est > 30 else
-                               f"  🟡 {_dias_est}d" if _dias_est > 7 else "")
-            except Exception:
-                _dias_badge = ""
+            # Days in current state — only meaningful for active states
+            _dias_badge = ""
+            if c["estado"] in {"ingresada", "clasificada", "notificada", "en_mediacion"}:
+                try:
+                    _upd = datetime.strptime(c["updated_at"][:16], "%Y-%m-%d %H:%M")
+                    _dias_est = (datetime.now() - _upd).days
+                    _dias_badge = (f"  🔴 {_dias_est}d sin actualizar" if _dias_est > 30 else
+                                   f"  🟡 {_dias_est}d" if _dias_est > 7 else "")
+                except Exception:
+                    pass
 
             with st.expander(
                 f"{carril_icon} **{c['numero']}** — {c['apellido_nombre']}  |  {infraccion_label}  |  {estado_label}{_dias_badge}",
