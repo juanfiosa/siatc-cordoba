@@ -9,6 +9,7 @@ from datetime import date, datetime
 import database as db
 from data_cordoba import TIPOS_INFRACCION, UNIDADES
 from pdf_gen import pdf_perfil_persona
+from database import causas_similares
 
 CARRIL_CSS = {
     "verde":    ("🟢", "#d4edda", "#28a745"),
@@ -155,6 +156,23 @@ def render_perfil(persona_id: int):
                 f"{a.get('estado','').capitalize()}"
                 + (f" | _{a['observaciones']}_" if a.get("observaciones") else "")
             )
+
+    # ── Causas similares en el sistema ───────────────────────────────────────
+    _tipos_persona = list({c.get("tipo_infraccion","") for c in causas if c.get("tipo_infraccion")})
+    for tipo_inf in _tipos_persona[:3]:   # show at most 3 infraction types
+        _sims = causas_similares(tipo_inf, exclude_persona_id=p["id"], limit=5)
+        if _sims:
+            _inf_lbl = TIPOS_INFRACCION.get(tipo_inf, {}).get("label", tipo_inf)
+            with st.expander(f"📊 {len(_sims)} caso(s) similares — {_inf_lbl}"):
+                for sc in _sims:
+                    _ic_s = {"verde":"🟢","amarillo":"🟡","rojo":"🔴"}.get(sc.get("carril",""),"⚪")
+                    _est_s = db.ESTADOS_LABEL.get(sc.get("estado",""), sc.get("estado",""))
+                    _nom_s = (sc.get("apellido_nombre","") or "").split(",")[0]
+                    st.markdown(
+                        f"{_ic_s} **{sc['numero']}** — {_nom_s} &nbsp;|&nbsp; "
+                        f"{_est_s} &nbsp;|&nbsp; {sc.get('created_at','')[:10]}"
+                    )
+                st.caption(f"Otros casos con la misma infracción en el sistema.")
 
     # ── Editar datos de contacto ─────────────────────────────────────────────
     with st.expander("✏️ Editar datos de contacto"):

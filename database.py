@@ -340,7 +340,8 @@ def agregar_nota_causa(causa_id: int, nota: str, usuario: str) -> bool:
 
 
 def listar_causas(estado: str = None, carril: str = None, unidad: str = None,
-                  busqueda: str = None, limit: int = 200) -> list[dict]:
+                  busqueda: str = None, tipo_infraccion: str = None,
+                  limit: int = 200) -> list[dict]:
     sql = """
         SELECT c.*, p.apellido_nombre, p.dni as persona_dni,
                p.edad as persona_edad, p.domicilio as persona_domicilio,
@@ -359,10 +360,33 @@ def listar_causas(estado: str = None, carril: str = None, unidad: str = None,
     if unidad:
         sql += " AND c.unidad = ?"
         params.append(unidad)
+    if tipo_infraccion:
+        sql += " AND c.tipo_infraccion = ?"
+        params.append(tipo_infraccion)
     if busqueda:
         sql += """ AND (p.apellido_nombre LIKE ? OR c.numero LIKE ? OR p.dni LIKE ?
                         OR c.tipo_infraccion LIKE ? OR c.descripcion LIKE ?)"""
         params.extend([f"%{busqueda}%"] * 5)
+    sql += " ORDER BY c.created_at DESC LIMIT ?"
+    params.append(limit)
+    with get_conn() as conn:
+        rows = conn.execute(sql, params).fetchall()
+    return [dict(r) for r in rows]
+
+
+def causas_similares(tipo_infraccion: str, exclude_persona_id: int = None,
+                     limit: int = 6) -> list[dict]:
+    """Causas del mismo tipo de infracción, excluyendo al imputado dado."""
+    sql = """
+        SELECT c.*, p.apellido_nombre, p.dni as persona_dni, p.edad as persona_edad
+        FROM causas c
+        LEFT JOIN personas p ON c.persona_id = p.id
+        WHERE c.tipo_infraccion = ?
+    """
+    params: list = [tipo_infraccion]
+    if exclude_persona_id:
+        sql += " AND c.persona_id != ?"
+        params.append(exclude_persona_id)
     sql += " ORDER BY c.created_at DESC LIMIT ?"
     params.append(limit)
     with get_conn() as conn:
@@ -785,6 +809,53 @@ def stats_seguimiento() -> dict:
         "total": total, "activos": activos, "cumplidos": cumplidos,
         "incumplidos": incumplidos, "vencidos": vencidos
     }
+
+
+# ── Análisis demográfico ───────────────────────────────────────────────────────
+
+_EDAD_GRUPOS = ["16-25", "26-35", "36-45", "46-55", "56+"]
+
+
+def _edad_bucket(edad: int) -> str:
+    if edad <= 25:
+        return "16-25"
+    if edad <= 35:
+        return "26-35"
+    if edad <= 45:
+        return "36-45"
+    if edad <= 55:
+        return "46-55"
+    return "56+"
+
+
+def stats_edad() -> dict:
+    """Distribución de personas registradas por grupo etario."""
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT edad FROM personas WHERE edad IS NOT NULL AND edad > 0"
+        ).fetchall()
+    buckets = {g: 0 for g in _EDAD_GRUPOS}
+    for row in rows:
+        buckets[_edad_bucket(row["edad"])] += 1
+    return buckets
+
+
+def stats_edad_por_carril() -> dict:
+    """Cross-tab: número de causas por grupo etario × carril."""
+    with get_conn() as conn:
+        rows = conn.execute("""
+            SELECT p.edad, c.carril
+            FROM causas c
+            JOIN personas p ON p.id = c.persona_id
+            WHERE p.edad IS NOT NULL AND p.edad > 0 AND c.carril IS NOT NULL
+        """).fetchall()
+    result = {g: {"verde": 0, "amarillo": 0, "rojo": 0} for g in _EDAD_GRUPOS}
+    for row in rows:
+        bucket = _edad_bucket(row["edad"])
+        carril = row["carril"]
+        if carril in result[bucket]:
+            result[bucket][carril] += 1
+    return result
 
 
 # ── Audiencias / agenda ────────────────────────────────────────────────────────

@@ -28,7 +28,7 @@ from database import (
     listar_seguimientos, stats_seguimiento, causas_por_mes, causas_por_fiscal,
     get_seguimiento_por_causa, get_condiciones, stats_tiempos_resolucion,
     causas_inactivas, causas_sin_audiencia_programada, personas_reincidentes,
-    actividad_reciente,
+    actividad_reciente, stats_edad, stats_edad_por_carril,
 )
 from seguimiento_tab import render_tab_seguimiento
 from agenda_tab import render_tab_agenda
@@ -1269,6 +1269,68 @@ with tab_panel:
                        _archivadas,
                        delta=f"seguimiento completo" if _archivadas else None,
                        help="Causas con seguimiento completado y archivadas")
+
+        # ── Análisis demográfico ───────────────────────────────────────────
+        st.markdown("---")
+        st.subheader("👥 Perfil demográfico de imputados/as")
+        _edad_dist   = stats_edad()
+        _edad_carril = stats_edad_por_carril()
+        _grupos_edad = ["16-25", "26-35", "36-45", "46-55", "56+"]
+
+        col_demo1, col_demo2 = st.columns(2)
+        with col_demo1:
+            _vals_edad = [_edad_dist.get(g, 0) for g in _grupos_edad]
+            if sum(_vals_edad) > 0:
+                fig_edad = go.Figure(go.Bar(
+                    x=_grupos_edad,
+                    y=_vals_edad,
+                    marker_color=["#1a2f5e","#2e5090","#3a6bc4","#5a8de4","#7aabf0"],
+                    text=_vals_edad,
+                    textposition="outside",
+                ))
+                fig_edad.update_layout(
+                    title="Personas por grupo etario",
+                    xaxis_title="Grupo de edad",
+                    yaxis_title="Personas",
+                    height=280,
+                    margin=dict(t=40, b=20),
+                )
+                st.plotly_chart(fig_edad, use_container_width=True)
+                # Edad promedio
+                _personas_all = [p for p in listar_personas()
+                                 if p.get("edad") and p["edad"] > 0]
+                if _personas_all:
+                    _prom_edad = round(sum(p["edad"] for p in _personas_all) / len(_personas_all), 1)
+                    _menor = min(p["edad"] for p in _personas_all)
+                    _mayor = max(p["edad"] for p in _personas_all)
+                    st.caption(f"Edad promedio: **{_prom_edad} años** · Rango: {_menor}–{_mayor} años")
+            else:
+                st.info("No hay datos de edad disponibles.")
+
+        with col_demo2:
+            _verde_v = [_edad_carril.get(g, {}).get("verde", 0)    for g in _grupos_edad]
+            _amar_v  = [_edad_carril.get(g, {}).get("amarillo", 0) for g in _grupos_edad]
+            _rojo_v  = [_edad_carril.get(g, {}).get("rojo", 0)     for g in _grupos_edad]
+            if any(_verde_v + _amar_v + _rojo_v):
+                fig_democ = go.Figure()
+                fig_democ.add_trace(go.Bar(name="🟢 Mediación",  x=_grupos_edad, y=_verde_v,
+                                           marker_color="#2ECC71"))
+                fig_democ.add_trace(go.Bar(name="🟡 Suspensión", x=_grupos_edad, y=_amar_v,
+                                           marker_color="#F39C12"))
+                fig_democ.add_trace(go.Bar(name="🔴 Proceso",    x=_grupos_edad, y=_rojo_v,
+                                           marker_color="#E74C3C"))
+                fig_democ.update_layout(
+                    barmode="stack",
+                    title="Carriles por grupo etario",
+                    xaxis_title="Grupo de edad",
+                    yaxis_title="Causas",
+                    height=280,
+                    margin=dict(t=40, b=20),
+                    legend=dict(orientation="h", y=1.18),
+                )
+                st.plotly_chart(fig_democ, use_container_width=True)
+            else:
+                st.info("Sin datos suficientes para el gráfico de carriles por edad.")
 
         # ── Exportación a Excel ────────────────────────────────────────────
         st.markdown("---")
