@@ -419,6 +419,38 @@ with tab_causas:
                         st.info("Causa archivada")
 
                     st.markdown("---")
+                    st.markdown("**Programar audiencia:**")
+                    with st.popover("📅 Nueva audiencia para esta causa", use_container_width=True):
+                        from datetime import date as _dq, timedelta as _tq
+                        from datetime import datetime as _dtq
+                        _tipo_aud = st.selectbox(
+                            "Tipo", ["audiencia","mediacion","acta_compromiso","control_seg"],
+                            format_func=lambda k: {"audiencia":"Audiencia contravencional",
+                                "mediacion":"Audiencia de mediación",
+                                "acta_compromiso":"Suscripción acta de compromiso",
+                                "control_seg":"Control de seguimiento"}.get(k,k),
+                            key=f"qa_tipo_{c['id']}"
+                        )
+                        _qa_col1, _qa_col2 = st.columns(2)
+                        with _qa_col1:
+                            _fecha_aud = st.date_input("Fecha",
+                                value=_dq.today() + _tq(days=5),
+                                key=f"qa_fecha_{c['id']}")
+                        with _qa_col2:
+                            _hora_aud = st.time_input("Hora",
+                                value=_dtq.strptime("09:00","%H:%M").time(),
+                                key=f"qa_hora_{c['id']}")
+                        from data_cordoba import UNIDADES as _UN
+                        _lugar_aud = _UN.get(c.get("unidad","norte"), "Sede de la Unidad")
+                        if st.button("Agendar", key=f"qa_btn_{c['id']}", type="primary"):
+                            crear_audiencia(c["id"], _tipo_aud,
+                                           _fecha_aud.isoformat(),
+                                           _hora_aud.strftime("%H:%M"),
+                                           _lugar_aud, "")
+                            st.success(f"Audiencia agendada para {_fecha_aud.strftime('%d/%m/%Y')} {_hora_aud.strftime('%H:%M')}")
+                            st.rerun()
+
+                    st.markdown("---")
                     st.markdown("**Generar documento:**")
 
                     clf_stored = {
