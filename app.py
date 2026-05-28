@@ -28,6 +28,8 @@ from database import (
 )
 from seguimiento_tab import render_tab_seguimiento
 from demo_seed import poblar, ya_poblado
+from bienvenida import mostrar_si_primera_vez
+from export_excel import causas_a_excel, seguimientos_a_excel
 
 # ── Init ───────────────────────────────────────────────────────────────────────
 init_db()
@@ -116,6 +118,10 @@ with st.sidebar:
                     st.caption(f"🟡 {s['apellido_nombre'].split(',')[0]} — {dias}d")
 
     st.markdown(f"*{datetime.now().strftime('%d/%m/%Y %H:%M')}*")
+
+# ── Bienvenida (primera vez por sesión) ────────────────────────────────────────
+if not mostrar_si_primera_vez():
+    st.stop()
 
 # ── Header ─────────────────────────────────────────────────────────────────────
 st.markdown("""
@@ -640,3 +646,66 @@ with tab_panel:
                                  column_config={"Días": st.column_config.NumberColumn("Días rest.")})
                 else:
                     st.info("No hay seguimientos activos.")
+
+        # ── Exportación a Excel ────────────────────────────────────────────
+        st.markdown("---")
+        st.subheader("📥 Exportar datos")
+        col_ex1, col_ex2, col_ex3 = st.columns(3)
+        with col_ex1:
+            try:
+                xls_causas = causas_a_excel()
+                st.download_button(
+                    "⬇️ Causas y personas (.xlsx)",
+                    data=xls_causas,
+                    file_name=f"SIATC_causas_{datetime.now().strftime('%Y%m%d')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True,
+                )
+            except Exception as e:
+                st.error(f"Error generando Excel: {e}")
+        with col_ex2:
+            try:
+                xls_seg = seguimientos_a_excel()
+                st.download_button(
+                    "⬇️ Seguimientos (.xlsx)",
+                    data=xls_seg,
+                    file_name=f"SIATC_seguimientos_{datetime.now().strftime('%Y%m%d')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True,
+                )
+            except Exception as e:
+                st.error(f"Error generando Excel: {e}")
+        with col_ex3:
+            st.caption("Los archivos Excel incluyen formato institucional MPF, "
+                       "dos hojas por reporte y colores de estado.")
+
+        # ── Opciones de demostración ───────────────────────────────────────
+        st.markdown("---")
+        with st.expander("⚙️ Opciones de demostración"):
+            col_r1, col_r2 = st.columns([2, 3])
+            with col_r1:
+                st.warning("**Restablecer datos demo**\n\n"
+                           "Borra todas las causas y vuelve al estado inicial de demostración.")
+                confirmar = st.checkbox("Confirmo que quiero borrar todos los datos")
+                if st.button("🔄 Restablecer datos demo", disabled=not confirmar,
+                             type="secondary"):
+                    import os
+                    from database import DB_PATH
+                    try:
+                        os.remove(DB_PATH)
+                    except Exception:
+                        pass
+                    init_db()
+                    poblar()
+                    st.session_state.intro_vista = True   # no mostrar bienvenida de nuevo
+                    st.success("Datos restablecidos correctamente.")
+                    st.rerun()
+            with col_r2:
+                st.info("💡 **¿Cómo usar para una demo?**\n\n"
+                        "1. Ingresá a **📋 Nuevo Caso** e ingresá el DNI `38.421.667` "
+                        "(detecta antecedentes automáticamente).\n"
+                        "2. Ajustá los parámetros y observá el triaje en tiempo real.\n"
+                        "3. Descargá el PDF del dictamen.\n"
+                        "4. Cargá la causa y buscala en **📂 Gestión de Causas**.\n"
+                        "5. Mostrá el **🔍 Seguimiento** con los casos activos cargados.\n"
+                        "6. Revisá el **📊 Panel** para ver cómo escala el sistema.")

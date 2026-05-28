@@ -1,0 +1,202 @@
+# -*- coding: utf-8 -*-
+"""
+Exportación a Excel — SIATC
+Ministerio Público Fiscal de Córdoba
+"""
+
+import pandas as pd
+from io import BytesIO
+from datetime import date, datetime
+import database as db
+from data_cordoba import TIPOS_INFRACCION, UNIDADES
+
+CARRIL_LABEL = {"verde": "Mediación", "amarillo": "Suspensión", "rojo": "Proceso pleno"}
+TIPO_RES_LABEL = {"suspension": "Suspensión del Proceso a Prueba",
+                  "mediacion": "Acuerdo de Mediación", "acuerdo": "Acuerdo Conciliatorio"}
+
+
+def _xl_header(writer, sheet, titulo):
+    """Fila de título institucional en las primeras dos filas."""
+    ws = writer.sheets[sheet]
+    wb = writer.book
+    from openpyxl.styles import PatternFill, Font, Alignment
+    azul = PatternFill("solid", fgColor="1E2F5E")
+    font_blanco = Font(color="FFFFFF", bold=True, size=11)
+    ws.insert_rows(1, 2)
+    ws.cell(1, 1).value = "MINISTERIO PÚBLICO FISCAL DE LA PROVINCIA DE CÓRDOBA"
+    ws.cell(1, 1).font = font_blanco
+    ws.cell(1, 1).fill = azul
+    ws.cell(1, 1).alignment = Alignment(horizontal="center")
+    ws.cell(2, 1).value = titulo
+    ws.cell(2, 1).font = Font(bold=True, size=10, color="2E5090")
+    ws.cell(2, 1).alignment = Alignment(horizontal="center")
+    ws.cell(3, 1).value = f"Generado: {datetime.now().strftime('%d/%m/%Y %H:%M')} — SIATC"
+    ws.cell(3, 1).font = Font(italic=True, size=8, color="808080")
+
+
+def causas_a_excel() -> bytes:
+    causas = db.listar_causas(limit=2000)
+    if not causas:
+        causas = []
+
+    # Hoja 1: Causas
+    rows_c = []
+    for c in causas:
+        rows_c.append({
+            "Expediente":      c.get("numero", ""),
+            "Imputado/a":      c.get("apellido_nombre", ""),
+            "DNI":             c.get("persona_dni", ""),
+            "Tipo infracción": TIPOS_INFRACCION.get(c.get("tipo_infraccion",""), {}).get("label", c.get("tipo_infraccion","")),
+            "Artículo":        TIPOS_INFRACCION.get(c.get("tipo_infraccion",""), {}).get("articulo", ""),
+            "Carril":          CARRIL_LABEL.get(c.get("carril",""), c.get("carril","")),
+            "Acción":          c.get("accion", ""),
+            "Estado":          c.get("estado", "").capitalize(),
+            "Unidad":          c.get("unidad", "").capitalize(),
+            "Fiscal":          c.get("fiscal_asignado", ""),
+            "Fecha ingreso":   c.get("created_at", "")[:10] if c.get("created_at") else "",
+            "Última actuali.": c.get("updated_at", "")[:10] if c.get("updated_at") else "",
+        })
+    df_causas = pd.DataFrame(rows_c) if rows_c else pd.DataFrame(
+        columns=["Expediente","Imputado/a","DNI","Tipo infracción","Artículo",
+                 "Carril","Acción","Estado","Unidad","Fiscal","Fecha ingreso","Última actuali."])
+
+    # Hoja 2: Personas
+    personas = db.listar_personas()
+    rows_p = []
+    for p in personas:
+        antec = db.contar_antecedentes(p["id"])
+        rows_p.append({
+            "DNI":              p.get("dni", ""),
+            "Apellido y Nombre":p.get("apellido_nombre", ""),
+            "Edad":             p.get("edad", ""),
+            "Domicilio":        p.get("domicilio", ""),
+            "Teléfono":         p.get("telefono", ""),
+            "Antecedentes":     antec,
+            "Registrado":       p.get("created_at","")[:10] if p.get("created_at") else "",
+        })
+    df_personas = pd.DataFrame(rows_p) if rows_p else pd.DataFrame(
+        columns=["DNI","Apellido y Nombre","Edad","Domicilio","Teléfono","Antecedentes","Registrado"])
+
+    buf = BytesIO()
+    with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+        df_causas.to_excel(writer, sheet_name="Causas", index=False, startrow=3)
+        df_personas.to_excel(writer, sheet_name="Personas", index=False, startrow=3)
+
+        # Formato columnas
+        for sheet, df in [("Causas", df_causas), ("Personas", df_personas)]:
+            ws = writer.sheets[sheet]
+            from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
+            # Encabezado de columnas (fila 4)
+            azul_col = PatternFill("solid", fgColor="2E5090")
+            for cell in ws[4]:
+                if cell.value:
+                    cell.fill = azul_col
+                    cell.font = Font(color="FFFFFF", bold=True)
+            # Ancho automático aproximado
+            for col in ws.columns:
+                max_len = max((len(str(c.value or "")) for c in col), default=8)
+                ws.column_dimensions[col[0].column_letter].width = min(max_len + 3, 40)
+
+        _xl_header(writer, "Causas",   "Registro de Causas Contravencionales")
+        _xl_header(writer, "Personas", "Registro de Personas Imputadas")
+
+    return buf.getvalue()
+
+
+def seguimientos_a_excel() -> bytes:
+    segs = db.listar_seguimientos()
+    today = date.today()
+
+    rows_s = []
+    for s in segs:
+        condiciones = db.get_condiciones(s["id"])
+        prog = db.progress_seguimiento(s["id"])
+        try:
+            fin = datetime.strptime(s["fecha_fin"], "%Y-%m-%d").date()
+            dias_rest = (fin - today).days
+        except Exception:
+            dias_rest = None
+
+        rows_s.append({
+            "ID":              s["id"],
+            "Expediente":      s.get("numero", ""),
+            "Imputado/a":      s.get("apellido_nombre", ""),
+            "DNI":             s.get("dni", ""),
+            "Unidad":          s.get("unidad", "").capitalize(),
+            "Tipo resolución": TIPO_RES_LABEL.get(s.get("tipo_resolucion",""), s.get("tipo_resolucion","")),
+            "Estado":          s.get("estado", "").capitalize(),
+            "Fecha inicio":    s.get("fecha_inicio", ""),
+            "Fecha fin":       s.get("fecha_fin", ""),
+            "Días restantes":  dias_rest,
+            "Condiciones total":   prog["total"],
+            "Condiciones cumplidas": prog["cumplidas"],
+            "% cumplimiento":  prog["pct"],
+            "Fiscal":          s.get("fiscal", ""),
+        })
+
+    df_seg = pd.DataFrame(rows_s) if rows_s else pd.DataFrame(
+        columns=["ID","Expediente","Imputado/a","DNI","Unidad","Tipo resolución",
+                 "Estado","Fecha inicio","Fecha fin","Días restantes",
+                 "Condiciones total","Condiciones cumplidas","% cumplimiento","Fiscal"])
+
+    # Hoja 2: condiciones detalle
+    rows_cd = []
+    for s in segs:
+        condiciones = db.get_condiciones(s["id"])
+        for cond in condiciones:
+            acum = db.acumulado_condicion(cond["id"]) if cond["valor_objetivo"] > 0 else 0
+            rows_cd.append({
+                "Expediente":   s.get("numero", ""),
+                "Imputado/a":   s.get("apellido_nombre", ""),
+                "Condición":    cond.get("descripcion", ""),
+                "Tipo":         cond.get("tipo", "").replace("_", " ").capitalize(),
+                "Meta":         cond.get("valor_objetivo", 0) or "",
+                "Unidad":       cond.get("unidad", ""),
+                "Acumulado":    acum if cond["valor_objetivo"] > 0 else "",
+                "Estado":       cond.get("estado", "").capitalize(),
+                "Fecha límite": cond.get("fecha_limite", ""),
+            })
+
+    df_cond = pd.DataFrame(rows_cd) if rows_cd else pd.DataFrame(
+        columns=["Expediente","Imputado/a","Condición","Tipo","Meta","Unidad",
+                 "Acumulado","Estado","Fecha límite"])
+
+    buf = BytesIO()
+    with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+        df_seg.to_excel(writer,  sheet_name="Seguimientos", index=False, startrow=3)
+        df_cond.to_excel(writer, sheet_name="Condiciones",  index=False, startrow=3)
+
+        for sheet, df in [("Seguimientos", df_seg), ("Condiciones", df_cond)]:
+            ws = writer.sheets[sheet]
+            from openpyxl.styles import PatternFill, Font
+            azul_col = PatternFill("solid", fgColor="2E5090")
+            for cell in ws[4]:
+                if cell.value:
+                    cell.fill = azul_col
+                    cell.font = Font(color="FFFFFF", bold=True)
+            for col in ws.columns:
+                max_len = max((len(str(c.value or "")) for c in col), default=8)
+                ws.column_dimensions[col[0].column_letter].width = min(max_len + 3, 45)
+
+            # Colores condicionales en col Estado (Seguimientos)
+            if sheet == "Seguimientos":
+                from openpyxl.styles import PatternFill
+                for row in ws.iter_rows(min_row=5, max_row=ws.max_row):
+                    estado_cell = None
+                    for cell in row:
+                        if ws.cell(4, cell.column).value == "Estado":
+                            estado_cell = cell
+                            break
+                    if estado_cell and estado_cell.value:
+                        val = str(estado_cell.value).lower()
+                        if val == "cumplido":
+                            estado_cell.fill = PatternFill("solid", fgColor="C3E6CB")
+                        elif val == "incumplido":
+                            estado_cell.fill = PatternFill("solid", fgColor="F5C6CB")
+                        elif val == "activo":
+                            estado_cell.fill = PatternFill("solid", fgColor="FFF3CD")
+
+        _xl_header(writer, "Seguimientos", "Registro de Seguimientos Post-Resolución")
+        _xl_header(writer, "Condiciones",  "Detalle de Condiciones por Seguimiento")
+
+    return buf.getvalue()

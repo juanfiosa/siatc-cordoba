@@ -1,0 +1,143 @@
+# -*- coding: utf-8 -*-
+"""
+Pantalla de bienvenida / introducción — SIATC
+Se muestra una sola vez por sesión.
+"""
+
+import streamlit as st
+
+INTRO_HTML = """
+<style>
+.intro-card {
+    background: linear-gradient(135deg, #1a2f5e 0%, #2e5090 60%, #3a6bc4 100%);
+    border-radius: 12px; padding: 2.2rem 2.5rem; color: white; margin-bottom: 1rem;
+}
+.intro-card h1 { margin: 0 0 0.3rem 0; font-size: 1.8rem; }
+.intro-card p  { margin: 0; opacity: 0.88; font-size: 1rem; }
+.lane-card {
+    border-radius: 8px; padding: 1rem 1.2rem; height: 100%;
+}
+.lane-verde    { background: #d4edda; border-left: 5px solid #28a745; }
+.lane-amarillo { background: #fff3cd; border-left: 5px solid #ffc107; }
+.lane-rojo     { background: #f8d7da; border-left: 5px solid #dc3545; }
+.lane-card h4  { margin: 0 0 0.4rem 0; }
+.lane-card p   { margin: 0; font-size: 0.87rem; }
+.tab-card {
+    background: #f8f9fa; border: 1px solid #dee2e6;
+    border-radius: 8px; padding: 0.9rem 1.1rem; margin-bottom: 0.5rem;
+}
+.tab-card strong { color: #1a2f5e; }
+.stat-box {
+    background: white; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 0.8rem; text-align: center;
+}
+.stat-box .num { font-size: 2rem; font-weight: bold; color: #2e5090; }
+.stat-box .lbl { font-size: 0.8rem; color: #666; }
+</style>
+<div class="intro-card">
+  <h1>⚖️ SIATC — Sistema Inteligente de Apoyo al Trabajo Contravencional</h1>
+  <p>Ministerio Público Fiscal · Provincia de Córdoba &nbsp;|&nbsp;
+     Código de Convivencia Ciudadana — Ley N° 10.326</p>
+</div>
+"""
+
+CONTEXTO_HTML = """
+<div style="background:#f0f4ff;border-left:4px solid #2e5090;padding:0.9rem 1.2rem;
+            border-radius:0 6px 6px 0;margin-bottom:1rem">
+<strong>¿Qué es SIATC?</strong><br>
+Un prototipo de sistema de gestión contravencional que automatiza el triaje de causas,
+genera documentos institucionales, registra el ciclo de vida de cada expediente y
+hace seguimiento del cumplimiento de condiciones post-resolución.
+</div>
+"""
+
+
+def _render_lanes():
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        st.markdown("""<div class="lane-card lane-verde">
+<h4>🟢 Carril Verde</h4>
+<p><strong>Mediación</strong><br>
+Conflictos de mínima gravedad sin antecedentes.<br>
+Derivación al Centro Judicial de Mediación.<br>
+<em>~60% de las causas</em></p>
+</div>""", unsafe_allow_html=True)
+    with c2:
+        st.markdown("""<div class="lane-card lane-amarillo">
+<h4>🟡 Carril Amarillo</h4>
+<p><strong>Suspensión del proceso a prueba</strong><br>
+Gravedad media o antecedentes leves.<br>
+Condiciones de cumplimiento monitoreadas.<br>
+<em>~30% de las causas</em></p>
+</div>""", unsafe_allow_html=True)
+    with c3:
+        st.markdown("""<div class="lane-card lane-rojo">
+<h4>🔴 Carril Rojo</h4>
+<p><strong>Proceso contravencional pleno</strong><br>
+Alta gravedad, lesiones o reincidencia.<br>
+Tramitación completa ante el Tribunal.<br>
+<em>~10% de las causas</em></p>
+</div>""", unsafe_allow_html=True)
+
+
+def _render_tabs():
+    tabs_info = [
+        ("📋 Nuevo Caso",        "Ingresá DNI para autocompletar datos del imputado/a. El sistema clasifica automáticamente y genera el documento correspondiente (PDF + .txt)."),
+        ("📂 Gestión de Causas", "Buscá, filtrá y gestioná todas las causas activas. Avanzá estados, consultá la línea de tiempo y descargá documentos."),
+        ("🗂️ Casos Demo",       "Cinco casos representativos de una semana real. Cargalos al sistema con un clic para explorar el flujo completo."),
+        ("🔍 Seguimiento",       "Registrá los períodos de prueba y las condiciones impuestas. Monitoreá avances, registrá acreditaciones y cerrá seguimientos."),
+        ("📊 Panel de Control",  "Dashboard con métricas en tiempo real: distribución por carril, tipos de infracción, estados y seguimientos activos."),
+    ]
+    for emoji_nombre, desc in tabs_info:
+        st.markdown(f"""<div class="tab-card">
+<strong>{emoji_nombre}</strong><br>
+<span style="font-size:0.88rem">{desc}</span>
+</div>""", unsafe_allow_html=True)
+
+
+def _render_stats():
+    stats_items = [
+        ("23.256", "causas/año en Córdoba"),
+        ("27", "unidades contravencionales"),
+        ("76%", "reducción tiempo (Prometea CABA)"),
+        ("3", "unidades piloto MPF"),
+    ]
+    cols = st.columns(4)
+    for col, (num, lbl) in zip(cols, stats_items):
+        col.markdown(f"""<div class="stat-box">
+<div class="num">{num}</div>
+<div class="lbl">{lbl}</div>
+</div>""", unsafe_allow_html=True)
+
+
+def mostrar_si_primera_vez():
+    """Muestra la introducción y retorna True si el usuario eligió continuar."""
+    if st.session_state.get("intro_vista"):
+        return True   # ya la vio, seguir normalmente
+
+    st.markdown(INTRO_HTML, unsafe_allow_html=True)
+    st.markdown(CONTEXTO_HTML, unsafe_allow_html=True)
+
+    col_lanes, col_tabs = st.columns([3, 2])
+    with col_lanes:
+        st.markdown("#### Sistema de triaje automático — 3 carriles")
+        _render_lanes()
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("#### El sistema en números")
+        _render_stats()
+
+    with col_tabs:
+        st.markdown("#### ¿Qué puede hacer?")
+        _render_tabs()
+
+    st.markdown("---")
+    col_btn, col_txt = st.columns([1, 3])
+    with col_btn:
+        if st.button("🚀 Ingresar al sistema", type="primary", use_container_width=True):
+            st.session_state.intro_vista = True
+            st.rerun()
+    with col_txt:
+        st.caption("Los datos cargados son de demostración. "
+                   "El sistema no está conectado a SAC ni a redes del MPF.")
+
+    return False   # todavía no ingresó
