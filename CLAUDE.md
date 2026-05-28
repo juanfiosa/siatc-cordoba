@@ -91,14 +91,57 @@ Requires OAuth in browser — cannot be done headlessly.
 | `stats_generales()` | total, por_carril, por_estado, por_unidad, personas, reincidentes |
 | `causas_por_tipo()` | list of {tipo_infraccion, n} ordered by count |
 | `causas_por_mes(meses)` | list of {mes, n} last N months |
+| `causas_por_fiscal()` | list of {fiscal_asignado, n} ordered by count |
+| `stats_tiempos_resolucion()` | {carril: {dias_promedio, tradicional, reduccion_pct, n}} |
+| `causas_inactivas(dias, estados)` | causas in active states with no update in N days |
 | `stats_seguimiento()` | total, activos, cumplidos, incumplidos, vencidos |
 | `stats_audiencias()` | total, proximas, hoy, realizadas, ausentes |
 | `perfil_persona(id)` | {persona, causas, seguimientos, audiencias, antecedentes, total_causas} |
-| `listar_causas(...)` | rows include persona_edad, persona_domicilio (added 2025-05) |
+| `listar_causas(...)` | rows include persona_edad, persona_domicilio |
+
+## PDF functions (pdf_gen.py)
+
+| Function | Description |
+|---|---|
+| `pdf_dictamen_mediacion(caso, clf, fiscal, unidad)` | Dictamen derivación a mediación |
+| `pdf_dictamen_suspension(caso, clf, fiscal, unidad)` | Dictamen suspensión a prueba |
+| `pdf_citacion(caso, fiscal, unidad, motivo)` | Cédula de notificación/citación |
+| `pdf_acta_compromiso(caso, condiciones, fiscal, unidad)` | Acta de compromiso |
+| `pdf_informe_incumplimiento(caso, seg, conds_inc, fiscal, unidad)` | Informe incumplimiento |
+| `pdf_reporte_diario(stats, auds_hoy, causas_pend, fiscal, unidad)` | Reporte ejecutivo diario |
+| `pdf_perfil_persona(perfil, fiscal, unidad)` | Ficha institucional del imputado/a |
+| `generar_pdf(tipo_doc, caso, clf, fiscal, unidad)` | Dispatcher — matches tipo_doc substrings |
+
+## CONDICIONES_SUSPENSION categories (data_cordoba.py)
+`transito`, `transito_alcoholemia`, `convivencia`, `comercio`, `integridad`, `espacio_publico`
+— all `_get_condiciones()` helpers in pdf_gen.py, document_gen.py, seguimiento_tab.py
+must handle all six categories.
+
+## Panel de Control features
+- Distribución por carril (pie chart)
+- Infracciones más frecuentes (bar chart)
+- Causas por estado / por unidad (bar charts)
+- Causas por mes — evolución temporal (bar + line)
+- Causas por fiscal (horizontal bar)
+- **Tiempos de resolución** vs. proceso tradicional (grouped bar) — uses `stats_tiempos_resolucion()`
+- KPIs: tasa comparecencia, resolver sin condena %, resueltas %, archivadas
+- Seguimientos: estado pie + tabla activos con días restantes
+- Audiencias: estado pie + tabla próximas
+- **Causas sin actividad reciente** — configurable threshold (7/14/30/60 días)
+- Exportación Excel: causas, seguimientos, audiencias, reporte diario PDF
+
+## App-level alerts (app.py)
+After the main header, before tabs, SIATC shows warning banners for:
+- Audiencias programadas HOY
+- Seguimientos vencidos sin cierre
+- Seguimientos incumplidos
+- Incomparecencias en los últimos 7 días
 
 ## Known issues / decisions
 - `demo_seed.py → ya_poblado()` checks `n >= 5` (not `>= 12`), so adding
   more seed rows does NOT re-trigger seeding; delete `siatc.db` to reseed.
 - `stats_audiencias()` counts by state from the `audiencias` table.
-- The `generar_pdf(tipo_doc, caso, clf, fiscal, unidad)` dispatcher in
-  `pdf_gen.py` matches on substrings of `tipo_doc` (case-insensitive).
+- `generar_pdf(tipo_doc, caso, clf, fiscal, unidad)` dispatcher matches on
+  substrings of `tipo_doc` (case-insensitive).
+- `get_seguimiento_por_causa` and `get_condiciones` must be explicitly imported
+  in app.py (not via `db.` prefix — there is no `import database as db` there).

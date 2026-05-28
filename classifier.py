@@ -89,22 +89,28 @@ def clasificar_caso(tipo_infraccion: str, antecedentes: int, victima_identificad
 
 
 def tiempo_estimado_resolucion(carril: str) -> dict:
-    """Estimación de tiempos según carril, basada en datos de Prometea CABA."""
+    """
+    Estimación de tiempos de resolución según carril.
+    'actual_dias'      = promedio proceso tradicional (sin SIATC).
+    'con_sistema_dias' = promedio estimado con SIATC (doc. generado en minutos,
+                         seguimiento digital, notificaciones en tiempo real).
+    Basado en datos MPF Córdoba y experiencias Prometea CABA.
+    """
     tiempos = {
         "verde": {
-            "actual_dias": 45,
-            "con_sistema_dias": 5,
-            "descripcion": "Citación a mediación en 48hs. Resultado en ~5 días.",
+            "actual_dias": 90,
+            "con_sistema_dias": 20,
+            "descripcion": "Derivación a mediación generada al momento. Audiencia en ~15 días. Acuerdo estimado a 20 días.",
         },
         "amarillo": {
-            "actual_dias": 60,
-            "con_sistema_dias": 3,
-            "descripcion": "Dictamen generado al momento. Firma fiscal = resolución.",
+            "actual_dias": 150,
+            "con_sistema_dias": 45,
+            "descripcion": "Dictamen de suspensión generado en minutos. Acta de compromiso en la misma jornada. Seguimiento digital.",
         },
         "rojo": {
-            "actual_dias": 90,
-            "con_sistema_dias": 7,
-            "descripcion": "Requiere investigación. Sistema acelera preparación del expediente.",
+            "actual_dias": 240,
+            "con_sistema_dias": 90,
+            "descripcion": "Expediente preparado automáticamente. Investigación fiscal acelerada con historial centralizado.",
         },
     }
     return tiempos.get(carril, tiempos["rojo"])
