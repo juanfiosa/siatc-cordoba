@@ -488,12 +488,11 @@ with tab_nuevo:
 
         # ── Infracción seleccionada actualmente ─────────────────────────
         _sel_info = TIPOS_INFRACCION.get(tipo, {})
-        _sel_icon = _cat_icons_nc.get(_sel_info.get("categoria",""), "📋")
         _fav_lbl  = "⭐ Quitar de favoritas" if tipo in _favs_nc else "☆ Agregar a favoritas"
         _col_sel, _col_fav = st.columns([5, 2])
         _col_sel.success(
-            f"**Infracción seleccionada:** {_sel_icon} {_sel_info.get('label','—')}  \n"
-            f"*{_sel_info.get('articulo','')} · {_sel_info.get('categoria','')}*"
+            f"**Infracción seleccionada:** {_sel_info.get('label','—')}  \n"
+            f"*{_sel_info.get('articulo','')} · {TITULOS_CCC.get(_sel_info.get('titulo_ccc',''),'—')}*"
         )
         if _col_fav.button(_fav_lbl, key="nc_toggle_fav", use_container_width=True):
             toggle_favorito(unidad_key, fiscal_nombre, tipo)
@@ -506,10 +505,15 @@ with tab_nuevo:
             _tipos_por_titulo.setdefault(_v.get("titulo_ccc", "?"), []).append(_k)
 
         _grav_icon = {1:"🟢", 2:"🟡", 3:"🔴", 4:"🔴"}
-        _modo_nc   = st.radio(
+        _col_modo, _col_busq = st.columns([2, 3])
+        _modo_nc = _col_modo.radio(
             "Mostrar",
             ["⭐ Solo favoritas", "📋 Todos los títulos del CCC"],
             horizontal=True, label_visibility="collapsed", key="nc_modo_tipo"
+        )
+        _busq_nc = _col_busq.text_input(
+            "Buscar infracción", placeholder="Ej: ruido, arma, alcohol, grafiti…",
+            label_visibility="collapsed", key="nc_busq_tipo"
         )
 
         for _tnum in ["I","II","III","IV","V","VI","VII","VIII"]:
@@ -520,11 +524,20 @@ with tab_nuevo:
                 _tipos_t = [k for k in _tipos_t if k in _favs_nc]
                 if not _tipos_t:
                     continue
+            # Apply text search filter (against label + articulo)
+            if _busq_nc:
+                _q = _busq_nc.lower()
+                _tipos_t = [k for k in _tipos_t
+                            if _q in TIPOS_INFRACCION[k].get("label","").lower()
+                            or _q in TIPOS_INFRACCION[k].get("articulo","").lower()]
+                if not _tipos_t:
+                    continue
 
             _titulo_lbl = TITULOS_CCC.get(_tnum, f"Título {_tnum}")
             _n_fav_t    = sum(1 for k in _tipos_t if k in _favs_nc)
             _fav_badge  = f"  ·  {_n_fav_t} ⭐" if _n_fav_t and _modo_nc != "⭐ Solo favoritas" else ""
-            _is_active  = _sel_info.get("titulo_ccc") == _tnum
+            # Auto-expand: active title OR when searching (shows all matches)
+            _is_active  = _sel_info.get("titulo_ccc") == _tnum or bool(_busq_nc)
             with st.expander(
                 f"**{_titulo_lbl}** — {len(_tipos_t)} art.{_fav_badge}",
                 expanded=_is_active
@@ -3006,6 +3019,65 @@ with tab_panel:
         if len(_actividad) >= _act_limit:
             if st.button(f"⬇️ Cargar más actividad (mostrando {_act_limit})", key="act_load_more"):
                 st.session_state["act_feed_limit"] = _act_limit + 15
+                st.rerun()
+
+        # ── Gestor de favoritas ────────────────────────────────────────────
+        st.markdown("---")
+        with st.expander("⭐ Gestionar infracciones favoritas", expanded=False):
+            st.caption(
+                "Las favoritas aparecen en **Nuevo Caso** para acceso rápido. "
+                f"Actualmente configuradas para **{fiscal_nombre}** · {unidad_key.capitalize()}."
+            )
+            _favs_panel = get_favoritos(unidad_key, fiscal_nombre)
+            if not _favs_panel:
+                st.info("No hay favoritas configuradas. Usá el botón '☆ Agregar a favoritas' en Nuevo Caso.")
+            else:
+                # Show current favorites in 2 columns with remove button
+                _fav_cols = st.columns(2)
+                for _i_fav, _fk in enumerate(_favs_panel):
+                    _fv = TIPOS_INFRACCION.get(_fk, {})
+                    if not _fv:
+                        continue
+                    with _fav_cols[_i_fav % 2]:
+                        _fc1, _fc2 = st.columns([5, 1])
+                        _fc1.markdown(
+                            f"**{_fv.get('articulo','')}** {_fv.get('label','')[:45]}  \n"
+                            f"<span style='font-size:0.75rem;color:#888'>{TITULOS_CCC.get(_fv.get('titulo_ccc',''),'')[:40]}</span>",
+                            unsafe_allow_html=True
+                        )
+                        if _fc2.button("✕", key=f"panel_rm_fav_{_fk}", help="Quitar de favoritas"):
+                            toggle_favorito(unidad_key, fiscal_nombre, _fk)
+                            st.rerun()
+
+            st.markdown("---")
+            _pf_col1, _pf_col2 = st.columns(2)
+            # Add new favorite via selectbox
+            _no_fav = [k for k in TIPOS_INFRACCION if k not in _favs_panel]
+            if _no_fav:
+                _add_sel = _pf_col1.selectbox(
+                    "Agregar infracción a favoritas",
+                    _no_fav,
+                    format_func=lambda k: f"{TIPOS_INFRACCION[k].get('articulo','')} — {TIPOS_INFRACCION[k].get('label','')[:45]}",
+                    key="panel_add_fav_sel",
+                )
+                if _pf_col1.button("➕ Agregar", key="panel_add_fav_btn", use_container_width=True):
+                    toggle_favorito(unidad_key, fiscal_nombre, _add_sel)
+                    st.rerun()
+            # Reset to defaults
+            if _pf_col2.button(
+                "↺ Restaurar favoritas por defecto",
+                key="panel_reset_favs",
+                use_container_width=True,
+                help="Borra la lista personalizada y vuelve a los valores predeterminados del sistema"
+            ):
+                from data_cordoba import FAVORITOS_DEFAULT as _FD
+                with __import__('database').get_conn() as _conn:
+                    _conn.execute(
+                        "DELETE FROM infracciones_favoritas WHERE unidad=? AND fiscal=?",
+                        (unidad_key, fiscal_nombre)
+                    )
+                seed_favoritos(unidad_key, fiscal_nombre)
+                st.success("Favoritas restauradas al perfil por defecto.")
                 st.rerun()
 
         # ── Opciones de demostración ───────────────────────────────────────
