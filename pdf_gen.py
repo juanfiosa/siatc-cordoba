@@ -1098,6 +1098,105 @@ def pdf_informe_seguimiento(seg: dict, condiciones: list, prog: dict,
     return buf.getvalue()
 
 
+def pdf_informe_mensual(mes: str, stats_gen: dict, causas_ingresadas: int,
+                        causas_resueltas: int, causas_archivadas: int,
+                        auds_total: int, auds_realizadas: int, auds_ausentes: int,
+                        top_tipos: list, fiscales: list,
+                        fiscal_nombre: str, unidad_key: str) -> bytes:
+    """
+    Genera un informe ejecutivo mensual para el MPF.
+    mes: "YYYY-MM" string.
+    top_tipos: list of {tipo_infraccion, label, n} top 5.
+    fiscales: list of {fiscal_asignado, total, resueltas, pct_resolucion}.
+    """
+    _meses_es = {
+        "01":"enero","02":"febrero","03":"marzo","04":"abril","05":"mayo","06":"junio",
+        "07":"julio","08":"agosto","09":"septiembre","10":"octubre","11":"noviembre","12":"diciembre"
+    }
+    try:
+        _y, _m = mes.split("-")
+        _mes_lbl = f"{_meses_es.get(_m, _m).capitalize()} {_y}"
+    except Exception:
+        _mes_lbl = mes
+
+    pdf = PDFMPFBase(unidad_key)
+    pdf.alias_nb_pages()
+    pdf.add_page()
+
+    pdf.titulo_documento(f"Informe Mensual de Gestion Contravencional — {_mes_lbl}")
+    pdf._sf("B", 9)
+    pdf.set_text_color(*AZUL_CLARO)
+    pdf.cell(0, 6, _s(f"Generado: {datetime.now().strftime('%d/%m/%Y %H:%M hs')}"), ln=True)
+    pdf.set_text_color(*NEGRO)
+    pdf.ln(4)
+
+    # Stats generales
+    pdf._sf("B", 10); pdf.set_text_color(*AZUL_MPF); pdf.set_fill_color(240, 244, 255)
+    pdf.cell(0, 7, "RESUMEN GENERAL DEL SISTEMA", fill=True, ln=True)
+    pdf.set_text_color(*NEGRO); pdf._sf("", 9); pdf.ln(2)
+    por_carril = stats_gen.get("por_carril", {})
+    pdf.cell(95, 5, f"Total causas en el sistema: {stats_gen.get('total', 0)}", ln=False)
+    pdf.cell(95, 5, f"Personas registradas: {stats_gen.get('personas', 0)}", ln=True)
+    pdf.cell(95, 5, f"Carril Verde (mediacion): {por_carril.get('verde', 0)}", ln=False)
+    pdf.cell(95, 5, f"Carril Amarillo (suspension): {por_carril.get('amarillo', 0)}", ln=True)
+    pdf.cell(95, 5, f"Carril Rojo (proceso pleno): {por_carril.get('rojo', 0)}", ln=False)
+    pdf.cell(95, 5, f"Reincidentes en el padron: {stats_gen.get('reincidentes', 0)}", ln=True)
+    pdf.ln(4)
+
+    # Actividad del mes
+    pdf._sf("B", 10); pdf.set_text_color(*AZUL_MPF); pdf.set_fill_color(240, 244, 255)
+    pdf.cell(0, 7, f"ACTIVIDAD — {_mes_lbl.upper()}", fill=True, ln=True)
+    pdf.set_text_color(*NEGRO); pdf._sf("", 9); pdf.ln(2)
+    pdf.cell(95, 5, f"Causas ingresadas: {causas_ingresadas}", ln=False)
+    pdf.cell(95, 5, f"Causas resueltas: {causas_resueltas}", ln=True)
+    pdf.cell(95, 5, f"Causas archivadas: {causas_archivadas}", ln=False)
+    _pct_comp_m = round(auds_realizadas * 100 / (auds_realizadas + auds_ausentes)) if (auds_realizadas + auds_ausentes) else 0
+    pdf.cell(95, 5, f"Audiencias: {auds_total} ({auds_realizadas} realizadas / {auds_ausentes} ausencias)", ln=True)
+    pdf.cell(95, 5, f"Tasa de comparecencia: {_pct_comp_m}%", ln=True)
+    pdf.ln(4)
+
+    # Top infracciones
+    if top_tipos:
+        pdf._sf("B", 10); pdf.set_text_color(*AZUL_MPF); pdf.set_fill_color(240, 244, 255)
+        pdf.cell(0, 7, "INFRACCIONES MAS FRECUENTES", fill=True, ln=True)
+        pdf.set_text_color(*NEGRO); pdf._sf("", 9); pdf.ln(2)
+        for i, t in enumerate(top_tipos[:5], 1):
+            pdf.cell(10, 5, f"{i}.", ln=False)
+            pdf.cell(140, 5, _s(t.get("label", t.get("tipo_infraccion",""))[:60]), ln=False)
+            pdf.cell(40, 5, f"{t.get('n', 0)} causas", ln=True)
+        pdf.ln(4)
+
+    # Rendimiento por fiscal
+    if fiscales:
+        pdf._sf("B", 10); pdf.set_text_color(*AZUL_MPF); pdf.set_fill_color(240, 244, 255)
+        pdf.cell(0, 7, "RENDIMIENTO POR FISCAL", fill=True, ln=True)
+        pdf.set_text_color(*NEGRO); pdf._sf("", 9); pdf.ln(2)
+        for f in fiscales:
+            _fn = _s(f.get("fiscal_asignado",""))[:30]
+            _tot = f.get("total", 0)
+            _res = f.get("resueltas", 0)
+            _pct = f.get("pct_resolucion", 0)
+            pdf.cell(70, 5, _fn, ln=False)
+            pdf.cell(40, 5, f"Total: {_tot}", ln=False)
+            pdf.cell(40, 5, f"Resueltas: {_res}", ln=False)
+            pdf.cell(40, 5, f"Resolucion: {_pct}%", ln=True)
+        pdf.ln(4)
+
+    pdf.linea_firma(
+        fiscal_nombre or "Titular de la Unidad",
+        "Fiscal / Ayudante Fiscal",
+        _s(UNIDADES.get(unidad_key, "")),
+    )
+    pdf._sf("I", 7); pdf.set_text_color(*GRIS_TEXTO)
+    pdf.cell(0, 4,
+        _s(f"Generado por SIATC - MPF Cordoba - {datetime.now().strftime('%d/%m/%Y %H:%M')}"),
+        ln=True, align="C")
+
+    buf = BytesIO()
+    pdf.output(buf)
+    return buf.getvalue()
+
+
 def pdf_lista_causas_activas(causas: list, fiscal_nombre: str, unidad_key: str) -> bytes:
     """
     PDF de causas activas agrupadas por fiscal, ordenadas por urgencia.

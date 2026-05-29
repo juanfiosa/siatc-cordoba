@@ -2177,6 +2177,34 @@ with tab_panel:
             except Exception as _e_lista:
                 st.error(f"Error lista: {_e_lista}")
 
+        # Second export row — monthly report
+        _col_men, _col_men2 = st.columns([1, 4])
+        with _col_men:
+            try:
+                from pdf_gen import pdf_informe_mensual as _pim
+                _hoy_ym = datetime.now().strftime("%Y-%m")
+                _mes_data = causas_por_mes(12)
+                _mes_ing = next((r["n"] for r in _mes_data if r["mes"] == _hoy_ym), 0)
+                _aud_s_m  = stats_audiencias()
+                _tipos_m  = causas_por_tipo()[:5]
+                _sfis_m   = stats_por_fiscal()
+                _res_m    = stats["por_estado"].get("resuelta",0)
+                _arc_m    = stats["por_estado"].get("archivada",0)
+                _pdf_men  = _pim(
+                    _hoy_ym, stats, _mes_ing, _res_m, _arc_m,
+                    _aud_s_m["total"], _aud_s_m["realizadas"], _aud_s_m["ausentes"],
+                    _tipos_m, _sfis_m, fiscal_nombre, unidad_key,
+                )
+                st.download_button(
+                    "⬇️ Informe mensual (.pdf)",
+                    data=_pdf_men,
+                    file_name=f"SIATC_mensual_{datetime.now().strftime('%Y%m')}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True,
+                )
+            except Exception as _e_men:
+                st.error(f"Error informe mensual: {_e_men}")
+
         # ── Causas sin audiencia programada ───────────────────────────────
         st.markdown("---")
         st.subheader("📋 Causas sin audiencia programada")
