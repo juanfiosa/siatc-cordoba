@@ -390,6 +390,19 @@ def _panel_seguimientos(fiscal):
             with col_prog:
                 st.metric("Condiciones cumplidas", f"{prog['cumplidas']}/{prog['total']}")
                 st.progress(pct / 100, text=f"{pct}% completado")
+                # Time elapsed in the seguimiento period
+                if seg.get("estado") == "activo":
+                    try:
+                        _fi_dt = date.fromisoformat(seg["fecha_inicio"])
+                        _ff_dt = date.fromisoformat(seg["fecha_fin"])
+                        _total_dias_seg = ((_ff_dt - _fi_dt).days) or 1
+                        _elapsed_dias = (date.today() - _fi_dt).days
+                        _pct_elapsed = min(100, round(_elapsed_dias * 100 / _total_dias_seg))
+                        _dias_rest = (_ff_dt - date.today()).days
+                        _elapsed_lbl = f"Período: {_pct_elapsed}% transcurrido ({_dias_rest}d rest.)"
+                        st.progress(_pct_elapsed / 100, text=_elapsed_lbl)
+                    except Exception:
+                        pass
                 if prog["incumplidas"]:
                     st.error(f"⚠️ {prog['incumplidas']} condición(es) incumplida(s)")
                 if prog["en_curso"]:
