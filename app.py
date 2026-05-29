@@ -350,7 +350,7 @@ with tab_nuevo:
             persona_encontrada = buscar_persona_por_dni(dni_input)
             if persona_encontrada:
                 antecedentes_db = contar_antecedentes(persona_encontrada["id"])
-                st.success(f"✅ Persona encontrada en el sistema")
+                st.success(f"✅ **{persona_encontrada['apellido_nombre']}** encontrada/o en el sistema")
                 historial = historial_persona(persona_encontrada["id"])
                 if antecedentes_db > 0:
                     st.markdown(
@@ -359,6 +359,17 @@ with tab_nuevo:
                     )
                 else:
                     st.markdown('<span class="antec-ok">✔ Sin antecedentes</span>', unsafe_allow_html=True)
+                # Show existing causas for this person
+                _causas_persona_nc = listar_causas(limit=50)
+                _causas_persona_nc = [c for c in _causas_persona_nc
+                                      if c.get("persona_id") == persona_encontrada["id"]]
+                if _causas_persona_nc:
+                    with st.expander(f"📂 {len(_causas_persona_nc)} causa(s) registrada(s) para esta persona"):
+                        for _cp in _causas_persona_nc:
+                            _cp_ic = {"verde":"🟢","amarillo":"🟡","rojo":"🔴"}.get(_cp.get("carril",""),"⚪")
+                            _cp_est = ESTADOS_LABEL.get(_cp["estado"], _cp["estado"])
+                            _cp_inf = TIPOS_INFRACCION.get(_cp.get("tipo_infraccion",""),{}).get("label","")[:35]
+                            st.markdown(f"{_cp_ic} **{_cp['numero']}** | {_cp_inf} | {_cp_est} | {_cp.get('created_at','')[:10]}")
             else:
                 st.caption("DNI no encontrado en el sistema — ingresá los datos manualmente.")
 
