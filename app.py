@@ -30,6 +30,7 @@ from database import (
     causas_inactivas, causas_sin_audiencia_programada, personas_reincidentes,
     actividad_reciente, stats_edad, stats_edad_por_carril,
     causas_mes_actual_vs_anterior, stats_por_fiscal, causas_sin_seguimiento,
+    proximas_audiencias_por_causa,
 )
 from seguimiento_tab import render_tab_seguimiento
 from agenda_tab import render_tab_agenda
@@ -606,6 +607,8 @@ with tab_causas:
 
         # ── Vista tabla compacta ───────────────────────────────────────────
         if _vista_gc == "📊 Tabla":
+            # Pre-fetch next hearing per causa for the table display
+            _prox_auds = proximas_audiencias_por_causa()
             _rows_gc = []
             _activos_gc = {"ingresada", "clasificada", "notificada", "en_mediacion"}
             for c in causas:
@@ -618,6 +621,9 @@ with tab_causas:
                         _dias_inact_gc = (datetime.now() - _upd_gc).days
                     except Exception:
                         pass
+                # Next scheduled hearing
+                _prox = _prox_auds.get(c["id"])
+                _prox_str = f"{_prox['fecha']} {_prox['hora']}" if _prox else ""
                 _rows_gc.append({
                     "Carril":        _ic,
                     "Expediente":    c["numero"],
@@ -625,10 +631,11 @@ with tab_causas:
                     "DNI":           c.get("persona_dni",""),
                     "Infracción":    TIPOS_INFRACCION.get(c.get("tipo_infraccion",""),{}).get("label","")[:30],
                     "Estado":        ESTADOS_LABEL.get(c["estado"], c["estado"]),
+                    "Próx. audiencia": _prox_str,
                     "Unidad":        {"norte":"Norte","sur":"Sur","genero":"Género"}.get(c.get("unidad",""),""),
                     "Fiscal":        c.get("fiscal_asignado",""),
                     "Ingresada":     c.get("created_at","")[:10],
-                    "Inactividad (d)": _dias_inact_gc,
+                    "Sin mov. (d)":  _dias_inact_gc,
                 })
             st.dataframe(
                 pd.DataFrame(_rows_gc),
@@ -637,7 +644,10 @@ with tab_causas:
                 column_config={
                     "Carril": st.column_config.TextColumn("", width="small"),
                     "Expediente": st.column_config.TextColumn("Expediente", width="medium"),
-                    "Inactividad (d)": st.column_config.NumberColumn(
+                    "Próx. audiencia": st.column_config.TextColumn(
+                        "Próx. audiencia", help="Próxima audiencia programada (fecha + hora)"
+                    ),
+                    "Sin mov. (d)": st.column_config.NumberColumn(
                         "Sin mov. (días)", help="Días desde la última actualización (solo causas activas)",
                         format="%d d",
                     ),

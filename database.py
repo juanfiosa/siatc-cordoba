@@ -1070,3 +1070,27 @@ def perfil_persona(persona_id: int) -> dict:
         "antecedentes": antecedentes,
         "total_causas": len(causas_list),
     }
+
+
+def proximas_audiencias_por_causa() -> dict[int, dict]:
+    """
+    Retorna la próxima audiencia programada para cada causa_id.
+    Formato: {causa_id: {fecha, hora, tipo}} — sólo audiencias con fecha >= hoy.
+    """
+    from datetime import date
+    hoy = date.today().isoformat()
+    with get_conn() as conn:
+        rows = conn.execute(
+            """SELECT a.causa_id, a.fecha, a.hora, a.tipo
+               FROM audiencias a
+               WHERE a.fecha >= ? AND a.estado = 'programada'
+               ORDER BY a.causa_id, a.fecha ASC, a.hora ASC""",
+            (hoy,)
+        ).fetchall()
+    # Keep only the first (earliest) audiencia per causa
+    result: dict[int, dict] = {}
+    for r in rows:
+        cid = r["causa_id"]
+        if cid not in result:
+            result[cid] = {"fecha": r["fecha"], "hora": r["hora"], "tipo": r["tipo"]}
+    return result
