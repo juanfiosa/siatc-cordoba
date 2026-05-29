@@ -356,8 +356,11 @@ def _panel_seguimientos(fiscal):
         ):
             col_info, col_prog = st.columns([3, 2])
             with col_info:
+                _inf_seg = TIPOS_INFRACCION.get(seg.get("tipo_infraccion",""), {})
+                _inf_lbl_seg = _inf_seg.get("label", seg.get("tipo_infraccion","")) if _inf_seg else ""
                 st.markdown(f"**Imputado/a:** {seg['apellido_nombre']} (DNI: {seg['dni']})")
-                st.markdown(f"**Expediente:** {seg['numero']}  |  **Unidad:** {seg['unidad'].upper()}")
+                st.markdown(f"**Expediente:** {seg['numero']}  |  **Unidad:** {seg['unidad'].upper()}"
+                            + (f"  |  *{_inf_lbl_seg[:35]}*" if _inf_lbl_seg else ""))
                 st.markdown(f"**Período:** {seg['fecha_inicio']} → {seg['fecha_fin']}")
                 st.markdown(f"**Fiscal:** {seg['fiscal']}")
                 if seg["observaciones"]:
