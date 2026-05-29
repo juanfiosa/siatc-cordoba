@@ -1187,6 +1187,25 @@ def causas_mas_antiguas_activas(limit: int = 5) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+def stats_audiencias_por_dia() -> list[dict]:
+    """Returns audiencia count by ISO weekday (Mon=0..Sun=6)."""
+    with get_conn() as conn:
+        rows = conn.execute("""
+            SELECT CAST(strftime('%w', fecha) AS INTEGER) AS dow, COUNT(*) AS n
+            FROM audiencias
+            WHERE estado IN ('programada','realizada','ausente')
+            GROUP BY dow ORDER BY dow
+        """).fetchall()
+    iso_map = {1: 0, 2: 1, 3: 2, 4: 3, 5: 4, 6: 5, 0: 6}
+    _days = ["Lun","Mar","Mié","Jue","Vie","Sáb","Dom"]
+    result = [{
+        "dia_num": iso_map.get(r["dow"], r["dow"]),
+        "dia": _days[iso_map.get(r["dow"], r["dow"])],
+        "n": r["n"],
+    } for r in rows]
+    return sorted(result, key=lambda x: x["dia_num"])
+
+
 def stats_tiempo_por_estado() -> list[dict]:
     """
     Average days causas spend in each active state before progressing.

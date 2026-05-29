@@ -35,6 +35,7 @@ from database import (
     stats_por_dia_semana, stats_categoria_por_estado, asignar_fiscal,
     causas_mas_antiguas_activas, stats_eficiencia_carriles, mediaciones_estancadas,
     actualizar_descripcion, stats_notas, stats_tiempo_por_estado,
+    stats_audiencias_por_dia,
 )
 from seguimiento_tab import render_tab_seguimiento
 from agenda_tab import render_tab_agenda
@@ -2494,6 +2495,24 @@ with tab_panel:
                     )
                 else:
                     st.info("No hay audiencias programadas próximas.")
+
+        # ── Audiencias por día de semana ──────────────────────────────────
+        _aud_dow = stats_audiencias_por_dia()
+        if _aud_dow:
+            _df_aud_dow = pd.DataFrame(_aud_dow)
+            _colors_aud_dow = ["#007bff" if d not in ("Sáb","Dom") else "#adb5bd"
+                               for d in _df_aud_dow["dia"]]
+            _fig_aud_dow = go.Figure(go.Bar(
+                x=_df_aud_dow["dia"], y=_df_aud_dow["n"],
+                marker_color=_colors_aud_dow,
+                text=_df_aud_dow["n"], textposition="outside",
+            ))
+            _fig_aud_dow.update_layout(
+                title="Audiencias por día de semana",
+                height=240, yaxis_title="", xaxis_title="",
+                margin=dict(t=40, b=5),
+            )
+            st.plotly_chart(_fig_aud_dow, use_container_width=True)
 
         # ── KPIs de eficiencia ─────────────────────────────────────────────
         if aud_s["total"] > 0:
