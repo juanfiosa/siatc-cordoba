@@ -1017,7 +1017,17 @@ with tab_causas:
                     st.markdown(f"**Descripción:** {c.get('descripcion') or '—'}")
                     _fh = c.get("fecha_hecho","")
                     _fecha_hecho_str = _fh[:10] if _fh else "—"
-                    st.markdown(f"**Fecha del hecho:** {_fecha_hecho_str}  |  **Ingresada:** {c['created_at'][:10]}")
+                    # Estimated resolution date based on carril
+                    _resol_est = ""
+                    if c.get("estado") not in ("resuelta", "archivada") and c.get("carril"):
+                        _dias_est_carril = {"verde": 20, "amarillo": 45, "rojo": 90}.get(c.get("carril",""), 45)
+                        try:
+                            _created_dt = datetime.strptime(c["created_at"][:10], "%Y-%m-%d")
+                            _resol_date = _created_dt + timedelta(days=_dias_est_carril)
+                            _resol_est = f"  |  📆 **Res. estimada:** {_resol_date.strftime('%d/%m/%Y')}"
+                        except Exception:
+                            pass
+                    st.markdown(f"**Fecha del hecho:** {_fecha_hecho_str}  |  **Ingresada:** {c['created_at'][:10]}{_resol_est}")
 
                     # Siguiente paso sugerido — guía contextual según estado/carril
                     _pasos_gc = {
