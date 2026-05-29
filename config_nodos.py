@@ -100,8 +100,9 @@ NODOS: dict[str, dict] = {
     },
 
     # ── 2ª Circunscripción — Río Cuarto ──────────────────────────────────────
-    # Estructura interior: Policía Provincial + Fiscales de Instrucción
-    # Los fiscales de instrucción manejan tanto causas penales como contravencionales
+    # Fuente: MPF Córdoba — fiscalias-de-instruccion-interior / fiscalias-camara-interior
+    # 2 Fiscalías Instrucción (Dr. Moine / Dr. Di Santo)
+    # 2 Fiscalías de Cámara (Dr. Rivero / Dra. Fernández López)
     "rio_cuarto": {
         "nombre": "MPF Río Cuarto",
         "circunscripcion": "2ª — Río Cuarto",
@@ -110,26 +111,28 @@ NODOS: dict[str, dict] = {
         "tipo_policia": POLICIA_PROVINCIAL,
         "modulos": [MODULO_PENAL, MODULO_CONTRAVENCIONAL],
         "oficinas": [
-            {"key": "policia_rc",        "label": "Policía de la Provincia — Río Cuarto", "icon": "🚓", "activa": True},
-            {"key": "fiscal_inst_rc_1",  "label": "Fiscalía de Instrucción N°1",          "icon": "⚖️", "activa": True},
-            {"key": "fiscal_inst_rc_2",  "label": "Fiscalía de Instrucción N°2",          "icon": "⚖️", "activa": True},
-            {"key": "fiscal_inst_rc_3",  "label": "Fiscalía de Instrucción N°3",          "icon": "⚖️", "activa": True},
-            {"key": "camara_rc",         "label": "Fiscalía de Cámara — Río Cuarto",      "icon": "🏛️", "activa": True},
-            {"key": "mesa_rc",           "label": "Mesa de Entradas — Río Cuarto",        "icon": "📋", "activa": True},
-            {"key": "juzgado_control_rc","label": "Juzgado de Control — Río Cuarto",      "icon": "⚖️", "activa": False},  # fantasma
+            {"key": "policia_rc",        "label": "Policía de la Provincia — Río Cuarto",         "icon": "🚓", "activa": True},
+            {"key": "fiscal_inst_rc_1",  "label": "Fiscalía de Instrucción N°1 (Dr. Moine)",     "icon": "⚖️", "activa": True},
+            {"key": "fiscal_inst_rc_2",  "label": "Fiscalía de Instrucción N°2 (Dr. Di Santo)",  "icon": "⚖️", "activa": True},
+            {"key": "camara_rc_1",       "label": "Fiscalía de Cámara N°1 (Dr. Rivero)",         "icon": "🏛️", "activa": True},
+            {"key": "camara_rc_2",       "label": "Fiscalía de Cámara N°2 (Dra. Fernández López)","icon": "🏛️", "activa": True},
+            {"key": "mesa_rc",           "label": "Mesa de Entradas — Río Cuarto",               "icon": "📋", "activa": True},
+            {"key": "juzgado_control_rc","label": "Juzgado de Control — Río Cuarto",             "icon": "⚖️", "activa": False},
         ],
         "flujos": {
-            "policia_rc":        ["fiscal_inst_rc_1", "fiscal_inst_rc_2", "fiscal_inst_rc_3", "mesa_rc"],
-            "fiscal_inst_rc_1":  ["policia_rc", "camara_rc", "mesa_rc", "juzgado_control_rc", "fiscal_inst_rc_2", "fiscal_inst_rc_3"],
-            "fiscal_inst_rc_2":  ["policia_rc", "camara_rc", "mesa_rc", "juzgado_control_rc", "fiscal_inst_rc_1", "fiscal_inst_rc_3"],
-            "fiscal_inst_rc_3":  ["policia_rc", "camara_rc", "mesa_rc", "juzgado_control_rc", "fiscal_inst_rc_1", "fiscal_inst_rc_2"],
-            "camara_rc":         ["fiscal_inst_rc_1", "fiscal_inst_rc_2", "fiscal_inst_rc_3"],
-            "mesa_rc":           ["fiscal_inst_rc_1", "fiscal_inst_rc_2", "fiscal_inst_rc_3", "policia_rc"],
-            "juzgado_control_rc":["fiscal_inst_rc_1", "fiscal_inst_rc_2", "fiscal_inst_rc_3", "camara_rc"],
+            "policia_rc":        ["fiscal_inst_rc_1", "fiscal_inst_rc_2", "mesa_rc"],
+            "fiscal_inst_rc_1":  ["policia_rc", "camara_rc_1", "camara_rc_2", "mesa_rc", "juzgado_control_rc", "fiscal_inst_rc_2"],
+            "fiscal_inst_rc_2":  ["policia_rc", "camara_rc_1", "camara_rc_2", "mesa_rc", "juzgado_control_rc", "fiscal_inst_rc_1"],
+            "camara_rc_1":       ["fiscal_inst_rc_1", "fiscal_inst_rc_2"],
+            "camara_rc_2":       ["fiscal_inst_rc_1", "fiscal_inst_rc_2"],
+            "mesa_rc":           ["fiscal_inst_rc_1", "fiscal_inst_rc_2", "policia_rc"],
+            "juzgado_control_rc":["fiscal_inst_rc_1", "fiscal_inst_rc_2", "camara_rc_1", "camara_rc_2"],
         },
     },
 
     # ── 3ª Circunscripción — Bell Ville ──────────────────────────────────────
+    # 2 Fiscalías Instrucción (Dr. Gambini / Dra. Reyna)
+    # 1 Fiscalía de Cámara (Dra. Heredia Hidalgo)
     "bell_ville": {
         "nombre": "MPF Bell Ville",
         "circunscripcion": "3ª — Bell Ville",
@@ -138,24 +141,26 @@ NODOS: dict[str, dict] = {
         "tipo_policia": POLICIA_PROVINCIAL,
         "modulos": [MODULO_PENAL, MODULO_CONTRAVENCIONAL],
         "oficinas": [
-            {"key": "policia_bv",        "label": "Policía de la Provincia — Bell Ville", "icon": "🚓", "activa": True},
-            {"key": "fiscal_inst_bv_1",  "label": "Fiscalía de Instrucción N°1",          "icon": "⚖️", "activa": True},
-            {"key": "fiscal_inst_bv_2",  "label": "Fiscalía de Instrucción N°2",          "icon": "⚖️", "activa": True},
-            {"key": "camara_bv",         "label": "Fiscalía de Cámara — Bell Ville",      "icon": "🏛️", "activa": True},
-            {"key": "mesa_bv",           "label": "Mesa de Entradas — Bell Ville",        "icon": "📋", "activa": True},
-            {"key": "juzgado_control_bv","label": "Juzgado de Control — Bell Ville",      "icon": "⚖️", "activa": False},
+            {"key": "policia_bv",        "label": "Policía de la Provincia — Bell Ville",          "icon": "🚓", "activa": True},
+            {"key": "fiscal_inst_bv_1",  "label": "Fiscalía de Instrucción N°1 (Dr. Gambini)",    "icon": "⚖️", "activa": True},
+            {"key": "fiscal_inst_bv_2",  "label": "Fiscalía de Instrucción N°2 (Dra. Reyna)",     "icon": "⚖️", "activa": True},
+            {"key": "camara_bv",         "label": "Fiscalía de Cámara (Dra. Heredia Hidalgo)",    "icon": "🏛️", "activa": True},
+            {"key": "mesa_bv",           "label": "Mesa de Entradas — Bell Ville",                 "icon": "📋", "activa": True},
+            {"key": "juzgado_bv",        "label": "Juzgado de Control — Bell Ville",              "icon": "⚖️", "activa": False},
         ],
         "flujos": {
             "policia_bv":       ["fiscal_inst_bv_1", "fiscal_inst_bv_2", "mesa_bv"],
-            "fiscal_inst_bv_1": ["policia_bv", "camara_bv", "mesa_bv", "juzgado_control_bv", "fiscal_inst_bv_2"],
-            "fiscal_inst_bv_2": ["policia_bv", "camara_bv", "mesa_bv", "juzgado_control_bv", "fiscal_inst_bv_1"],
+            "fiscal_inst_bv_1": ["policia_bv", "camara_bv", "mesa_bv", "juzgado_bv", "fiscal_inst_bv_2"],
+            "fiscal_inst_bv_2": ["policia_bv", "camara_bv", "mesa_bv", "juzgado_bv", "fiscal_inst_bv_1"],
             "camara_bv":        ["fiscal_inst_bv_1", "fiscal_inst_bv_2"],
             "mesa_bv":          ["fiscal_inst_bv_1", "fiscal_inst_bv_2", "policia_bv"],
-            "juzgado_control_bv":["fiscal_inst_bv_1", "fiscal_inst_bv_2", "camara_bv"],
+            "juzgado_bv":       ["fiscal_inst_bv_1", "fiscal_inst_bv_2", "camara_bv"],
         },
     },
 
     # ── 4ª Circunscripción — Villa María ─────────────────────────────────────
+    # 3 Fiscalías Instrucción (Dra. Maldonado / Dra. Companys / Dr. Bosio)
+    # 1 Fiscalía de Cámara (Dr. Márquez)
     "villa_maria": {
         "nombre": "MPF Villa María",
         "circunscripcion": "4ª — Villa María",
@@ -164,24 +169,27 @@ NODOS: dict[str, dict] = {
         "tipo_policia": POLICIA_PROVINCIAL,
         "modulos": [MODULO_PENAL, MODULO_CONTRAVENCIONAL],
         "oficinas": [
-            {"key": "policia_vm",        "label": "Policía de la Provincia — Villa María", "icon": "🚓", "activa": True},
-            {"key": "fiscal_inst_vm_1",  "label": "Fiscalía de Instrucción N°1",           "icon": "⚖️", "activa": True},
-            {"key": "fiscal_inst_vm_2",  "label": "Fiscalía de Instrucción N°2",           "icon": "⚖️", "activa": True},
-            {"key": "camara_vm",         "label": "Fiscalía de Cámara — Villa María",      "icon": "🏛️", "activa": True},
-            {"key": "mesa_vm",           "label": "Mesa de Entradas — Villa María",        "icon": "📋", "activa": True},
-            {"key": "juzgado_control_vm","label": "Juzgado de Control — Villa María",      "icon": "⚖️", "activa": False},
+            {"key": "policia_vm",        "label": "Policía de la Provincia — Villa María",         "icon": "🚓", "activa": True},
+            {"key": "fiscal_inst_vm_1",  "label": "Fiscalía de Instrucción N°1 (Dra. Maldonado)", "icon": "⚖️", "activa": True},
+            {"key": "fiscal_inst_vm_2",  "label": "Fiscalía de Instrucción N°2 (Dra. Companys)",  "icon": "⚖️", "activa": True},
+            {"key": "fiscal_inst_vm_3",  "label": "Fiscalía de Instrucción N°3 (Dr. Bosio)",      "icon": "⚖️", "activa": True},
+            {"key": "camara_vm",         "label": "Fiscalía de Cámara (Dr. Márquez)",             "icon": "🏛️", "activa": True},
+            {"key": "mesa_vm",           "label": "Mesa de Entradas — Villa María",               "icon": "📋", "activa": True},
+            {"key": "juzgado_vm",        "label": "Juzgado de Control — Villa María",             "icon": "⚖️", "activa": False},
         ],
         "flujos": {
-            "policia_vm":       ["fiscal_inst_vm_1", "fiscal_inst_vm_2", "mesa_vm"],
-            "fiscal_inst_vm_1": ["policia_vm", "camara_vm", "mesa_vm", "juzgado_control_vm", "fiscal_inst_vm_2"],
-            "fiscal_inst_vm_2": ["policia_vm", "camara_vm", "mesa_vm", "juzgado_control_vm", "fiscal_inst_vm_1"],
-            "camara_vm":        ["fiscal_inst_vm_1", "fiscal_inst_vm_2"],
-            "mesa_vm":          ["fiscal_inst_vm_1", "fiscal_inst_vm_2", "policia_vm"],
-            "juzgado_control_vm":["fiscal_inst_vm_1", "fiscal_inst_vm_2", "camara_vm"],
+            "policia_vm":       ["fiscal_inst_vm_1", "fiscal_inst_vm_2", "fiscal_inst_vm_3", "mesa_vm"],
+            "fiscal_inst_vm_1": ["policia_vm", "camara_vm", "mesa_vm", "juzgado_vm", "fiscal_inst_vm_2", "fiscal_inst_vm_3"],
+            "fiscal_inst_vm_2": ["policia_vm", "camara_vm", "mesa_vm", "juzgado_vm", "fiscal_inst_vm_1", "fiscal_inst_vm_3"],
+            "fiscal_inst_vm_3": ["policia_vm", "camara_vm", "mesa_vm", "juzgado_vm", "fiscal_inst_vm_1", "fiscal_inst_vm_2"],
+            "camara_vm":        ["fiscal_inst_vm_1", "fiscal_inst_vm_2", "fiscal_inst_vm_3"],
+            "mesa_vm":          ["fiscal_inst_vm_1", "fiscal_inst_vm_2", "fiscal_inst_vm_3", "policia_vm"],
+            "juzgado_vm":       ["fiscal_inst_vm_1", "fiscal_inst_vm_2", "fiscal_inst_vm_3", "camara_vm"],
         },
     },
 
     # ── 5ª Circunscripción — San Francisco ────────────────────────────────────
+    # 1 Fiscalía Instrucción (Dr. Gieco) + 1 de Cámara (Dra. Aliaga Díaz)
     "san_francisco": {
         "nombre": "MPF San Francisco",
         "circunscripcion": "5ª — San Francisco",
@@ -190,24 +198,23 @@ NODOS: dict[str, dict] = {
         "tipo_policia": POLICIA_PROVINCIAL,
         "modulos": [MODULO_PENAL, MODULO_CONTRAVENCIONAL],
         "oficinas": [
-            {"key": "policia_sf",        "label": "Policía de la Provincia — San Francisco", "icon": "🚓", "activa": True},
-            {"key": "fiscal_inst_sf_1",  "label": "Fiscalía de Instrucción N°1",             "icon": "⚖️", "activa": True},
-            {"key": "fiscal_inst_sf_2",  "label": "Fiscalía de Instrucción N°2",             "icon": "⚖️", "activa": True},
-            {"key": "camara_sf",         "label": "Fiscalía de Cámara — San Francisco",      "icon": "🏛️", "activa": True},
-            {"key": "mesa_sf",           "label": "Mesa de Entradas",                        "icon": "📋", "activa": True},
-            {"key": "juzgado_sf",        "label": "Juzgado de Control",                      "icon": "⚖️", "activa": False},
+            {"key": "policia_sf",       "label": "Policía de la Provincia — San Francisco",       "icon": "🚓", "activa": True},
+            {"key": "fiscal_inst_sf",   "label": "Fiscalía de Instrucción (Dr. Gieco)",           "icon": "⚖️", "activa": True},
+            {"key": "camara_sf",        "label": "Fiscalía de Cámara (Dra. Aliaga Díaz)",         "icon": "🏛️", "activa": True},
+            {"key": "mesa_sf",          "label": "Mesa de Entradas — San Francisco",              "icon": "📋", "activa": True},
+            {"key": "juzgado_sf",       "label": "Juzgado de Control — San Francisco",           "icon": "⚖️", "activa": False},
         ],
         "flujos": {
-            "policia_sf":      ["fiscal_inst_sf_1", "fiscal_inst_sf_2", "mesa_sf"],
-            "fiscal_inst_sf_1":["policia_sf", "camara_sf", "mesa_sf", "juzgado_sf", "fiscal_inst_sf_2"],
-            "fiscal_inst_sf_2":["policia_sf", "camara_sf", "mesa_sf", "juzgado_sf", "fiscal_inst_sf_1"],
-            "camara_sf":       ["fiscal_inst_sf_1", "fiscal_inst_sf_2"],
-            "mesa_sf":         ["fiscal_inst_sf_1", "fiscal_inst_sf_2", "policia_sf"],
-            "juzgado_sf":      ["fiscal_inst_sf_1", "fiscal_inst_sf_2", "camara_sf"],
+            "policia_sf":     ["fiscal_inst_sf", "mesa_sf"],
+            "fiscal_inst_sf": ["policia_sf", "camara_sf", "mesa_sf", "juzgado_sf"],
+            "camara_sf":      ["fiscal_inst_sf"],
+            "mesa_sf":        ["fiscal_inst_sf", "policia_sf"],
+            "juzgado_sf":     ["fiscal_inst_sf", "camara_sf"],
         },
     },
 
     # ── 6ª Circunscripción — Villa Dolores ────────────────────────────────────
+    # 2 Fiscalías Instrucción (Dra. Zambrana / Dra. Ferreira) + 1 de Cámara (Dr. Cuello)
     "villa_dolores": {
         "nombre": "MPF Villa Dolores",
         "circunscripcion": "6ª — Villa Dolores",
@@ -216,22 +223,25 @@ NODOS: dict[str, dict] = {
         "tipo_policia": POLICIA_PROVINCIAL,
         "modulos": [MODULO_PENAL, MODULO_CONTRAVENCIONAL],
         "oficinas": [
-            {"key": "policia_vd",       "label": "Policía de la Provincia", "icon": "🚓", "activa": True},
-            {"key": "fiscal_inst_vd_1", "label": "Fiscalía de Instrucción", "icon": "⚖️", "activa": True},
-            {"key": "camara_vd",        "label": "Fiscalía de Cámara",      "icon": "🏛️", "activa": True},
-            {"key": "mesa_vd",          "label": "Mesa de Entradas",        "icon": "📋", "activa": True},
-            {"key": "juzgado_vd",       "label": "Juzgado de Control",      "icon": "⚖️", "activa": False},
+            {"key": "policia_vd",       "label": "Policía de la Provincia — Villa Dolores",       "icon": "🚓", "activa": True},
+            {"key": "fiscal_inst_vd_1", "label": "Fiscalía de Instrucción N°1 (Dra. Zambrana)",  "icon": "⚖️", "activa": True},
+            {"key": "fiscal_inst_vd_2", "label": "Fiscalía de Instrucción N°2 (Dra. Ferreira)",  "icon": "⚖️", "activa": True},
+            {"key": "camara_vd",        "label": "Fiscalía de Cámara (Dr. Cuello)",              "icon": "🏛️", "activa": True},
+            {"key": "mesa_vd",          "label": "Mesa de Entradas — Villa Dolores",             "icon": "📋", "activa": True},
+            {"key": "juzgado_vd",       "label": "Juzgado de Control — Villa Dolores",          "icon": "⚖️", "activa": False},
         ],
         "flujos": {
-            "policia_vd":      ["fiscal_inst_vd_1", "mesa_vd"],
-            "fiscal_inst_vd_1":["policia_vd", "camara_vd", "mesa_vd", "juzgado_vd"],
-            "camara_vd":       ["fiscal_inst_vd_1"],
-            "mesa_vd":         ["fiscal_inst_vd_1", "policia_vd"],
-            "juzgado_vd":      ["fiscal_inst_vd_1", "camara_vd"],
+            "policia_vd":      ["fiscal_inst_vd_1", "fiscal_inst_vd_2", "mesa_vd"],
+            "fiscal_inst_vd_1":["policia_vd", "camara_vd", "mesa_vd", "juzgado_vd", "fiscal_inst_vd_2"],
+            "fiscal_inst_vd_2":["policia_vd", "camara_vd", "mesa_vd", "juzgado_vd", "fiscal_inst_vd_1"],
+            "camara_vd":       ["fiscal_inst_vd_1", "fiscal_inst_vd_2"],
+            "mesa_vd":         ["fiscal_inst_vd_1", "fiscal_inst_vd_2", "policia_vd"],
+            "juzgado_vd":      ["fiscal_inst_vd_1", "fiscal_inst_vd_2", "camara_vd"],
         },
     },
 
     # ── 7ª Circunscripción — Cruz del Eje ────────────────────────────────────
+    # 1 Fiscalía Instrucción (Dra. Ardiles) + 1 de Cámara (Dra. Pochettino)
     "cruz_del_eje": {
         "nombre": "MPF Cruz del Eje",
         "circunscripcion": "7ª — Cruz del Eje",
@@ -240,22 +250,23 @@ NODOS: dict[str, dict] = {
         "tipo_policia": POLICIA_PROVINCIAL,
         "modulos": [MODULO_PENAL, MODULO_CONTRAVENCIONAL],
         "oficinas": [
-            {"key": "policia_ce",       "label": "Policía de la Provincia", "icon": "🚓", "activa": True},
-            {"key": "fiscal_inst_ce_1", "label": "Fiscalía de Instrucción", "icon": "⚖️", "activa": True},
-            {"key": "camara_ce",        "label": "Fiscalía de Cámara",      "icon": "🏛️", "activa": True},
-            {"key": "mesa_ce",          "label": "Mesa de Entradas",        "icon": "📋", "activa": True},
-            {"key": "juzgado_ce",       "label": "Juzgado de Control",      "icon": "⚖️", "activa": False},
+            {"key": "policia_ce",       "label": "Policía de la Provincia — Cruz del Eje",        "icon": "🚓", "activa": True},
+            {"key": "fiscal_inst_ce",   "label": "Fiscalía de Instrucción (Dra. Ardiles)",        "icon": "⚖️", "activa": True},
+            {"key": "camara_ce",        "label": "Fiscalía de Cámara (Dra. Pochettino)",          "icon": "🏛️", "activa": True},
+            {"key": "mesa_ce",          "label": "Mesa de Entradas — Cruz del Eje",               "icon": "📋", "activa": True},
+            {"key": "juzgado_ce",       "label": "Juzgado de Control — Cruz del Eje",            "icon": "⚖️", "activa": False},
         ],
         "flujos": {
-            "policia_ce":      ["fiscal_inst_ce_1", "mesa_ce"],
-            "fiscal_inst_ce_1":["policia_ce", "camara_ce", "mesa_ce", "juzgado_ce"],
-            "camara_ce":       ["fiscal_inst_ce_1"],
-            "mesa_ce":         ["fiscal_inst_ce_1", "policia_ce"],
-            "juzgado_ce":      ["fiscal_inst_ce_1", "camara_ce"],
+            "policia_ce":     ["fiscal_inst_ce", "mesa_ce"],
+            "fiscal_inst_ce": ["policia_ce", "camara_ce", "mesa_ce", "juzgado_ce"],
+            "camara_ce":      ["fiscal_inst_ce"],
+            "mesa_ce":        ["fiscal_inst_ce", "policia_ce"],
+            "juzgado_ce":     ["fiscal_inst_ce", "camara_ce"],
         },
     },
 
     # ── 8ª Circunscripción — Laboulaye ────────────────────────────────────────
+    # 1 Fiscalía Instrucción (Dr. Tolosa) + 1 de Cámara (Dr. Guzmán)
     "laboulaye": {
         "nombre": "MPF Laboulaye",
         "circunscripcion": "8ª — Laboulaye",
@@ -264,22 +275,23 @@ NODOS: dict[str, dict] = {
         "tipo_policia": POLICIA_PROVINCIAL,
         "modulos": [MODULO_PENAL, MODULO_CONTRAVENCIONAL],
         "oficinas": [
-            {"key": "policia_lb",       "label": "Policía de la Provincia", "icon": "🚓", "activa": True},
-            {"key": "fiscal_inst_lb_1", "label": "Fiscalía de Instrucción", "icon": "⚖️", "activa": True},
-            {"key": "camara_lb",        "label": "Fiscalía de Cámara",      "icon": "🏛️", "activa": True},
-            {"key": "mesa_lb",          "label": "Mesa de Entradas",        "icon": "📋", "activa": True},
-            {"key": "juzgado_lb",       "label": "Juzgado de Control",      "icon": "⚖️", "activa": False},
+            {"key": "policia_lb",       "label": "Policía de la Provincia — Laboulaye",           "icon": "🚓", "activa": True},
+            {"key": "fiscal_inst_lb",   "label": "Fiscalía de Instrucción (Dr. Tolosa)",          "icon": "⚖️", "activa": True},
+            {"key": "camara_lb",        "label": "Fiscalía de Cámara (Dr. Guzmán)",               "icon": "🏛️", "activa": True},
+            {"key": "mesa_lb",          "label": "Mesa de Entradas — Laboulaye",                  "icon": "📋", "activa": True},
+            {"key": "juzgado_lb",       "label": "Juzgado de Control — Laboulaye",               "icon": "⚖️", "activa": False},
         ],
         "flujos": {
-            "policia_lb":      ["fiscal_inst_lb_1", "mesa_lb"],
-            "fiscal_inst_lb_1":["policia_lb", "camara_lb", "mesa_lb", "juzgado_lb"],
-            "camara_lb":       ["fiscal_inst_lb_1"],
-            "mesa_lb":         ["fiscal_inst_lb_1", "policia_lb"],
-            "juzgado_lb":      ["fiscal_inst_lb_1", "camara_lb"],
+            "policia_lb":     ["fiscal_inst_lb", "mesa_lb"],
+            "fiscal_inst_lb": ["policia_lb", "camara_lb", "mesa_lb", "juzgado_lb"],
+            "camara_lb":      ["fiscal_inst_lb"],
+            "mesa_lb":        ["fiscal_inst_lb", "policia_lb"],
+            "juzgado_lb":     ["fiscal_inst_lb", "camara_lb"],
         },
     },
 
     # ── 9ª Circunscripción — Deán Funes ──────────────────────────────────────
+    # 1 Fiscalía Instrucción (Dra. Cepede) + 1 de Cámara (Dra. Elías)
     "dean_funes": {
         "nombre": "MPF Deán Funes",
         "circunscripcion": "9ª — Deán Funes",
@@ -288,22 +300,23 @@ NODOS: dict[str, dict] = {
         "tipo_policia": POLICIA_PROVINCIAL,
         "modulos": [MODULO_PENAL, MODULO_CONTRAVENCIONAL],
         "oficinas": [
-            {"key": "policia_df",       "label": "Policía de la Provincia", "icon": "🚓", "activa": True},
-            {"key": "fiscal_inst_df_1", "label": "Fiscalía de Instrucción", "icon": "⚖️", "activa": True},
-            {"key": "camara_df",        "label": "Fiscalía de Cámara",      "icon": "🏛️", "activa": True},
-            {"key": "mesa_df",          "label": "Mesa de Entradas",        "icon": "📋", "activa": True},
-            {"key": "juzgado_df",       "label": "Juzgado de Control",      "icon": "⚖️", "activa": False},
+            {"key": "policia_df",       "label": "Policía de la Provincia — Deán Funes",          "icon": "🚓", "activa": True},
+            {"key": "fiscal_inst_df",   "label": "Fiscalía de Instrucción (Dra. Cepede)",         "icon": "⚖️", "activa": True},
+            {"key": "camara_df",        "label": "Fiscalía de Cámara (Dra. Elías)",               "icon": "🏛️", "activa": True},
+            {"key": "mesa_df",          "label": "Mesa de Entradas — Deán Funes",                 "icon": "📋", "activa": True},
+            {"key": "juzgado_df",       "label": "Juzgado de Control — Deán Funes",              "icon": "⚖️", "activa": False},
         ],
         "flujos": {
-            "policia_df":      ["fiscal_inst_df_1", "mesa_df"],
-            "fiscal_inst_df_1":["policia_df", "camara_df", "mesa_df", "juzgado_df"],
-            "camara_df":       ["fiscal_inst_df_1"],
-            "mesa_df":         ["fiscal_inst_df_1", "policia_df"],
-            "juzgado_df":      ["fiscal_inst_df_1", "camara_df"],
+            "policia_df":     ["fiscal_inst_df", "mesa_df"],
+            "fiscal_inst_df": ["policia_df", "camara_df", "mesa_df", "juzgado_df"],
+            "camara_df":      ["fiscal_inst_df"],
+            "mesa_df":        ["fiscal_inst_df", "policia_df"],
+            "juzgado_df":     ["fiscal_inst_df", "camara_df"],
         },
     },
 
     # ── 10ª Circunscripción — Río Tercero ────────────────────────────────────
+    # 2 Fiscalías Instrucción (Dr. Carballo / Dr. Torres) + 1 de Cámara (Dr. Martín)
     "rio_tercero": {
         "nombre": "MPF Río Tercero",
         "circunscripcion": "10ª — Río Tercero",
@@ -312,12 +325,12 @@ NODOS: dict[str, dict] = {
         "tipo_policia": POLICIA_PROVINCIAL,
         "modulos": [MODULO_PENAL, MODULO_CONTRAVENCIONAL],
         "oficinas": [
-            {"key": "policia_rt",       "label": "Policía de la Provincia — Río Tercero", "icon": "🚓", "activa": True},
-            {"key": "fiscal_inst_rt_1", "label": "Fiscalía de Instrucción N°1",           "icon": "⚖️", "activa": True},
-            {"key": "fiscal_inst_rt_2", "label": "Fiscalía de Instrucción N°2",           "icon": "⚖️", "activa": True},
-            {"key": "camara_rt",        "label": "Fiscalía de Cámara — Río Tercero",      "icon": "🏛️", "activa": True},
-            {"key": "mesa_rt",          "label": "Mesa de Entradas",                      "icon": "📋", "activa": True},
-            {"key": "juzgado_rt",       "label": "Juzgado de Control",                   "icon": "⚖️", "activa": False},
+            {"key": "policia_rt",       "label": "Policía de la Provincia — Río Tercero",         "icon": "🚓", "activa": True},
+            {"key": "fiscal_inst_rt_1", "label": "Fiscalía de Instrucción N°1 (Dr. Carballo)",    "icon": "⚖️", "activa": True},
+            {"key": "fiscal_inst_rt_2", "label": "Fiscalía de Instrucción N°2 (Dr. Torres)",      "icon": "⚖️", "activa": True},
+            {"key": "camara_rt",        "label": "Fiscalía de Cámara (Dr. Martín)",               "icon": "🏛️", "activa": True},
+            {"key": "mesa_rt",          "label": "Mesa de Entradas — Río Tercero",                "icon": "📋", "activa": True},
+            {"key": "juzgado_rt",       "label": "Juzgado de Control — Río Tercero",             "icon": "⚖️", "activa": False},
         ],
         "flujos": {
             "policia_rt":      ["fiscal_inst_rt_1", "fiscal_inst_rt_2", "mesa_rt"],
