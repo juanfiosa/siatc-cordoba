@@ -2735,3 +2735,24 @@ with tab_panel:
                         "   → editá contacto → expandí 'Causas similares'.\n"
                         "6. **📊 Panel** → semáforo de salud → tendencia ingresadas vs. cerradas\n"
                         "   → pipeline por categoría → 8 KPIs → exportá 6 formatos + informe mensual.")
+            # System diagnostics
+            with st.expander("🔧 Información del sistema"):
+                import sys
+                _db_path = "siatc.db (SQLite — local)"
+                _py_ver = f"Python {sys.version[:6]}"
+                _st_ver = st.__version__
+                try:
+                    import plotly; _pl_ver = f"Plotly {plotly.__version__}"
+                except Exception: _pl_ver = "Plotly (cargado)"
+                try:
+                    import fpdf; _fpdf_ver = f"fpdf2 {fpdf.__version__}"
+                except Exception: _fpdf_ver = "fpdf2 (cargado)"
+                st.code(
+                    f"SIATC v1.3-demo\n"
+                    f"Base de datos: {_db_path}\n"
+                    f"Causas: {total} | Personas: {stats.get('personas',0)}\n"
+                    f"{_py_ver} | Streamlit {_st_ver}\n"
+                    f"{_pl_ver} | {_fpdf_ver}\n"
+                    f"Servidor: {datetime.now().strftime('%d/%m/%Y %H:%M')}",
+                    language=None
+                )
