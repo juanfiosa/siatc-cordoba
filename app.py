@@ -33,7 +33,7 @@ from database import (
     proximas_audiencias_por_causa, causas_count_por_persona,
     stats_tendencia_mensual, stats_por_unidad, stats_tiempo_por_tipo,
     stats_por_dia_semana, stats_categoria_por_estado, asignar_fiscal,
-    causas_mas_antiguas_activas, stats_eficiencia_carriles,
+    causas_mas_antiguas_activas, stats_eficiencia_carriles, mediaciones_estancadas,
 )
 from seguimiento_tab import render_tab_seguimiento
 from agenda_tab import render_tab_agenda
@@ -323,6 +323,14 @@ try:
     ]
     if _ctrl_hoy:
         _alertas.append(f"📋 **{len(_ctrl_hoy)} control(es) de seguimiento HOY** — verificar cumplimiento")
+except Exception:
+    pass
+
+# Mediaciones estancadas (>30 días sin actualización)
+try:
+    _med_est = mediaciones_estancadas(dias=30)
+    if _med_est:
+        _alertas.append(f"🤝 **{len(_med_est)} mediación(es) estancada(s)** sin actualización en >30 días")
 except Exception:
     pass
 

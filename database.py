@@ -1178,6 +1178,20 @@ def causas_mas_antiguas_activas(limit: int = 5) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+def mediaciones_estancadas(dias: int = 30) -> list[dict]:
+    """Returns causas in 'en_mediacion' state with no update in more than N days."""
+    from datetime import datetime as _dt, timedelta as _td
+    cutoff = (_dt.now() - _td(days=dias)).strftime("%Y-%m-%d %H:%M:%S")
+    with get_conn() as conn:
+        rows = conn.execute("""
+            SELECT c.*, p.apellido_nombre, p.dni as persona_dni
+            FROM causas c LEFT JOIN personas p ON c.persona_id = p.id
+            WHERE c.estado = 'en_mediacion' AND c.updated_at < ?
+            ORDER BY c.updated_at ASC
+        """, (cutoff,)).fetchall()
+    return [dict(r) for r in rows]
+
+
 def stats_eficiencia_carriles() -> dict:
     """
     Per-carril resolution efficiency:
