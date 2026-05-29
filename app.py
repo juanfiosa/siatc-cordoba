@@ -1111,6 +1111,20 @@ with tab_causas:
                             unsafe_allow_html=True
                         )
 
+                    # Otras causas de este imputado/a (reincidente check)
+                    if _pers_cnt_gc.get(c.get("persona_id"), 0) > 1:
+                        _otras_causas = [
+                            oc for oc in listar_causas(limit=200)
+                            if oc.get("persona_id") == c.get("persona_id") and oc["id"] != c["id"]
+                        ]
+                        if _otras_causas:
+                            with st.expander(f"⚠️ {len(_otras_causas)} causa(s) adicional(es) de este imputado/a"):
+                                for _oc in _otras_causas[:5]:
+                                    _oc_ic = {"verde":"🟢","amarillo":"🟡","rojo":"🔴"}.get(_oc.get("carril",""),"⚪")
+                                    _oc_est = ESTADOS_LABEL.get(_oc["estado"], _oc["estado"])
+                                    _oc_inf = TIPOS_INFRACCION.get(_oc.get("tipo_infraccion",""),{}).get("label","")[:30]
+                                    st.markdown(f"{_oc_ic} **{_oc['numero']}** — {_oc_inf} | {_oc_est} | {_oc.get('created_at','')[:10]}")
+
                     # Documentos previos
                     docs = listar_documentos(c["id"])
                     if docs:
