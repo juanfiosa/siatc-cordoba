@@ -158,6 +158,47 @@ def _lista_audiencias(fiscal):
         st.info("No hay audiencias para los filtros seleccionados.")
         return
 
+    # iCal export button
+    try:
+        def _to_ical(auds: list) -> bytes:
+            lines = [
+                "BEGIN:VCALENDAR", "VERSION:2.0",
+                "PRODID:-//SIATC MPF Córdoba//SIATC//ES",
+                "CALSCALE:GREGORIAN", "METHOD:PUBLISH",
+            ]
+            for a in auds:
+                try:
+                    _dt_start = datetime.strptime(f"{a['fecha']} {a.get('hora','09:00')}", "%Y-%m-%d %H:%M")
+                    _dt_end   = _dt_start + timedelta(hours=1)
+                    _uid = f"siatc-{a['id']}@mpfcordoba.gob.ar"
+                    _summ = f"{TIPO_LABEL.get(a.get('tipo',''), a.get('tipo',''))} — {a.get('apellido_nombre','').split(',')[0]} ({a.get('numero','')})"
+                    _loc  = a.get("lugar","") or "Sede de la Unidad Contravencional"
+                    lines += [
+                        "BEGIN:VEVENT",
+                        f"UID:{_uid}",
+                        f"DTSTART:{_dt_start.strftime('%Y%m%dT%H%M%S')}",
+                        f"DTEND:{_dt_end.strftime('%Y%m%dT%H%M%S')}",
+                        f"SUMMARY:{_summ}",
+                        f"LOCATION:{_loc}",
+                        f"STATUS:{'CONFIRMED' if a.get('estado','')=='programada' else 'TENTATIVE'}",
+                        "END:VEVENT",
+                    ]
+                except Exception:
+                    pass
+            lines.append("END:VCALENDAR")
+            return "\r\n".join(lines).encode("utf-8")
+
+        _ical_bytes = _to_ical(audiencias)
+        st.download_button(
+            f"📅 Exportar {len(audiencias)} audiencia(s) (.ics)",
+            data=_ical_bytes,
+            file_name=f"audiencias_SIATC_{date.today().isoformat()}.ics",
+            mime="text/calendar",
+            key="aud_ical_export",
+        )
+    except Exception:
+        pass
+
     for a in audiencias:
         es_hoy_flag = a["fecha"] == hoy.isoformat()
         bg_exp = "#fff8e1" if es_hoy_flag else "#ffffff"
