@@ -594,13 +594,14 @@ with tab_causas:
     col_f5.markdown("&nbsp;")   # vertical spacer
     if col_f5.button("✕ Todo", key="gc_clear_all", use_container_width=True,
                      help="Limpiar todos los filtros"):
-        for _fk in ("gc_busqueda","gc_filtro_tipo","gc_fecha_desde","gc_fecha_hasta","gc_solo_rein"):
+        for _fk in ("gc_busqueda","gc_filtro_tipo","gc_fecha_desde","gc_fecha_hasta",
+                    "gc_solo_rein","gc_filtro_fiscal"):
             if _fk in st.session_state:
                 del st.session_state[_fk]
         st.rerun()
 
-    # Filtros — fila 2: tipo infracción + rango de fechas (colapsable)
-    with st.expander("🔍 Filtros adicionales: tipo de infracción, fechas y reincidencia", expanded=False):
+    # Filtros — fila 2: tipo infracción + rango de fechas + fiscal (colapsable)
+    with st.expander("🔍 Filtros adicionales: tipo, fechas, fiscal y reincidencia", expanded=False):
         from datetime import date as _dt_gc
         _tipo_opciones_gc = {"": "Todos los tipos"} | {
             k: f"{v['categoria']} — {v['label'][:40]}" for k, v in TIPOS_INFRACCION.items()
@@ -614,17 +615,30 @@ with tab_causas:
         )
         _gc_fecha_desde = _col_fd_gc.date_input("Desde", value=None, key="gc_fecha_desde")
         _gc_fecha_hasta = _col_fh_gc.date_input("Hasta", value=None, key="gc_fecha_hasta")
+        # Fiscal filter — pull distinct fiscales from DB
+        _fiscales_gc = sorted({
+            c.get("fiscal_asignado","") for c in listar_causas(limit=500)
+            if c.get("fiscal_asignado","")
+        })
+        _fiscal_opciones_gc = ["Todos"] + _fiscales_gc
+        _filtro_fiscal = st.selectbox(
+            "Fiscal asignado",
+            _fiscal_opciones_gc,
+            key="gc_filtro_fiscal",
+        )
         _gc_solo_rein = st.checkbox(
             "⚠️ Solo reincidentes (personas con más de 1 causa)",
             value=False, key="gc_solo_rein"
         )
         if _col_fc_gc.button("🗑️ Limpiar", key="gc_clear_ext"):
-            for _k in ("gc_filtro_tipo", "gc_fecha_desde", "gc_fecha_hasta", "gc_solo_rein"):
+            for _k in ("gc_filtro_tipo", "gc_fecha_desde", "gc_fecha_hasta",
+                       "gc_solo_rein", "gc_filtro_fiscal"):
                 if _k in st.session_state:
                     del st.session_state[_k]
             st.rerun()
     _fecha_desde_str = _gc_fecha_desde.isoformat() if _gc_fecha_desde else None
     _fecha_hasta_str = _gc_fecha_hasta.isoformat() if _gc_fecha_hasta else None
+    _fiscal_filtro = None if _filtro_fiscal == "Todos" else _filtro_fiscal
 
     causas = listar_causas(
         estado          = None if filtro_estado=="Todos"  else filtro_estado,
@@ -633,6 +647,7 @@ with tab_causas:
         busqueda        = busqueda or None,
         tipo_infraccion = _filtro_tipo or None,
         fecha_desde     = _fecha_desde_str,
+        fiscal          = _fiscal_filtro,
         fecha_hasta     = _fecha_hasta_str,
     )
 

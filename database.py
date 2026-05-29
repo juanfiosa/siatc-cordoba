@@ -347,6 +347,7 @@ def agregar_nota_causa(causa_id: int, nota: str, usuario: str) -> bool:
 def listar_causas(estado: str = None, carril: str = None, unidad: str = None,
                   busqueda: str = None, tipo_infraccion: str = None,
                   fecha_desde: str = None, fecha_hasta: str = None,
+                  fiscal: str = None,
                   limit: int = 200) -> list[dict]:
     """
     Devuelve causas filtradas. fecha_desde / fecha_hasta filtran sobre created_at (YYYY-MM-DD).
@@ -378,6 +379,9 @@ def listar_causas(estado: str = None, carril: str = None, unidad: str = None,
     if fecha_hasta:
         sql += " AND c.created_at <= ?"
         params.append(fecha_hasta + " 23:59:59")
+    if fiscal:
+        sql += " AND c.fiscal_asignado = ?"
+        params.append(fiscal)
     if busqueda:
         sql += """ AND (p.apellido_nombre LIKE ? OR c.numero LIKE ? OR p.dni LIKE ?
                         OR c.tipo_infraccion LIKE ? OR c.descripcion LIKE ?)"""
