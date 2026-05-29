@@ -33,7 +33,7 @@ from database import (
     proximas_audiencias_por_causa, causas_count_por_persona,
     stats_tendencia_mensual, stats_por_unidad, stats_tiempo_por_tipo,
     stats_por_dia_semana, stats_categoria_por_estado, asignar_fiscal,
-    causas_mas_antiguas_activas,
+    causas_mas_antiguas_activas, stats_eficiencia_carriles,
 )
 from seguimiento_tab import render_tab_seguimiento
 from agenda_tab import render_tab_agenda
@@ -1673,6 +1673,26 @@ with tab_panel:
                 fig2.update_layout(height=320, coloraxis_showscale=False,
                                    yaxis_title="", xaxis_title="Causas")
                 st.plotly_chart(fig2, use_container_width=True)
+
+        # ── Eficiencia por carril ─────────────────────────────────────────
+        _ef_carril = stats_eficiencia_carriles()
+        if _ef_carril:
+            _ef_cols = st.columns(3)
+            _ef_labels = {"verde": ("🟢 Mediación", "#28a745"), "amarillo": ("🟡 Suspensión", "#ffc107"),
+                          "rojo": ("🔴 Proceso pleno", "#dc3545")}
+            for _ec, (_ef_lbl, _ef_color) in _ef_labels.items():
+                _ef_d = _ef_carril.get(_ec, {})
+                if _ef_d:
+                    with _ef_cols[list(_ef_labels.keys()).index(_ec)]:
+                        st.markdown(f"**{_ef_lbl}**")
+                        st.markdown(
+                            f"<div style='background:linear-gradient(90deg,{_ef_color}22,white);border-left:4px solid {_ef_color};border-radius:4px;padding:8px'>"
+                            f"<strong style='font-size:1.5rem'>{_ef_d.get('pct_resolucion',0)}%</strong> resueltas<br>"
+                            f"<small>{_ef_d.get('activas',0)} activas · {(_ef_d.get('resueltas',0)+_ef_d.get('archivadas',0))} cerradas / {_ef_d.get('total',0)}</small>"
+                            f"</div>",
+                            unsafe_allow_html=True
+                        )
+            st.markdown("")
 
         # Causas por categoría (derivado de tipos)
         _tipos_all = causas_por_tipo()

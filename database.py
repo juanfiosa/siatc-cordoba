@@ -1178,6 +1178,32 @@ def causas_mas_antiguas_activas(limit: int = 5) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+def stats_eficiencia_carriles() -> dict:
+    """
+    Per-carril resolution efficiency:
+    {carril: {total, resueltas, archivadas, activas, pct_resolucion}}
+    """
+    with get_conn() as conn:
+        rows = conn.execute("""
+            SELECT carril,
+                   COUNT(*) as total,
+                   SUM(CASE WHEN estado='resuelta' THEN 1 ELSE 0 END) as resueltas,
+                   SUM(CASE WHEN estado='archivada' THEN 1 ELSE 0 END) as archivadas,
+                   SUM(CASE WHEN estado IN ('ingresada','clasificada','notificada','en_mediacion') THEN 1 ELSE 0 END) as activas
+            FROM causas
+            WHERE carril IS NOT NULL AND carril != ''
+            GROUP BY carril
+        """).fetchall()
+    result = {}
+    for r in rows:
+        d = dict(r)
+        tot = d["total"] or 0
+        cer = (d["resueltas"] or 0) + (d["archivadas"] or 0)
+        d["pct_resolucion"] = round(cer * 100 / tot) if tot else 0
+        result[d["carril"]] = d
+    return result
+
+
 def stats_categoria_por_estado() -> dict:
     """
     Returns {categoria: {estado: count}} for all causas.
