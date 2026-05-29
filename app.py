@@ -259,7 +259,9 @@ with st.sidebar:
     st.markdown("---")
     st.caption(
         f"v1.3-demo · {datetime.now().strftime('%d/%m/%Y')}\n\n"
-        "[GitHub](https://github.com/juanfiosa/siatc-cordoba)"
+        "⚖️ Ley N° 10.326 — CCC Córdoba\n\n"
+        "[GitHub](https://github.com/juanfiosa/siatc-cordoba) · "
+        "[MPF Córdoba](https://www.fiscales.gob.ar)"
     )
 
 # ── Bienvenida (primera vez por sesión) ────────────────────────────────────────
