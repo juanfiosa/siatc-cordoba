@@ -1357,6 +1357,27 @@ with tab_panel:
     st.subheader("Panel de Control")
     stats = stats_generales()
     total = stats["total"]
+    seg_s = _c_stats_seguimiento()
+    aud_s = _c_stats_audiencias()
+
+    # Quick system health bar
+    if total > 0:
+        _health_issues = []
+        if seg_s.get("vencidos", 0) > 0:
+            _health_issues.append(f"🔴 {seg_s['vencidos']} seguimiento(s) vencido(s)")
+        if seg_s.get("incumplidos", 0) > 0:
+            _health_issues.append(f"🔴 {seg_s['incumplidos']} incumplido(s)")
+        if aud_s.get("hoy", 0) > 0:
+            _health_issues.append(f"🟡 {aud_s['hoy']} audiencia(s) HOY")
+        _sin_aud_h = _c_sin_audiencia()
+        if _sin_aud_h:
+            _health_issues.append(f"🟡 {len(_sin_aud_h)} sin audiencia")
+        if not _health_issues:
+            st.success("✅ Sistema en estado normal — sin alertas críticas")
+        elif any("🔴" in h for h in _health_issues):
+            st.error("🚨 **Alertas críticas:** " + " | ".join(_health_issues))
+        else:
+            st.warning("⚠️ **Atención:** " + " | ".join(_health_issues))
 
     if total == 0:
         st.info("Aún no hay causas en el sistema. Ingresá casos nuevos o cargá los demos desde la pestaña 🗂️.")
