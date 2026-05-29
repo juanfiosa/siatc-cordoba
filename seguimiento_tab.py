@@ -238,6 +238,14 @@ def _panel_seguimientos(fiscal):
     delta_venc = f"⚠️ {stats['vencidos']} vencidos" if stats["vencidos"] else None
     col4.metric("Incumplidos", stats["incumplidos"], delta=delta_venc, delta_color="inverse")
 
+    # Global completion progress across all active seguimientos
+    if stats["total"] > 0:
+        _pct_total = round(stats["cumplidos"] * 100 / stats["total"])
+        _estado_seg = "🟢 Buen ritmo de cumplimiento" if _pct_total >= 70 else \
+                      ("🟡 Seguimiento en curso" if _pct_total >= 30 else "🔴 Bajo nivel de cumplimiento")
+        st.progress(_pct_total / 100,
+                    text=f"Cumplimiento global: {_pct_total}% ({stats['cumplidos']} de {stats['total']}) — {_estado_seg}")
+
     st.divider()
 
     # Filtros
