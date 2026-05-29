@@ -1550,6 +1550,22 @@ with tab_panel:
     if total == 0:
         st.info("Aún no hay causas en el sistema. Ingresá casos nuevos o cargá los demos desde la pestaña 🗂️.")
     else:
+        # Weekly pulse
+        try:
+            from datetime import date as _dpanel
+            _lunes_panel = (_dpanel.today() - timedelta(days=_dpanel.today().weekday())).isoformat()
+            _nuevas_sem_p = len(listar_causas(fecha_desde=_lunes_panel, limit=200))
+            _auds_sem_p   = len(listar_audiencias(desde=_lunes_panel))
+            _cerradas_sem_p = len([c for c in listar_causas(fecha_desde=_lunes_panel, limit=200)
+                                   if c.get("estado") in ("resuelta","archivada")])
+            if _nuevas_sem_p > 0 or _auds_sem_p > 0:
+                _pwk1, _pwk2, _pwk3 = st.columns(3)
+                _pwk1.metric("📥 Nuevas esta semana", _nuevas_sem_p)
+                _pwk2.metric("📅 Audiencias esta semana", _auds_sem_p)
+                _pwk3.metric("✅ Cerradas esta semana", _cerradas_sem_p)
+        except Exception:
+            pass
+
         # Métricas
         verde_n    = stats["por_carril"].get("verde",0)
         amarillo_n = stats["por_carril"].get("amarillo",0)
