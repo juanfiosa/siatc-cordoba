@@ -1163,7 +1163,21 @@ with tab_causas:
                     st.markdown("---")
                     st.markdown("**📝 Nota rápida:**")
                     with st.popover("Agregar nota a la causa", use_container_width=True):
+                        _nota_templates = [
+                            "— Template rápido (opcional) —",
+                            "Imputado/a se comunicó. Se coordina próxima audiencia.",
+                            "Intento de contacto sin respuesta. Se enviará nueva notificación.",
+                            "Documentación presentada. Se procesa para el expediente.",
+                            "Solicitud de prórroga recibida. Se evalúa viabilidad.",
+                            "Imputado/a ausente a la audiencia. Se registra incomparecencia.",
+                            "Acuerdo alcanzado en mediación. Se confecciona acta.",
+                        ]
+                        _nota_tpl_sel = st.selectbox("Template", _nota_templates,
+                                                      key=f"nota_tpl_{c['id']}",
+                                                      label_visibility="collapsed")
+                        _nota_init = "" if _nota_tpl_sel == _nota_templates[0] else _nota_tpl_sel
                         _nota_txt = st.text_area("Texto de la nota", height=80,
+                                                  value=_nota_init,
                                                   placeholder="Ej: Imputado se comunicó para avisar viaje. Se reprograma notificación.",
                                                   key=f"nota_txt_{c['id']}")
                         if st.button("Guardar nota", key=f"nota_btn_{c['id']}", type="primary"):
