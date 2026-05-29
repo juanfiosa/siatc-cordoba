@@ -1094,3 +1094,16 @@ def proximas_audiencias_por_causa() -> dict[int, dict]:
         if cid not in result:
             result[cid] = {"fecha": r["fecha"], "hora": r["hora"], "tipo": r["tipo"]}
     return result
+
+
+def causas_count_por_persona(persona_ids: list) -> dict:
+    """Returns {persona_id: total_causas} for the given persona IDs (bulk query)."""
+    if not persona_ids:
+        return {}
+    placeholders = ",".join("?" * len(persona_ids))
+    with get_conn() as conn:
+        rows = conn.execute(
+            f"SELECT persona_id, COUNT(*) as n FROM causas WHERE persona_id IN ({placeholders}) GROUP BY persona_id",
+            persona_ids
+        ).fetchall()
+    return {r["persona_id"]: r["n"] for r in rows}

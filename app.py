@@ -30,7 +30,7 @@ from database import (
     causas_inactivas, causas_sin_audiencia_programada, personas_reincidentes,
     actividad_reciente, stats_edad, stats_edad_por_carril,
     causas_mes_actual_vs_anterior, stats_por_fiscal, causas_sin_seguimiento,
-    proximas_audiencias_por_causa,
+    proximas_audiencias_por_causa, causas_count_por_persona,
 )
 from seguimiento_tab import render_tab_seguimiento
 from agenda_tab import render_tab_agenda
@@ -670,6 +670,10 @@ with tab_causas:
         # Selector de causa para ver detalle
         causa_sel_id = st.session_state.get("causa_sel_id")
 
+        # Bulk reincidente lookup — single query for all personas in current view
+        _pids_gc = list({c["persona_id"] for c in causas if c.get("persona_id")})
+        _pers_cnt_gc = causas_count_por_persona(_pids_gc) if _pids_gc else {}
+
         for c in causas:
             if _vista_gc == "📊 Tabla":
                 continue   # tabla ya renderizada arriba
@@ -677,6 +681,9 @@ with tab_causas:
             estado_label = ESTADOS_LABEL.get(c["estado"], c["estado"])
             infraccion_label = TIPOS_INFRACCION.get(c["tipo_infraccion"],{}).get("label", c["tipo_infraccion"])
             unidad_label = {"norte":"Norte","sur":"Sur","genero":"Género"}.get(c.get("unidad",""),"")
+
+            # Reincidente badge when persona has more than one causa in the system
+            _rein_badge_gc = "  ⚠️ Rein." if _pers_cnt_gc.get(c.get("persona_id"), 0) > 1 else ""
 
             # Days in current state — only meaningful for active states
             _dias_badge = ""
@@ -690,7 +697,7 @@ with tab_causas:
                     pass
 
             with st.expander(
-                f"{carril_icon} **{c['numero']}** — {c['apellido_nombre']}  |  {infraccion_label}  |  {estado_label}{_dias_badge}",
+                f"{carril_icon} **{c['numero']}** — {c['apellido_nombre']}  |  {infraccion_label}  |  {estado_label}{_dias_badge}{_rein_badge_gc}",
                 expanded=(causa_sel_id == c["id"])
             ):
                 col_info, col_acciones = st.columns([2,1])
