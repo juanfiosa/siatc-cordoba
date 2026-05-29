@@ -833,7 +833,23 @@ with tab_causas:
                         pass
                 # Next scheduled hearing
                 _prox = _prox_auds.get(c["id"])
-                _prox_str = f"{_prox['fecha']} {_prox['hora']}" if _prox else ""
+                if _prox:
+                    try:
+                        from datetime import date as _dtgc
+                        _prox_dt = _dtgc.fromisoformat(_prox["fecha"])
+                        _prox_dias = (_prox_dt - _dtgc.today()).days
+                        if _prox_dias == 0:
+                            _prox_str = f"⚡ HOY {_prox['hora']}"
+                        elif _prox_dias == 1:
+                            _prox_str = f"🔵 Mañana {_prox['hora']}"
+                        elif _prox_dias <= 7:
+                            _prox_str = f"🔵 {_prox['fecha']} ({_prox_dias}d)"
+                        else:
+                            _prox_str = f"{_prox['fecha']} ({_prox_dias}d)"
+                    except Exception:
+                        _prox_str = f"{_prox['fecha']} {_prox['hora']}"
+                else:
+                    _prox_str = ""
                 _rows_gc.append({
                     "Carril":        _ic,
                     "Expediente":    c["numero"],
