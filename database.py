@@ -2,6 +2,7 @@
 Capa de persistencia — SQLite
 SIATC · Ministerio Público Fiscal de Córdoba
 """
+from __future__ import annotations  # Python 3.9 compat: defer type annotation evaluation
 
 import sqlite3
 import os
