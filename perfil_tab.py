@@ -292,15 +292,27 @@ def render_perfil(persona_id: int):
     # ── Audiencias ───────────────────────────────────────────────────────────
     if auds:
         st.markdown("### 📅 Audiencias")
+        import pandas as _pd_pf
         BADGE = {"programada": "🔵", "realizada": "🟢",
                  "ausente": "🔴", "reprogramada": "🟡", "cancelada": "⚫"}
+        TIPO_AUD = {
+            "audiencia": "Aud. contravencional", "mediacion": "Aud. mediación",
+            "acta_compromiso": "Acta compromiso", "control_seg": "Control seguimiento",
+        }
+        _rows_aud_pf = []
         for a in sorted(auds, key=lambda x: x["fecha"], reverse=True):
-            st.markdown(
-                f"{BADGE.get(a['estado'],'⚪')} **{a['fecha']} {a['hora']}** — "
-                f"{a.get('tipo','').replace('_',' ').capitalize()} — "
-                f"{a.get('estado','').capitalize()}"
-                + (f" | _{a['observaciones']}_" if a.get("observaciones") else "")
-            )
+            _rows_aud_pf.append({
+                "Est.":  BADGE.get(a.get("estado",""),"⚪"),
+                "Fecha": f"{a['fecha']} {a['hora']}",
+                "Tipo":  TIPO_AUD.get(a.get("tipo",""), a.get("tipo","").replace("_"," ").capitalize()),
+                "Estado": a.get("estado","").capitalize(),
+                "Obs.":  a.get("observaciones","") or "",
+            })
+        st.dataframe(
+            _pd_pf.DataFrame(_rows_aud_pf),
+            use_container_width=True, hide_index=True,
+            column_config={"Est.": st.column_config.TextColumn("", width="small")},
+        )
 
     # ── Causas similares en el sistema ───────────────────────────────────────
     _tipos_persona = list({c.get("tipo_infraccion","") for c in causas if c.get("tipo_infraccion")})
