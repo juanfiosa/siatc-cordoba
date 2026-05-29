@@ -161,6 +161,32 @@ def mostrar_si_primera_vez():
         _render_tabs()
 
     st.markdown("---")
+
+    with st.expander("📣 Novedades v1.3", expanded=False):
+        st.markdown("""
+**Mejoras en Gestión de Causas**
+- 🚨 **Ordenamiento por urgencia** — prioriza causas con más días sin actividad, carril rojo y reincidentes
+- ⚠️ **Filtro "Solo reincidentes"** — muestra sólo personas con más de una causa en el sistema
+- 🏷️ **Badge de reincidente** en el encabezado de cada causa (detección automática)
+- 📋 **Siguiente paso sugerido** — guía contextual basada en estado y carril de cada causa
+- 📊 **Resumen rápido del filtro** — total / activas / resueltas / verde / amarillo / rojo
+
+**Panel de Control**
+- 📈 **Tendencia mensual** — gráfico de doble línea ingresadas vs. cerradas con alerta de backlog
+- 🏛️ **Rendimiento por unidad** — métricas comparativas Norte / Sur / Género
+
+**Seguimiento Post-Resolución**
+- 📅 **Próximo control** — agendá la fecha del siguiente control directamente en el seguimiento
+- ⬇️ **Acta de Compromiso** — descargá el PDF inmediatamente al registrar un seguimiento
+
+**Perfil del Imputado/a**
+- Línea de tiempo distingue notas (gris) de cambios de estado (azul)
+- Próxima audiencia indicada en el título de cada causa del historial
+
+**Exportación Excel**
+- Ahora incluye 6 hojas: Causas · Personas · Estadísticas · Por Fiscal · **Por Unidad** · **Tendencia mensual**
+""")
+
     col_btn, col_txt = st.columns([1, 3])
     with col_btn:
         if st.button("🚀 Ingresar al sistema", type="primary", use_container_width=True):

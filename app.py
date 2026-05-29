@@ -219,7 +219,7 @@ with st.sidebar:
 
     st.markdown("---")
     st.caption(
-        f"v1.2-demo · {datetime.now().strftime('%d/%m/%Y')}\n\n"
+        f"v1.3-demo · {datetime.now().strftime('%d/%m/%Y')}\n\n"
         "[GitHub](https://github.com/juanfiosa/siatc-cordoba)"
     )
 
