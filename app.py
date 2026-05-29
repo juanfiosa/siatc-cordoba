@@ -1645,6 +1645,13 @@ with tab_panel:
     except Exception:
         pass
 
+    # Refresh button + last-updated timestamp
+    _ref_col, _ts_col = st.columns([1, 5])
+    if _ref_col.button("🔄 Actualizar datos", key="panel_refresh", use_container_width=True):
+        st.cache_data.clear()
+        st.rerun()
+    _ts_col.caption(f"⏱️ Datos actualizados al: {datetime.now().strftime('%d/%m/%Y %H:%M')} (caché 60s)")
+
     # Quick system health bar
     if total > 0:
         _health_issues = []
