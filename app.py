@@ -705,7 +705,7 @@ with tab_causas:
     if col_f5.button("✕ Todo", key="gc_clear_all", use_container_width=True,
                      help="Limpiar todos los filtros"):
         for _fk in ("gc_busqueda","gc_filtro_tipo","gc_fecha_desde","gc_fecha_hasta",
-                    "gc_solo_rein","gc_filtro_fiscal"):
+                    "gc_solo_rein","gc_filtro_fiscal","gc_min_dias"):
             if _fk in st.session_state:
                 del st.session_state[_fk]
         st.rerun()
@@ -740,9 +740,16 @@ with tab_causas:
             "⚠️ Solo reincidentes (personas con más de 1 causa)",
             value=False, key="gc_solo_rein"
         )
+        _gc_min_dias = st.selectbox(
+            "Antigüedad mínima",
+            [0, 7, 14, 30, 60, 90],
+            format_func=lambda d: "Sin límite" if d == 0 else f"Más de {d} días",
+            key="gc_min_dias",
+            help="Muestra causas ingresadas hace al menos N días"
+        )
         if _col_fc_gc.button("🗑️ Limpiar", key="gc_clear_ext"):
             for _k in ("gc_filtro_tipo", "gc_fecha_desde", "gc_fecha_hasta",
-                       "gc_solo_rein", "gc_filtro_fiscal"):
+                       "gc_solo_rein", "gc_filtro_fiscal", "gc_min_dias"):
                 if _k in st.session_state:
                     del st.session_state[_k]
             st.rerun()
@@ -760,6 +767,11 @@ with tab_causas:
         fiscal          = _fiscal_filtro,
         fecha_hasta     = _fecha_hasta_str,
     )
+
+    # Apply minimum age filter in-memory
+    if _gc_min_dias and _gc_min_dias > 0 and causas:
+        _cutoff_age = (datetime.now() - timedelta(days=_gc_min_dias)).strftime("%Y-%m-%d")
+        causas = [c for c in causas if c.get("created_at","")[:10] <= _cutoff_age]
 
     # Apply reincidente filter in-memory after bulk persona count
     if _gc_solo_rein and causas:
