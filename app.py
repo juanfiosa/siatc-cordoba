@@ -577,18 +577,28 @@ with tab_causas:
         # ── Vista tabla compacta ───────────────────────────────────────────
         if _vista_gc == "📊 Tabla":
             _rows_gc = []
+            _activos_gc = {"ingresada", "clasificada", "notificada", "en_mediacion"}
             for c in causas:
                 _ic = {"verde":"🟢","amarillo":"🟡","rojo":"🔴"}.get(c.get("carril",""),"⚪")
+                # Days since last update (only for active cases)
+                _dias_inact_gc = None
+                if c.get("estado") in _activos_gc:
+                    try:
+                        _upd_gc = datetime.strptime(c["updated_at"][:16], "%Y-%m-%d %H:%M")
+                        _dias_inact_gc = (datetime.now() - _upd_gc).days
+                    except Exception:
+                        pass
                 _rows_gc.append({
-                    "Carril":     _ic,
-                    "Expediente": c["numero"],
-                    "Imputado/a": (c.get("apellido_nombre","") or "").split(",")[0],
-                    "DNI":        c.get("persona_dni",""),
-                    "Infracción": TIPOS_INFRACCION.get(c.get("tipo_infraccion",""),{}).get("label","")[:30],
-                    "Estado":     ESTADOS_LABEL.get(c["estado"], c["estado"]),
-                    "Unidad":     {"norte":"Norte","sur":"Sur","genero":"Género"}.get(c.get("unidad",""),""),
-                    "Fiscal":     c.get("fiscal_asignado",""),
-                    "Ingresada":  c.get("created_at","")[:10],
+                    "Carril":        _ic,
+                    "Expediente":    c["numero"],
+                    "Imputado/a":    (c.get("apellido_nombre","") or "").split(",")[0],
+                    "DNI":           c.get("persona_dni",""),
+                    "Infracción":    TIPOS_INFRACCION.get(c.get("tipo_infraccion",""),{}).get("label","")[:30],
+                    "Estado":        ESTADOS_LABEL.get(c["estado"], c["estado"]),
+                    "Unidad":        {"norte":"Norte","sur":"Sur","genero":"Género"}.get(c.get("unidad",""),""),
+                    "Fiscal":        c.get("fiscal_asignado",""),
+                    "Ingresada":     c.get("created_at","")[:10],
+                    "Inactividad (d)": _dias_inact_gc,
                 })
             st.dataframe(
                 pd.DataFrame(_rows_gc),
@@ -597,6 +607,10 @@ with tab_causas:
                 column_config={
                     "Carril": st.column_config.TextColumn("", width="small"),
                     "Expediente": st.column_config.TextColumn("Expediente", width="medium"),
+                    "Inactividad (d)": st.column_config.NumberColumn(
+                        "Sin mov. (días)", help="Días desde la última actualización (solo causas activas)",
+                        format="%d d",
+                    ),
                 }
             )
             st.caption("💡 Cambiá a vista '📋 Detalle' para acceder a acciones, documentos y gestión de estado.")
