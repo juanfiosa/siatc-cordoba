@@ -164,27 +164,39 @@ def mostrar_si_primera_vez():
 
     with st.expander("📣 Novedades v1.3", expanded=False):
         st.markdown("""
-**Mejoras en Gestión de Causas**
-- 🚨 **Ordenamiento por urgencia** — prioriza causas con más días sin actividad, carril rojo y reincidentes
-- ⚠️ **Filtro "Solo reincidentes"** — muestra sólo personas con más de una causa en el sistema
-- 🏷️ **Badge de reincidente** en el encabezado de cada causa (detección automática)
-- 📋 **Siguiente paso sugerido** — guía contextual basada en estado y carril de cada causa
-- 📊 **Resumen rápido del filtro** — total / activas / resueltas / verde / amarillo / rojo
+**Gestión de Causas**
+- 🚨 Urgencia sort · ⚠️ reincidente badge · 📋 siguiente paso sugerido
+- ⭐ Causas prioritarias (bookmarks de sesión) · 📅 fecha estimada resolución
+- 🗂️ Vista Kanban (pipeline por estado) · Filtro por fiscal + tipo + fechas + reincidentes
+- 📍 Links Google Maps + tel: en domicilio/teléfono · Templates de notas rápidas
+- ⬇️ Expediente completo PDF (dossier con timeline, audiencias, seguimientos)
+- Motivo de cierre al archivar · Análisis de causas existentes al buscar por DNI
 
 **Panel de Control**
-- 📈 **Tendencia mensual** — gráfico de doble línea ingresadas vs. cerradas con alerta de backlog
-- 🏛️ **Rendimiento por unidad** — métricas comparativas Norte / Sur / Género
+- 📈 Tendencia ingresadas vs. cerradas · 🗂️ Pipeline por categoría × estado
+- ⏳ Top 5 causas más antiguas · 🏛️ Rendimiento por unidad · 📊 8 KPIs
+- 📅 Distribución por día de semana · ⏱️ Tiempo por tipo de infracción
+- 💡 Recomendaciones automáticas · 🔴/🟡/✅ Semáforo de salud del sistema
+- Exportación: 6 Excel sheets · Lista activas PDF · Informe mensual · Agenda semanal
 
-**Seguimiento Post-Resolución**
-- 📅 **Próximo control** — agendá la fecha del siguiente control directamente en el seguimiento
-- ⬇️ **Acta de Compromiso** — descargá el PDF inmediatamente al registrar un seguimiento
+**Seguimiento**
+- 📅 Próximo control con badge de urgencia en el expander
+- ⬇️ Acta de Compromiso automática al registrar
+- ⬇️ Informe de incumplimiento para condiciones vencidas
+- Filtro por tipo de resolución · Duración exacta o por meses
 
-**Perfil del Imputado/a**
-- Línea de tiempo distingue notas (gris) de cambios de estado (azul)
-- Próxima audiencia indicada en el título de cada causa del historial
+**Agenda**
+- 📅 Exportar a iCal (.ics) · PDF agenda semanal
+- Sugerencia de horarios libres cuando hay conflictos
+- Seguimientos que vencen esta semana en vista semanal
 
-**Exportación Excel**
-- Ahora incluye 6 hojas: Causas · Personas · Estadísticas · Por Fiscal · **Por Unidad** · **Tendencia mensual**
+**Perfil**
+- 🔴/🟡/🟢 Nivel de riesgo (score 0-10) · Resumen de actividad últimos 30d
+- Timeline distingue notas/estados · Próxima audiencia en historial
+
+**Búsqueda y navegación**
+- DNI en sidebar → perfil directo · Expediente UCN-XXXXX → pre-selección
+- Fiscal sugerido según carga de trabajo en triage
 """)
 
     col_btn, col_txt = st.columns([1, 3])
