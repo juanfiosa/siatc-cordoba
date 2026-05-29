@@ -249,19 +249,28 @@ def _panel_seguimientos(fiscal):
     st.divider()
 
     # Filtros
-    col_f1, col_f2, col_f3 = st.columns([2, 1, 1])
+    col_f1, col_f2, col_f3, col_f4 = st.columns([2, 1, 1, 1])
     with col_f1:
         filtro_estado = st.selectbox("Estado",
                                      ["Todos", "activo", "cumplido", "incumplido", "revocado"])
     with col_f2:
         filtro_unidad = st.selectbox("Unidad", ["Todas", "norte", "sur", "genero"])
     with col_f3:
+        filtro_tipo_res = st.selectbox(
+            "Tipo resolución",
+            ["Todos", "suspension", "mediacion", "acuerdo"],
+            format_func=lambda k: TIPO_RES_LABEL.get(k, k) if k != "Todos" else "Todos"
+        )
+    with col_f4:
         solo_vencen_pronto = st.checkbox("⏳ Próx. a vencer (≤30d)", key="seg_prox")
 
     estado_param = None if filtro_estado == "Todos" else filtro_estado
     unidad_param = None if filtro_unidad == "Todas" else filtro_unidad
 
     seguimientos = db.listar_seguimientos(estado=estado_param, unidad=unidad_param)
+    # Apply tipo resolución filter in-memory
+    if filtro_tipo_res != "Todos":
+        seguimientos = [s for s in seguimientos if s.get("tipo_resolucion") == filtro_tipo_res]
     if solo_vencen_pronto:
         seguimientos = [
             s for s in seguimientos
