@@ -2760,9 +2760,36 @@ with tab_panel:
 
         # ── Actividad reciente ────────────────────────────────────────────
         st.markdown("---")
-        st.subheader("🕐 Actividad reciente")
+        _act_hdr, _act_exp_col = st.columns([4, 1])
+        _act_hdr.subheader("🕐 Actividad reciente")
         _act_limit = st.session_state.get("act_feed_limit", 15)
         _actividad = actividad_reciente(limit=_act_limit)
+        # CSV export of the activity feed
+        try:
+            import io as _io_act
+            _act_rows_csv = []
+            for _a in _actividad:
+                _act_rows_csv.append({
+                    "Fecha": _a.get("created_at","")[:16],
+                    "Expediente": _a.get("numero",""),
+                    "Imputado/a": (_a.get("apellido_nombre","") or "").split(",")[0],
+                    "Estado anterior": _a.get("estado_anterior","") or "—",
+                    "Estado nuevo": _a.get("estado_nuevo","") or "—",
+                    "Usuario": _a.get("usuario",""),
+                    "Observaciones": _a.get("observaciones",""),
+                })
+            _csv_act = _io_act.StringIO()
+            pd.DataFrame(_act_rows_csv).to_csv(_csv_act, index=False)
+            _act_exp_col.download_button(
+                "⬇️ CSV",
+                data=_csv_act.getvalue().encode("utf-8"),
+                file_name=f"actividad_{datetime.now().strftime('%Y%m%d')}.csv",
+                mime="text/csv",
+                key="act_csv_exp",
+                use_container_width=True,
+            )
+        except Exception:
+            pass
         if not _actividad:
             st.info("No hay actividad registrada aún.")
         else:
