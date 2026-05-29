@@ -501,6 +501,19 @@ with tab_nuevo:
                          delta=f"-{t['actual_dias']-t['con_sistema_dias']} días", delta_color="inverse")
             col_c.metric("Reducción", f"{round((1-t['con_sistema_dias']/t['actual_dias'])*100)}%")
 
+            # Fiscal sugerido basado en menor carga de trabajo
+            try:
+                _sfis_nc = stats_por_fiscal()
+                if _sfis_nc:
+                    _min_fis = min(_sfis_nc, key=lambda f: f["total"])
+                    _act_fis = sum(1 for c in listar_causas(limit=200)
+                                   if c.get("fiscal_asignado") == _min_fis["fiscal_asignado"]
+                                   and c.get("estado") in ("ingresada","clasificada","notificada","en_mediacion"))
+                    st.caption(f"💡 **Fiscal sugerido** (menor carga activa): "
+                               f"**{_min_fis['fiscal_asignado']}** — {_act_fis} causas activas")
+            except Exception:
+                pass
+
             st.markdown("##### Fundamentos")
             for f in clf["fundamento"]:
                 st.markdown(f"• {f}")
