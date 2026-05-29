@@ -32,7 +32,7 @@ from database import (
     causas_mes_actual_vs_anterior, stats_por_fiscal, causas_sin_seguimiento,
     proximas_audiencias_por_causa, causas_count_por_persona,
     stats_tendencia_mensual, stats_por_unidad, stats_tiempo_por_tipo,
-    stats_por_dia_semana,
+    stats_por_dia_semana, stats_categoria_por_estado,
 )
 from seguimiento_tab import render_tab_seguimiento
 from agenda_tab import render_tab_agenda
@@ -1387,6 +1387,31 @@ with tab_panel:
                 _rows_cat = [{"Categoría": k, "Causas": v,
                                "% del total": f"{v*100//total}%"} for k,v in sorted(_cat_counts.items(), key=lambda x:-x[1])]
                 st.dataframe(pd.DataFrame(_rows_cat), use_container_width=True, hide_index=True)
+        # Stacked bar: categoría × estado (pipeline view)
+        _cat_est = stats_categoria_por_estado()
+        if _cat_est:
+            _categorias_ord = sorted(_cat_est.keys())
+            _estados_plot = ["ingresada","clasificada","notificada","en_mediacion","resuelta","archivada"]
+            _estado_colors = {"ingresada":"#adb5bd","clasificada":"#5a8de4","notificada":"#f39c12",
+                              "en_mediacion":"#2ecc71","resuelta":"#28a745","archivada":"#6c757d"}
+            _fig_stack = go.Figure()
+            for _est in _estados_plot:
+                _vals_est = [_cat_est.get(cat, {}).get(_est, 0) for cat in _categorias_ord]
+                if any(_v > 0 for _v in _vals_est):
+                    _fig_stack.add_trace(go.Bar(
+                        name=ESTADOS_LABEL.get(_est, _est),
+                        x=_categorias_ord,
+                        y=_vals_est,
+                        marker_color=_estado_colors.get(_est, "#999"),
+                    ))
+            _fig_stack.update_layout(
+                barmode="stack", height=300,
+                title="Pipeline por categoría de infracción",
+                xaxis_title="", yaxis_title="Causas",
+                legend=dict(orientation="h", y=1.1),
+            )
+            st.plotly_chart(_fig_stack, use_container_width=True)
+
         st.markdown("---")
 
         # Estados

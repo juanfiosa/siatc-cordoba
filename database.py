@@ -1153,6 +1153,28 @@ def causas_count_por_persona(persona_ids: list) -> dict:
     return {r["persona_id"]: r["n"] for r in rows}
 
 
+def stats_categoria_por_estado() -> dict:
+    """
+    Returns {categoria: {estado: count}} for all causas.
+    Used for stacked bar chart: categoria on x-axis, states stacked.
+    """
+    from data_cordoba import TIPOS_INFRACCION as _TI
+    with get_conn() as conn:
+        rows = conn.execute("""
+            SELECT tipo_infraccion, estado, COUNT(*) as n
+            FROM causas
+            GROUP BY tipo_infraccion, estado
+        """).fetchall()
+    result: dict = {}
+    for r in rows:
+        cat = _TI.get(r["tipo_infraccion"], {}).get("categoria", "Otro")
+        est = r["estado"]
+        if cat not in result:
+            result[cat] = {}
+        result[cat][est] = result[cat].get(est, 0) + r["n"]
+    return result
+
+
 def stats_por_dia_semana() -> list[dict]:
     """
     Returns count of causas created per day of week (0=Mon … 6=Sun).
