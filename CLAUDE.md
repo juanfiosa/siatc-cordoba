@@ -102,6 +102,7 @@ Requires OAuth in browser — cannot be done headlessly.
 | `listar_causas(estado, carril, unidad, busqueda, tipo_infraccion, fecha_desde, fecha_hasta, limit)` | rows include persona_edad, domicilio, telefono |
 | `causas_similares(tipo_infraccion, exclude_persona_id, limit)` | causas of same type excluding a given persona |
 | `causas_sin_audiencia_programada(estados)` | causas in active states with no upcoming programada audiencia |
+| `causas_count_por_persona(persona_ids)` | bulk dict {persona_id: total_causas} — single query for reincidente badge |
 | `causas_mes_actual_vs_anterior()` | {actual, anterior, delta, pct_cambio} — MoM comparison |
 | `personas_reincidentes(min_causas)` | personas with ≥ min_causas, with carriles and estados |
 | `agregar_nota_causa(causa_id, nota, usuario)` | insert note into estados_causa (anterior==nuevo), touch updated_at |
@@ -174,6 +175,12 @@ must handle all six categories.
 - All filters wired to `listar_causas()`; clear resets session_state keys and reruns
 - Tipo infracción info card shown below selectbox in Nuevo Caso (articulo, categoria, gravedad, vecinal)
 - Tabla view shows "Sin mov. (días)" NumberColumn for active cases; includes CSV export button
+- **Quick-stats banner**: 6-metric row (Total, Activas, Resueltas, Verde/Amarillo/Rojo) shown for current filter
+- **Reincidente badge**: expander header shows ⚠️ Rein. when persona has >1 causa (bulk lookup via `causas_count_por_persona()`)
+- **Siguiente paso sugerido**: `st.caption` inside each expander with contextual next-action hint based on estado+carril
+  - ingresada → triage; clasificada verde → citación mediación; clasificada amarillo → citación suspensión;
+    clasificada rojo → requerimiento apertura; notificada → programar audiencia;
+    en_mediacion → suscribir acta; resuelta → verificar seguimiento (auto-checks via `get_seguimiento_por_causa`)
 
 ## Cached DB wrappers (app.py — TTL=60s)
 ```python
@@ -182,6 +189,7 @@ _c_stats_seguimiento()     # wraps stats_seguimiento()
 _c_stats_audiencias()      # wraps stats_audiencias()
 _c_sin_audiencia()         # wraps causas_sin_audiencia_programada()
 _c_stats_por_fiscal()      # wraps stats_por_fiscal()
+_c_sin_seguimiento()       # wraps causas_sin_seguimiento()
 ```
 All mutation sites call `st.cache_data.clear()` before `st.rerun()`.
 

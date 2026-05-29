@@ -605,6 +605,26 @@ with tab_causas:
         elif _orden == "Estado":
             causas = sorted(causas, key=lambda x: ESTADOS.index(x["estado"]) if x["estado"] in ESTADOS else 99)
 
+        # ── Resumen rápido del filtro actual ──────────────────────────────
+        if causas:
+            _n_total_gc    = len(causas)
+            _n_activos_gc  = sum(1 for c in causas if c["estado"] in {"ingresada","clasificada","notificada","en_mediacion"})
+            _n_resueltos_gc= sum(1 for c in causas if c["estado"] == "resuelta")
+            _n_archivados_gc= sum(1 for c in causas if c["estado"] == "archivada")
+            _n_verde_gc    = sum(1 for c in causas if c.get("carril") == "verde")
+            _n_amarillo_gc = sum(1 for c in causas if c.get("carril") == "amarillo")
+            _n_rojo_gc     = sum(1 for c in causas if c.get("carril") == "rojo")
+            _personas_gc   = {c["persona_id"] for c in causas if c.get("persona_id")}
+            _sm1, _sm2, _sm3, _sm4, _sm5, _sm6 = st.columns(6)
+            _sm1.metric("Total causas", _n_total_gc)
+            _sm2.metric("Activas", _n_activos_gc)
+            _sm3.metric("Resueltas", _n_resueltos_gc)
+            _sm4.metric("🟢 Verde", _n_verde_gc)
+            _sm5.metric("🟡 Amarillo", _n_amarillo_gc)
+            _sm6.metric("🔴 Rojo", _n_rojo_gc)
+        else:
+            st.info("No se encontraron causas con los filtros actuales.")
+
         # ── Vista tabla compacta ───────────────────────────────────────────
         if _vista_gc == "📊 Tabla":
             # Pre-fetch next hearing per causa for the table display
