@@ -576,7 +576,7 @@ with tab_causas:
         st.info("👤 El perfil del imputado/a se muestra en la pestaña **Perfil**.")
 
     # Filtros — fila 1
-    col_f1, col_f2, col_f3, col_f4 = st.columns([2,1,1,1])
+    col_f1, col_f2, col_f3, col_f4, col_f5 = st.columns([2,1,1,1,0.6])
     # Pre-fill from sidebar quick-lookup if it just fired
     _rapid_val = st.session_state.pop("busqueda_rapida_causas", None)
     if _rapid_val is not None:
@@ -590,6 +590,13 @@ with tab_causas:
                                       format_func=lambda x: {"Todos":"Todos","verde":"🟢 Verde","amarillo":"🟡 Amarillo","rojo":"🔴 Rojo"}[x])
     filtro_unidad = col_f4.selectbox("Unidad", ["Todas","norte","sur","genero"],
                                       format_func=lambda x: {"Todas":"Todas","norte":"Norte","sur":"Sur","genero":"Género"}[x])
+    col_f5.markdown("&nbsp;")   # vertical spacer
+    if col_f5.button("✕ Todo", key="gc_clear_all", use_container_width=True,
+                     help="Limpiar todos los filtros"):
+        for _fk in ("gc_busqueda","gc_filtro_tipo","gc_fecha_desde","gc_fecha_hasta","gc_solo_rein"):
+            if _fk in st.session_state:
+                del st.session_state[_fk]
+        st.rerun()
 
     # Filtros — fila 2: tipo infracción + rango de fechas (colapsable)
     with st.expander("🔍 Filtros adicionales: tipo de infracción, fechas y reincidencia", expanded=False):
