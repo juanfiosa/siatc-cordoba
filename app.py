@@ -2068,6 +2068,17 @@ with tab_panel:
                 _df_reic = pd.DataFrame(_rows_reic).sort_values("Causas", ascending=False)
                 st.dataframe(_df_reic, use_container_width=True, hide_index=True,
                              column_config={"Causas": st.column_config.NumberColumn("Causas", format="%d")})
+                # Quick profile links for top 3 reincidentes
+                _top_reic = reincidentes_list[:3]
+                if _top_reic:
+                    _reic_btns = st.columns(len(_top_reic))
+                    for _i_r, _r_top in enumerate(_top_reic):
+                        _r_nom = (_r_top["apellido_nombre"] or "").split(",")[0]
+                        if _reic_btns[_i_r].button(f"👤 {_r_nom}", key=f"pref_reic_{_r_top['dni']}",
+                                                     help=f"Ver perfil de {_r_top['apellido_nombre']}",
+                                                     use_container_width=True):
+                            st.session_state["perfil_busqueda"] = _r_top["dni"]
+                            st.session_state["goto_perfil"] = True
             else:
                 st.success("✅ No hay reincidentes en el padrón actual.")
 
