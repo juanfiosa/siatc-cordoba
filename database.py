@@ -1135,3 +1135,35 @@ def causas_count_por_persona(persona_ids: list) -> dict:
             persona_ids
         ).fetchall()
     return {r["persona_id"]: r["n"] for r in rows}
+
+
+def stats_por_unidad() -> list[dict]:
+    """
+    Performance metrics per unidad contravencional:
+    total, resueltas, archivadas, pct_resolucion, dias_promedio,
+    verde/amarillo/rojo counts.
+    """
+    with get_conn() as conn:
+        rows = conn.execute("""
+            SELECT unidad,
+                   COUNT(*) AS total,
+                   SUM(CASE WHEN estado IN ('resuelta','archivada') THEN 1 ELSE 0 END) AS cerradas,
+                   SUM(CASE WHEN carril = 'verde'    THEN 1 ELSE 0 END) AS verde,
+                   SUM(CASE WHEN carril = 'amarillo' THEN 1 ELSE 0 END) AS amarillo,
+                   SUM(CASE WHEN carril = 'rojo'     THEN 1 ELSE 0 END) AS rojo,
+                   ROUND(AVG(CASE WHEN estado IN ('resuelta','archivada')
+                         THEN CAST((julianday(updated_at) - julianday(created_at)) AS REAL)
+                         END), 1) AS dias_promedio
+            FROM causas
+            WHERE unidad IS NOT NULL AND unidad != ''
+            GROUP BY unidad
+            ORDER BY total DESC
+        """).fetchall()
+    result = []
+    for r in rows:
+        d = dict(r)
+        tot = d["total"] or 0
+        cer = d["cerradas"] or 0
+        d["pct_resolucion"] = round(cer * 100 / tot) if tot else 0
+        result.append(d)
+    return result

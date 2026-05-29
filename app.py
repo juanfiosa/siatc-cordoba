@@ -31,7 +31,7 @@ from database import (
     actividad_reciente, stats_edad, stats_edad_por_carril,
     causas_mes_actual_vs_anterior, stats_por_fiscal, causas_sin_seguimiento,
     proximas_audiencias_por_causa, causas_count_por_persona,
-    stats_tendencia_mensual,
+    stats_tendencia_mensual, stats_por_unidad,
 )
 from seguimiento_tab import render_tab_seguimiento
 from agenda_tab import render_tab_agenda
@@ -1370,6 +1370,36 @@ with tab_panel:
                     "Resueltas":      st.column_config.NumberColumn("Resueltas", format="%d"),
                     "% Resolución":   st.column_config.ProgressColumn("% Resueltas", min_value=0, max_value=100, format="%d%%"),
                     "% No punitivas": st.column_config.ProgressColumn("% No punitivas", min_value=0, max_value=100, format="%d%%"),
+                },
+            )
+
+        # ── Rendimiento por unidad contravencional ────────────────────────
+        _sunidad = stats_por_unidad()
+        if _sunidad:
+            st.markdown("---")
+            st.subheader("🏛️ Rendimiento por unidad")
+            _ulab = {"norte": "Norte", "sur": "Sur", "genero": "Género"}
+            _su_rows = []
+            for su in _sunidad:
+                _su_rows.append({
+                    "Unidad":        _ulab.get(su.get("unidad",""), su.get("unidad","")),
+                    "Total":         su["total"],
+                    "Cerradas":      su["cerradas"] or 0,
+                    "% Resolución":  su["pct_resolucion"],
+                    "🟢 Verde":      su.get("verde", 0),
+                    "🟡 Amarillo":   su.get("amarillo", 0),
+                    "🔴 Rojo":       su.get("rojo", 0),
+                    "Prom. días":    su["dias_promedio"] if su.get("dias_promedio") else "—",
+                })
+            _df_sunidad = pd.DataFrame(_su_rows)
+            st.dataframe(
+                _df_sunidad,
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "Total":       st.column_config.NumberColumn("Total", format="%d"),
+                    "Cerradas":    st.column_config.NumberColumn("Cerradas", format="%d"),
+                    "% Resolución":st.column_config.ProgressColumn("% Resolución", min_value=0, max_value=100, format="%d%%"),
                 },
             )
 
