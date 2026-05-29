@@ -2044,7 +2044,7 @@ with tab_panel:
         # ── Exportación a Excel ────────────────────────────────────────────
         st.markdown("---")
         st.subheader("📥 Exportar datos")
-        col_ex1, col_ex2, col_ex3, col_ex4 = st.columns(4)
+        col_ex1, col_ex2, col_ex3, col_ex4, col_ex5 = st.columns(5)
         with col_ex1:
             try:
                 xls_causas = causas_a_excel()
@@ -2102,6 +2102,22 @@ with tab_panel:
                 )
             except Exception as e:
                 st.error(f"Error reporte: {e}")
+        with col_ex5:
+            try:
+                from pdf_gen import pdf_lista_causas_activas as _plca
+                _activas_exp = listar_causas(limit=500)
+                _activas_exp = [c for c in _activas_exp
+                                if c.get("estado") in ("ingresada","clasificada","notificada","en_mediacion")]
+                _pdf_lista = _plca(_activas_exp, fiscal_nombre, unidad_key)
+                st.download_button(
+                    "⬇️ Lista causas activas (.pdf)",
+                    data=_pdf_lista,
+                    file_name=f"SIATC_activas_{datetime.now().strftime('%Y%m%d')}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True,
+                )
+            except Exception as _e_lista:
+                st.error(f"Error lista: {_e_lista}")
 
         # ── Causas sin audiencia programada ───────────────────────────────
         st.markdown("---")

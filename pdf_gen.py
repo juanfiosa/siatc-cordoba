@@ -1098,6 +1098,70 @@ def pdf_informe_seguimiento(seg: dict, condiciones: list, prog: dict,
     return buf.getvalue()
 
 
+def pdf_lista_causas_activas(causas: list, fiscal_nombre: str, unidad_key: str) -> bytes:
+    """
+    PDF de causas activas agrupadas por fiscal, ordenadas por urgencia.
+    causas: lista de dicts de listar_causas() (active states only).
+    """
+    from data_cordoba import TIPOS_INFRACCION as _TI
+    from collections import defaultdict as _dd
+    pdf = PDFMPFBase(unidad_key)
+    pdf.alias_nb_pages()
+    pdf.add_page()
+
+    pdf.titulo_documento("Lista de Causas Activas")
+    pdf._sf("B", 9)
+    pdf.set_text_color(*AZUL_CLARO)
+    pdf.cell(0, 6, _s(f"Fecha: {datetime.now().strftime('%d/%m/%Y %H:%M hs')}  —  Total: {len(causas)} causas activas"), ln=True)
+    pdf.set_text_color(*NEGRO)
+    pdf.ln(4)
+
+    ESTADOS_ES = {
+        "ingresada": "Ingresada", "clasificada": "Clasificada",
+        "notificada": "Notificada", "en_mediacion": "En mediacion",
+    }
+    CARRIL_ES = {"verde": "Verde (Med.)", "amarillo": "Amarillo (Susp.)", "rojo": "Rojo (Proc.)"}
+
+    # Group by fiscal
+    por_fiscal: dict = _dd(list)
+    for c in causas:
+        f_name = c.get("fiscal_asignado") or "Sin fiscal asignado"
+        por_fiscal[f_name].append(c)
+
+    for f_name, c_list in sorted(por_fiscal.items()):
+        pdf._sf("B", 10)
+        pdf.set_text_color(*AZUL_MPF)
+        pdf.set_fill_color(240, 244, 255)
+        pdf.cell(0, 7, _s(f"{f_name}  ({len(c_list)} causas)"), fill=True, ln=True)
+        pdf.set_text_color(*NEGRO)
+        pdf._sf("", 8)
+        pdf.ln(1)
+
+        for c in c_list:
+            _inf = _TI.get(c.get("tipo_infraccion",""), {}).get("label", c.get("tipo_infraccion",""))
+            _nom = _s(c.get("apellido_nombre","") or "").split(",")[0].strip()
+            _num = _s(c.get("numero",""))
+            _est = _s(ESTADOS_ES.get(c.get("estado",""), c.get("estado","")))
+            _car = _s(CARRIL_ES.get(c.get("carril",""), ""))
+            _fec = _s(c.get("updated_at","")[:10])
+            pdf.cell(45, 5, _nom[:22], ln=False)
+            pdf.cell(35, 5, _num, ln=False)
+            pdf.cell(55, 5, _s(_inf)[:32], ln=False)
+            pdf.cell(30, 5, _est, ln=False)
+            pdf.cell(25, 5, _car[:16], ln=True)
+        pdf.ln(3)
+
+    pdf._sf("I", 7)
+    pdf.set_text_color(*GRIS_TEXTO)
+    pdf.cell(0, 4,
+        _s(f"Generado por SIATC - MPF Cordoba - {datetime.now().strftime('%d/%m/%Y %H:%M')}"),
+        ln=True, align="C")
+
+    buf = BytesIO()
+    pdf.output(buf)
+    return buf.getvalue()
+
+
 def pdf_agenda_semanal(audiencias: list, desde: str, hasta: str,
                        fiscal_nombre: str, unidad_key: str) -> bytes:
     """
