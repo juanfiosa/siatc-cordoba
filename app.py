@@ -1054,6 +1054,20 @@ with tab_causas:
                             key=f"est_{c['id']}"
                         )
                         obs_estado = st.text_input("Observaciones", key=f"obs_{c['id']}", placeholder="Opcional")
+                        # Closing note for archivada transition
+                        if nuevo_estado == "archivada":
+                            _cierre_templates = [
+                                "— Seleccioná o escribí el motivo de cierre —",
+                                "Seguimiento de condiciones completado satisfactoriamente.",
+                                "Causa archivada por falta de mérito procesal.",
+                                "Imputado/a cumplió con las condiciones impuestas.",
+                                "Causa archivada a solicitud de la parte damnificada.",
+                                "Archivada por prescripción de la acción contravencional.",
+                            ]
+                            _cierre_sel = st.selectbox("Motivo de cierre", _cierre_templates,
+                                                        key=f"cierre_motivo_{c['id']}")
+                            if _cierre_sel != _cierre_templates[0] and not obs_estado:
+                                obs_estado = _cierre_sel
                         if st.button("Actualizar estado", key=f"upd_{c['id']}", use_container_width=True):
                             avanzar_estado(c["id"], nuevo_estado, fiscal_nombre, obs_estado)
                             st.cache_data.clear()
