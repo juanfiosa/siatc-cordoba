@@ -1069,12 +1069,44 @@ with tab_causas:
 # TAB 3 — CASOS DEMO
 # ══════════════════════════════════════════════════════════════════════════════
 with tab_demo:
-    st.subheader("Casos de demostración")
-    st.markdown("Casos representativos de una semana típica. Cargalos al sistema con un clic.")
+    st.subheader("🗂️ Casos de demostración")
+    st.markdown("Casos representativos de una semana típica. Cargalos al sistema con un clic para explorar el flujo completo.")
 
     # Check which demo cases are already in the DB (by numero)
     _numeros_en_db = {c["numero"] for c in listar_causas(limit=500)}
+    _n_cargados = sum(1 for cd in CASOS_DEMO if cd.get("numero","") in _numeros_en_db)
+    _n_total_demo = len(CASOS_DEMO)
 
+    _demo_col1, _demo_col2, _demo_col3 = st.columns([2, 1, 1])
+    _demo_col1.progress(_n_cargados / _n_total_demo if _n_total_demo else 0,
+                        text=f"{_n_cargados} / {_n_total_demo} casos cargados")
+    if _n_cargados < _n_total_demo:
+        if _demo_col2.button("📥 Cargar todos los casos", key="demo_cargar_todos",
+                              use_container_width=True, type="primary"):
+            _cargados_now = 0
+            for cd in CASOS_DEMO:
+                if cd.get("numero","") not in _numeros_en_db:
+                    _clf_all = clasificar_caso(cd["tipo"], cd["antecedentes"], False)
+                    guardar_causa(
+                        {**cd, "victima": False, "lesiones": False, "resistencia": False, "domicilio": ""},
+                        _clf_all, fiscal_nombre
+                    )
+                    _cargados_now += 1
+            st.cache_data.clear()
+            st.success(f"✅ {_cargados_now} caso(s) adicionales cargados al sistema.")
+            st.rerun()
+    else:
+        _demo_col2.success("✅ Todos los casos demo están cargados")
+    if _demo_col3.button("🗑️ Limpiar todos", key="demo_limpiar_todos",
+                          use_container_width=True,
+                          help="Restablecer todos los datos de demostración"):
+        reset_db()
+        init_db()
+        poblar()
+        st.cache_data.clear()
+        st.rerun()
+
+    st.divider()
     for i, cd in enumerate(CASOS_DEMO):
         inf  = TIPOS_INFRACCION.get(cd["tipo"], {})
         clf  = clasificar_caso(cd["tipo"], cd["antecedentes"], False)
