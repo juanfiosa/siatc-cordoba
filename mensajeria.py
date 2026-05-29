@@ -14,15 +14,35 @@ from config_nodos import get_oficinas_nodo, get_flujos_nodo, NODOS
 # Las funciones a continuación reciben nodo_key y construyen la vista apropiada
 
 def get_oficinas(nodo_key: str) -> dict[str, dict]:
-    """Retorna el catálogo de oficinas del nodo, con formato compatible con mensajería."""
+    """
+    Retorna el catálogo de oficinas del nodo.
+    Prioridad: DB (dinámica) → config_nodos.py (fallback estático).
+    """
+    # Try DB first (populated by seed_nodos_desde_config)
+    try:
+        db_oficinas = db.get_oficinas_db(nodo_key)
+        if db_oficinas:
+            result = {}
+            for o in db_oficinas:
+                result[o["oficina_key"]] = {
+                    "label":       o["label"],
+                    "label_corto": o["label"][:25],
+                    "icon":        o.get("icon", "⚖️"),
+                    "tipo":        o.get("tipo", "activa"),
+                    "descripcion": "",
+                }
+            return result
+    except Exception:
+        pass
+    # Fallback to static config
     raw = get_oficinas_nodo(nodo_key)
     result = {}
     for key, o in raw.items():
         result[key] = {
             "label":       o["label"],
-            "label_corto": o["label"][:20],
+            "label_corto": o["label"][:25],
             "icon":        o["icon"],
-            "tipo":        o["tipo"],   # "activa" | "fantasma"
+            "tipo":        o["tipo"],
             "descripcion": o.get("descripcion", ""),
         }
     return result

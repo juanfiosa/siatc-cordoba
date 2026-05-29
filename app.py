@@ -62,6 +62,11 @@ init_db()
 if not ya_poblado():
     poblar()
 
+# Seed node structure into DB if not already there (idempotent — INSERT OR IGNORE)
+from database import seed_nodos_desde_config as _seed_nodos, listar_nodos as _ln
+if not _ln():
+    _seed_nodos()
+
 # ── Cached DB helpers (TTL=60s — evita re-queries en cada rerun) ───────────────
 @st.cache_data(ttl=60)
 def _c_stats_generales():
@@ -3037,6 +3042,73 @@ with tab_panel:
         if len(_actividad) >= _act_limit:
             if st.button(f"⬇️ Cargar más actividad (mostrando {_act_limit})", key="act_load_more"):
                 st.session_state["act_feed_limit"] = _act_limit + 15
+                st.rerun()
+
+        # ── Administración del nodo — agregar oficinas ───────────────────────
+        st.markdown("---")
+        with st.expander("⚙️ Administración del nodo — oficinas y fiscalías", expanded=False):
+            from database import (get_oficinas_db, agregar_oficina,
+                                  desactivar_oficina, agregar_flujo,
+                                  seed_nodos_desde_config, listar_nodos)
+            _nodo_adm = st.session_state.get("nodo_key", "cba_norte")
+            st.caption(
+                f"Nodo activo: **{_nodo_adm}**. "
+                "Podés agregar nuevas oficinas (fiscalías, delegaciones, etc.) "
+                "sin tocar código. Los cambios se reflejan inmediatamente en el sistema."
+            )
+
+            _oficinas_adm = get_oficinas_db(_nodo_adm)
+            if _oficinas_adm:
+                st.markdown("**Oficinas actuales:**")
+                for _oa in _oficinas_adm:
+                    _coa1, _coa2 = st.columns([5, 1])
+                    _tipo_badge = "👻" if _oa["tipo"] == "fantasma" else "✅"
+                    _coa1.markdown(
+                        f"{_oa['icon']} **{_oa['label']}**  "
+                        f"<small style='color:#888'>`{_oa['oficina_key']}`  {_tipo_badge}</small>",
+                        unsafe_allow_html=True
+                    )
+                    if _coa2.button("🗑️", key=f"adm_del_{_oa['id']}",
+                                    help="Desactivar esta oficina"):
+                        desactivar_oficina(_nodo_adm, _oa["oficina_key"])
+                        st.success("Oficina desactivada.")
+                        st.rerun()
+
+            st.markdown("---")
+            st.markdown("**Agregar nueva oficina:**")
+            _adm_c1, _adm_c2, _adm_c3 = st.columns([3, 1, 1])
+            _new_label  = _adm_c1.text_input("Nombre de la oficina",
+                                              placeholder="Ej: Fiscalía de Instrucción N°4",
+                                              key="adm_new_label")
+            _new_tipo   = _adm_c2.selectbox("Tipo", ["activa", "fantasma"],
+                                             key="adm_new_tipo")
+            _new_icon   = _adm_c3.selectbox("Icono",
+                                             ["⚖️","🏛️","🔎","🚓","📋","🤝"],
+                                             key="adm_new_icon")
+            if st.button("➕ Agregar oficina", key="adm_add_btn", type="primary"):
+                if _new_label.strip():
+                    # Generate a safe key from the label
+                    import re as _re
+                    _safe_key = _re.sub(r'[^a-z0-9_]', '_',
+                                        _new_label.lower()
+                                        .replace('á','a').replace('é','e')
+                                        .replace('í','i').replace('ó','o')
+                                        .replace('ú','u').replace('ñ','n')
+                                        .replace(' ','_'))[:40]
+                    _safe_key = f"{_nodo_adm}_{_safe_key}"
+                    agregar_oficina(_nodo_adm, _safe_key, _new_label.strip(),
+                                    _new_icon, _new_tipo)
+                    st.success(f"Oficina '{_new_label}' agregada con clave `{_safe_key}`.")
+                    st.rerun()
+                else:
+                    st.warning("Escribí el nombre de la nueva oficina.")
+
+            # Reset node structure from config
+            if st.button("↺ Restaurar estructura desde config_nodos.py",
+                         key="adm_reset_nodo",
+                         help="Re-siembra las oficinas base desde el archivo de configuración"):
+                n = seed_nodos_desde_config()
+                st.success(f"Estructura restaurada para {n} nodos.")
                 st.rerun()
 
         # ── Configuración del nodo — titulares de oficinas ───────────────────

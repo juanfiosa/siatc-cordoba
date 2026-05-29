@@ -163,6 +163,48 @@ def init_db():
             UNIQUE(unidad, fiscal, tipo_key)
         );
 
+        -- ── Estructura de nodos — fuente de verdad dinámica ─────────────
+        -- Almacena nodos y oficinas. Se puebla desde config_nodos.py al instalar
+        -- y luego es editable desde la UI de administración sin tocar código.
+        CREATE TABLE IF NOT EXISTS nodos (
+            key             TEXT    PRIMARY KEY,
+            nombre          TEXT    NOT NULL,
+            circunscripcion TEXT    DEFAULT '',
+            ciudad          TEXT    DEFAULT '',
+            tipo            TEXT    DEFAULT 'interior',  -- capital|interior
+            tipo_policia    TEXT    DEFAULT 'provincial',
+            modulos         TEXT    DEFAULT 'contravencional',  -- JSON array as text
+            activo          INTEGER DEFAULT 1,
+            created_at      TEXT    DEFAULT (datetime('now','localtime')),
+            updated_at      TEXT    DEFAULT (datetime('now','localtime'))
+        );
+
+        CREATE TABLE IF NOT EXISTS nodos_oficinas (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            nodo_key        TEXT    NOT NULL REFERENCES nodos(key),
+            oficina_key     TEXT    NOT NULL,
+            label           TEXT    NOT NULL,
+            icon            TEXT    DEFAULT '⚖️',
+            tipo            TEXT    DEFAULT 'activa',  -- activa|fantasma
+            orden           INTEGER DEFAULT 0,
+            activo          INTEGER DEFAULT 1,
+            created_at      TEXT    DEFAULT (datetime('now','localtime')),
+            UNIQUE(nodo_key, oficina_key)
+        );
+
+        -- Flujos permitidos entre oficinas (grafo dirigido por nodo)
+        CREATE TABLE IF NOT EXISTS nodos_flujos (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            nodo_key        TEXT    NOT NULL,
+            oficina_origen  TEXT    NOT NULL,
+            oficina_destino TEXT    NOT NULL,
+            activo          INTEGER DEFAULT 1,
+            UNIQUE(nodo_key, oficina_origen, oficina_destino)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_oficinas_nodo ON nodos_oficinas(nodo_key);
+        CREATE INDEX IF NOT EXISTS idx_flujos_nodo   ON nodos_flujos(nodo_key);
+
         -- ── Tenencia del expediente ──────────────────────────────────────
         -- Registra los pases formales del file entre oficinas MPF
         CREATE TABLE IF NOT EXISTS pases_expediente (
@@ -222,6 +264,14 @@ def init_db():
         # Safe migrations — ALTER TABLE is idempotent via try/except
         try:
             conn.execute("ALTER TABLE causas ADD COLUMN oficina_actual TEXT DEFAULT 'unidad'")
+        except Exception:
+            pass
+        # Seed node structure from config_nodos.py if tables are empty
+        try:
+            n = conn.execute("SELECT COUNT(*) as n FROM nodos").fetchone()["n"]
+            if n == 0:
+                # Will be seeded after init_db() returns (avoids circular import at module load)
+                pass
         except Exception:
             pass
         try:
@@ -1302,6 +1352,135 @@ def stats_tiempo_por_estado() -> list[dict]:
         """).fetchall()
     result = [dict(r) for r in rows if r["avg_dias"] is not None]
     return sorted(result, key=lambda x: ESTADO_ORDER.get(x["estado"], 99))
+
+
+def seed_nodos_desde_config() -> int:
+    """
+    Puebla las tablas nodos / nodos_oficinas / nodos_flujos desde config_nodos.py.
+    Usa INSERT OR IGNORE — no sobreescribe cambios manuales.
+    Retorna la cantidad de nodos procesados.
+    """
+    from config_nodos import NODOS
+    import json
+    with get_conn() as conn:
+        for nodo_key, nodo in NODOS.items():
+            conn.execute(
+                """INSERT OR IGNORE INTO nodos
+                   (key, nombre, circunscripcion, ciudad, tipo, tipo_policia, modulos)
+                   VALUES (?,?,?,?,?,?,?)""",
+                (nodo_key, nodo["nombre"], nodo.get("circunscripcion",""),
+                 nodo.get("ciudad",""), nodo.get("tipo","interior"),
+                 nodo.get("tipo_policia","provincial"),
+                 json.dumps(nodo.get("modulos",["contravencional"])))
+            )
+            for i, o in enumerate(nodo.get("oficinas", [])):
+                conn.execute(
+                    """INSERT OR IGNORE INTO nodos_oficinas
+                       (nodo_key, oficina_key, label, icon, tipo, orden)
+                       VALUES (?,?,?,?,?,?)""",
+                    (nodo_key, o["key"], o["label"], o.get("icon","⚖️"),
+                     "activa" if o.get("activa", True) else "fantasma", i)
+                )
+            for origen, destinos in nodo.get("flujos", {}).items():
+                for destino in destinos:
+                    conn.execute(
+                        """INSERT OR IGNORE INTO nodos_flujos
+                           (nodo_key, oficina_origen, oficina_destino)
+                           VALUES (?,?,?)""",
+                        (nodo_key, origen, destino)
+                    )
+    return len(NODOS)
+
+
+def get_nodo_db(nodo_key: str) -> dict | None:
+    """Retorna la configuración de un nodo desde la DB."""
+    import json
+    with get_conn() as conn:
+        r = conn.execute("SELECT * FROM nodos WHERE key=?", (nodo_key,)).fetchone()
+    if not r:
+        return None
+    d = dict(r)
+    try:
+        d["modulos"] = json.loads(d.get("modulos","[]"))
+    except Exception:
+        d["modulos"] = ["contravencional"]
+    return d
+
+
+def get_oficinas_db(nodo_key: str) -> list[dict]:
+    """Retorna la lista de oficinas de un nodo desde la DB (activas + fantasmas)."""
+    with get_conn() as conn:
+        rows = conn.execute(
+            """SELECT * FROM nodos_oficinas
+               WHERE nodo_key=? AND activo=1
+               ORDER BY orden, oficina_key""",
+            (nodo_key,)
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def get_flujos_db(nodo_key: str) -> dict[str, list]:
+    """Retorna {oficina_origen: [oficina_destino, ...]} para un nodo desde la DB."""
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT oficina_origen, oficina_destino FROM nodos_flujos WHERE nodo_key=? AND activo=1",
+            (nodo_key,)
+        ).fetchall()
+    result: dict[str, list] = {}
+    for r in rows:
+        result.setdefault(r["oficina_origen"], []).append(r["oficina_destino"])
+    return result
+
+
+def agregar_oficina(nodo_key: str, oficina_key: str, label: str,
+                    icon: str = "⚖️", tipo: str = "activa") -> None:
+    """Agrega una nueva oficina a un nodo (desde la UI de administración)."""
+    with get_conn() as conn:
+        max_orden = conn.execute(
+            "SELECT COALESCE(MAX(orden),0)+1 FROM nodos_oficinas WHERE nodo_key=?",
+            (nodo_key,)
+        ).fetchone()[0]
+        conn.execute(
+            """INSERT OR REPLACE INTO nodos_oficinas
+               (nodo_key, oficina_key, label, icon, tipo, orden)
+               VALUES (?,?,?,?,?,?)""",
+            (nodo_key, oficina_key, label, icon, tipo, max_orden)
+        )
+
+
+def desactivar_oficina(nodo_key: str, oficina_key: str) -> None:
+    """Desactiva (oculta) una oficina sin borrarla."""
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE nodos_oficinas SET activo=0 WHERE nodo_key=? AND oficina_key=?",
+            (nodo_key, oficina_key)
+        )
+
+
+def agregar_flujo(nodo_key: str, origen: str, destino: str) -> None:
+    """Agrega un flujo permitido entre dos oficinas."""
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT OR IGNORE INTO nodos_flujos (nodo_key, oficina_origen, oficina_destino) VALUES (?,?,?)",
+            (nodo_key, origen, destino)
+        )
+
+
+def listar_nodos(solo_activos: bool = True) -> list[dict]:
+    """Lista todos los nodos configurados en la DB."""
+    import json
+    sql = "SELECT * FROM nodos" + (" WHERE activo=1" if solo_activos else "") + " ORDER BY key"
+    with get_conn() as conn:
+        rows = conn.execute(sql).fetchall()
+    result = []
+    for r in rows:
+        d = dict(r)
+        try:
+            d["modulos"] = json.loads(d.get("modulos", "[]"))
+        except Exception:
+            d["modulos"] = []
+        result.append(d)
+    return result
 
 
 def get_titular(nodo_key: str, oficina_key: str) -> dict:
