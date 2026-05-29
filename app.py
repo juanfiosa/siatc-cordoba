@@ -296,6 +296,18 @@ _sin_seg = _c_sin_seguimiento()
 if _sin_seg:
     _alertas.append(f"🔍 **{len(_sin_seg)} causa(s) resuelta(s)/en mediación** sin seguimiento registrado")
 
+# Próximos controles HOY
+try:
+    _activos_ctrl = listar_seguimientos(estado="activo")
+    _ctrl_hoy = [
+        s for s in _activos_ctrl
+        if s.get("proximo_control") == _hoy_str
+    ]
+    if _ctrl_hoy:
+        _alertas.append(f"📋 **{len(_ctrl_hoy)} control(es) de seguimiento HOY** — verificar cumplimiento")
+except Exception:
+    pass
+
 if _alertas:
     with st.container():
         for alerta in _alertas:
