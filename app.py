@@ -531,6 +531,15 @@ with tab_nuevo:
 
             st.markdown("---")
 
+            # Observación inicial (se guarda como primera nota en el timeline)
+            _obs_inicial = st.text_area(
+                "Observación inicial (opcional)",
+                placeholder="Ej: Imputado/a colaboró con el procedimiento. Víctima solicitó no continuar con la denuncia.",
+                height=60,
+                key="nc_obs_inicial",
+                help="Esta nota quedará registrada en el historial de estados de la causa al guardarla.",
+            )
+
             # Documento
             if clf["carril"] == "verde":
                 doc_ops = ["Dictamen de derivación a mediación", "Cédula de citación a mediación"]
@@ -546,6 +555,9 @@ with tab_nuevo:
 
             if guardar:
                 causa_id = guardar_causa(caso, clf, fiscal_nombre)
+                # Save initial observation as first nota in timeline
+                if _obs_inicial and _obs_inicial.strip():
+                    agregar_nota_causa(causa_id, _obs_inicial.strip(), fiscal_nombre)
                 st.cache_data.clear()   # invalidar cache tras mutación
                 c_saved  = get_causa(causa_id)
                 numero_guardado = c_saved["numero"] if c_saved else f"ID#{causa_id}"
