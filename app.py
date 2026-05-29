@@ -473,9 +473,33 @@ with tab_nuevo:
             )
 
         st.markdown("#### Datos del hecho")
-        tipo_opciones = {k: v["label"]+f"  ({v['categoria']})" for k,v in TIPOS_INFRACCION.items()}
-        tipo = st.selectbox("Tipo de infracción", options=list(tipo_opciones.keys()),
-                            format_func=lambda k: tipo_opciones[k])
+        # Selector en dos niveles: categoría → tipo específico
+        _categorias_nc = sorted({v["categoria"] for v in TIPOS_INFRACCION.values()})
+        _cat_icons = {
+            "Tránsito": "🚗",
+            "Convivencia": "🏘️",
+            "Comercio": "🏪",
+            "Espacio Público": "🌳",
+            "Integridad": "⚠️",
+        }
+        _col_cat, _col_tipo = st.columns([1, 2])
+        _cat_sel = _col_cat.selectbox(
+            "Categoría",
+            _categorias_nc,
+            format_func=lambda c: f"{_cat_icons.get(c,'📋')} {c}",
+            key="nc_categoria",
+        )
+        _tipos_en_cat = {
+            k: v["label"]
+            for k, v in TIPOS_INFRACCION.items()
+            if v["categoria"] == _cat_sel
+        }
+        tipo = _col_tipo.selectbox(
+            "Tipo de infracción",
+            options=list(_tipos_en_cat.keys()),
+            format_func=lambda k: _tipos_en_cat[k],
+            key="nc_tipo",
+        )
         # Info card para el tipo seleccionado
         _inf_sel = TIPOS_INFRACCION.get(tipo, {})
         if _inf_sel:
