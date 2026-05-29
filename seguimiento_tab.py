@@ -306,6 +306,11 @@ def _panel_seguimientos(fiscal):
         )
     with col_f4:
         solo_vencen_pronto = st.checkbox("⏳ Próx. a vencer (≤30d)", key="seg_prox")
+    solo_ctrl_pronto = st.checkbox(
+        "📅 Solo con control próximo (≤7 días)",
+        key="seg_ctrl_prox",
+        help="Muestra solo seguimientos que tienen próximo control en los próximos 7 días"
+    )
 
     estado_param = None if filtro_estado == "Todos" else filtro_estado
     unidad_param = None if filtro_unidad == "Todas" else filtro_unidad
@@ -318,6 +323,13 @@ def _panel_seguimientos(fiscal):
         seguimientos = [
             s for s in seguimientos
             if (d := dias_restantes(s["fecha_fin"])) is not None and 0 <= d <= 30
+        ]
+    if solo_ctrl_pronto:
+        _hoy_seg = date.today()
+        _en7 = (_hoy_seg + timedelta(days=7)).isoformat()
+        seguimientos = [
+            s for s in seguimientos
+            if s.get("proximo_control") and _hoy_seg.isoformat() <= s.get("proximo_control","") <= _en7
         ]
 
     if not seguimientos:
