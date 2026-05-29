@@ -29,7 +29,7 @@ from database import (
     get_seguimiento_por_causa, get_condiciones, stats_tiempos_resolucion,
     causas_inactivas, causas_sin_audiencia_programada, personas_reincidentes,
     actividad_reciente, stats_edad, stats_edad_por_carril,
-    causas_mes_actual_vs_anterior, stats_por_fiscal,
+    causas_mes_actual_vs_anterior, stats_por_fiscal, causas_sin_seguimiento,
 )
 from seguimiento_tab import render_tab_seguimiento
 from agenda_tab import render_tab_agenda
@@ -68,6 +68,10 @@ def _c_sin_audiencia():
 @st.cache_data(ttl=60)
 def _c_stats_por_fiscal():
     return stats_por_fiscal()
+
+@st.cache_data(ttl=60)
+def _c_sin_seguimiento():
+    return causas_sin_seguimiento()
 
 st.set_page_config(
     page_title="SIATC — Sistema Inteligente Contravencional",
@@ -247,6 +251,11 @@ _sin_aud = _c_sin_audiencia()
 if _sin_aud:
     _alertas.append(f"📋 **{len(_sin_aud)} causa(s) notificada(s) o clasificada(s)** sin audiencia programada")
 
+# Causas resueltas/en_mediacion sin seguimiento
+_sin_seg = _c_sin_seguimiento()
+if _sin_seg:
+    _alertas.append(f"🔍 **{len(_sin_seg)} causa(s) resuelta(s)/en mediación** sin seguimiento registrado")
+
 if _alertas:
     with st.container():
         for alerta in _alertas:
@@ -380,6 +389,23 @@ with tab_nuevo:
         st.markdown("#### Clasificación automática")
 
         if nombre and dni_input and tipo:
+            # Advertencia de causa duplicada — misma persona + mismo tipo + estado activo
+            if persona_encontrada and persona_encontrada.get("id"):
+                _activos_dup = [
+                    c for c in listar_causas(tipo_infraccion=tipo, limit=50)
+                    if (c.get("persona_id") == persona_encontrada["id"]
+                        or c.get("persona_dni") == dni_input)
+                    and c.get("estado") not in ("resuelta", "archivada")
+                ]
+                if _activos_dup:
+                    st.warning(
+                        f"⚠️ **Esta persona ya tiene {len(_activos_dup)} causa(s) activa(s) "
+                        f"del mismo tipo:** "
+                        + ", ".join(f"**{c['numero']}** ({ESTADOS_LABEL.get(c['estado'],c['estado'])})"
+                                    for c in _activos_dup)
+                        + "  \nVerificá antes de registrar una causa duplicada."
+                    )
+
             caso = {
                 "numero": None,          # se asigna al guardar
                 "tipo": tipo, "imputado": nombre, "dni": dni_input,
@@ -1370,6 +1396,27 @@ with tab_panel:
                                  column_config={"Días": st.column_config.NumberColumn("Días rest.")})
                 else:
                     st.info("No hay seguimientos activos.")
+
+        # ── Causas resueltas/en mediación sin seguimiento ──────────────────
+        _sin_seg_panel = _c_sin_seguimiento()
+        if _sin_seg_panel:
+            st.markdown("---")
+            st.subheader("🔍 Causas sin seguimiento registrado")
+            st.warning(
+                f"**{len(_sin_seg_panel)} causa(s)** en estado 'Resuelta' o 'En mediación' "
+                "que aún no tienen un período de seguimiento post-resolución registrado."
+            )
+            _rows_ss = []
+            for _c in _sin_seg_panel:
+                _rows_ss.append({
+                    "Expediente": _c["numero"],
+                    "Imputado/a": (_c.get("apellido_nombre","") or "").split(",")[0],
+                    "Estado":     ESTADOS_LABEL.get(_c.get("estado",""), _c.get("estado","")),
+                    "Carril":     {"verde":"🟢","amarillo":"🟡","rojo":"🔴"}.get(_c.get("carril",""),"⚪"),
+                    "Fiscal":     _c.get("fiscal_asignado",""),
+                    "Actualizada": _c.get("updated_at","")[:10],
+                })
+            st.dataframe(pd.DataFrame(_rows_ss), use_container_width=True, hide_index=True)
 
         # ── Bloque audiencias ──────────────────────────────────────────────
         st.markdown("---")

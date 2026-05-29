@@ -659,6 +659,29 @@ def causas_inactivas(dias: int = 30, estados: list = None) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+def causas_sin_seguimiento(estados: list = None) -> list[dict]:
+    """
+    Causas en estados 'resuelta' o 'en_mediacion' sin seguimiento registrado.
+    Útil para detectar resoluciones pendientes de seguimiento post-resolución.
+    """
+    if estados is None:
+        estados = ["resuelta", "en_mediacion"]
+    placeholders = ",".join(["?" for _ in estados])
+    sql = f"""
+        SELECT c.*, p.apellido_nombre, p.dni as persona_dni
+        FROM causas c
+        LEFT JOIN personas p ON c.persona_id = p.id
+        WHERE c.estado IN ({placeholders})
+          AND NOT EXISTS (
+              SELECT 1 FROM seguimientos s WHERE s.causa_id = c.id
+          )
+        ORDER BY c.updated_at DESC
+    """
+    with get_conn() as conn:
+        rows = conn.execute(sql, estados).fetchall()
+    return [dict(r) for r in rows]
+
+
 def causas_sin_audiencia_programada(estados: list = None) -> list[dict]:
     """
     Retorna causas en estados activos que no tienen ninguna audiencia
