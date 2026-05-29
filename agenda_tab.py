@@ -347,23 +347,28 @@ def render_tab_agenda(fiscal):
     st.divider()
 
     if vista == "📆 Semana actual":
-        col_nav1, col_nav2, col_nav3 = st.columns([1, 4, 1])
+        col_nav1, col_nav2, col_nav3, col_nav4 = st.columns([1, 4, 1, 1])
         with col_nav1:
-            if st.button("◀ Semana anterior", key="sem_ant"):
+            if st.button("◀ Anterior", key="sem_ant"):
                 st.session_state["sem_offset"] = st.session_state.get("sem_offset", 0) - 1
                 st.rerun()
         with col_nav3:
-            if st.button("Semana siguiente ▶", key="sem_sig"):
+            if st.button("Siguiente ▶", key="sem_sig"):
                 st.session_state["sem_offset"] = st.session_state.get("sem_offset", 0) + 1
+                st.rerun()
+        with col_nav4:
+            if st.button("📅 Hoy", key="sem_hoy",
+                         disabled=st.session_state.get("sem_offset", 0) == 0):
+                st.session_state["sem_offset"] = 0
                 st.rerun()
         with col_nav2:
             offset = st.session_state.get("sem_offset", 0)
             hoy = date.today()
             lunes = hoy - timedelta(days=hoy.weekday()) + timedelta(weeks=offset)
             viernes = lunes + timedelta(days=4)
-            st.markdown(f"<div style='text-align:center;font-weight:bold'>"
-                        f"Semana del {lunes.strftime('%d/%m')} al {viernes.strftime('%d/%m/%Y')}"
-                        f"</div>", unsafe_allow_html=True)
+            _sem_lbl = "Esta semana" if offset == 0 else f"Semana del {lunes.strftime('%d/%m')} al {viernes.strftime('%d/%m/%Y')}"
+            st.markdown(f"<div style='text-align:center;font-weight:bold'>{_sem_lbl}</div>",
+                        unsafe_allow_html=True)
         # Weekly stats summary + PDF export
         _sem_auds = db.listar_audiencias(
             desde=lunes.isoformat(),
