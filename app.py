@@ -615,6 +615,24 @@ with tab_causas:
     if st.session_state.pop("goto_perfil", False):
         st.info("👤 El perfil del imputado/a se muestra en la pestaña **Perfil**.")
 
+    # ── Causas prioritarias (session-based ⭐ bookmarks) ───────────────────────
+    if "gc_prioritarias" not in st.session_state:
+        st.session_state["gc_prioritarias"] = set()
+    _prio_ids = st.session_state["gc_prioritarias"]
+    if _prio_ids:
+        with st.expander(f"⭐ Causas prioritarias ({len(_prio_ids)})", expanded=True):
+            _prio_causas = [c for c in listar_causas(limit=500) if c["id"] in _prio_ids]
+            for _pc in _prio_causas:
+                _pc_ic = {"verde":"🟢","amarillo":"🟡","rojo":"🔴"}.get(_pc.get("carril",""),"⚪")
+                _pc_est = ESTADOS_LABEL.get(_pc["estado"], _pc["estado"])
+                _pc_nom = (_pc.get("apellido_nombre","") or "").split(",")[0]
+                _c1_p, _c2_p = st.columns([5, 1])
+                _c1_p.markdown(f"{_pc_ic} **{_pc['numero']}** — {_pc_nom} | {_pc_est}")
+                if _c2_p.button("✕", key=f"prio_rm_{_pc['id']}", help="Quitar de prioritarias"):
+                    _prio_ids.discard(_pc["id"])
+                    st.rerun()
+        st.markdown("")
+
     # Filtros — fila 1
     col_f1, col_f2, col_f3, col_f4, col_f5 = st.columns([2,1,1,1,0.6])
     # Pre-fill from sidebar quick-lookup if it just fired
@@ -982,6 +1000,18 @@ with tab_causas:
                                                        mime="text/plain", key=f"dl_doc_{d['id']}")
 
                 with col_acciones:
+                    # Prioritaria toggle
+                    _is_prio = c["id"] in _prio_ids
+                    _prio_lbl = "⭐ Prioritaria" if _is_prio else "☆ Marcar prioritaria"
+                    if st.button(_prio_lbl, key=f"prio_{c['id']}", use_container_width=True,
+                                 type="secondary"):
+                        if _is_prio:
+                            _prio_ids.discard(c["id"])
+                        else:
+                            _prio_ids.add(c["id"])
+                        st.session_state["gc_prioritarias"] = _prio_ids
+                        st.rerun()
+
                     st.markdown("**Avanzar estado:**")
                     idx_actual = ESTADOS.index(c["estado"]) if c["estado"] in ESTADOS else 0
                     estados_posibles = ESTADOS[idx_actual+1:] if idx_actual < len(ESTADOS)-1 else []
