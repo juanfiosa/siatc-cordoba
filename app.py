@@ -916,6 +916,13 @@ with tab_causas:
                     "DNI":           c.get("persona_dni",""),
                     "Infracción":    TIPOS_INFRACCION.get(c.get("tipo_infraccion",""),{}).get("label","")[:30],
                     "Estado":        ESTADOS_LABEL.get(c["estado"], c["estado"]),
+                    "Próximo paso":  (
+                        {"verde":"Citar mediación","amarillo":"Citar suspensión","rojo":"Requerimiento"}.get(c.get("carril",""),"Notificar")
+                        if c.get("estado") == "clasificada"
+                        else "Registrar seguimiento" if c.get("estado") == "resuelta"
+                        else {"ingresada":"Clasificar (triage)","notificada":"Programar audiencia",
+                              "en_mediacion":"Suscribir acta","archivada":"—"}.get(c.get("estado",""), "")
+                    ),
                     "Próx. audiencia": _prox_str,
                     "Unidad":        {"norte":"Norte","sur":"Sur","genero":"Género"}.get(c.get("unidad",""),""),
                     "Fiscal":        c.get("fiscal_asignado",""),
