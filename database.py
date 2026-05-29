@@ -1187,6 +1187,33 @@ def causas_mas_antiguas_activas(limit: int = 5) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+def stats_tiempo_por_estado() -> list[dict]:
+    """
+    Average days causas spend in each active state before progressing.
+    Computes time from when a causa entered each state to when it left.
+    Returns list of {estado, avg_dias, n} sorted by estado order.
+    """
+    ESTADO_ORDER = {"ingresada":0,"clasificada":1,"notificada":2,"en_mediacion":3,"resuelta":4}
+    with get_conn() as conn:
+        # For each state transition, compute days between entries
+        rows = conn.execute("""
+            SELECT ec.estado_nuevo AS estado,
+                   ROUND(AVG(
+                       julianday(ec2.created_at) - julianday(ec.created_at)
+                   ), 1) AS avg_dias,
+                   COUNT(*) AS n
+            FROM estados_causa ec
+            JOIN estados_causa ec2 ON ec2.causa_id = ec.causa_id
+                AND ec2.created_at > ec.created_at
+                AND ec2.estado_anterior = ec.estado_nuevo
+                AND ec2.estado_anterior != ec2.estado_nuevo
+            WHERE ec.estado_nuevo IN ('ingresada','clasificada','notificada','en_mediacion')
+            GROUP BY ec.estado_nuevo
+        """).fetchall()
+    result = [dict(r) for r in rows if r["avg_dias"] is not None]
+    return sorted(result, key=lambda x: ESTADO_ORDER.get(x["estado"], 99))
+
+
 def stats_notas() -> dict:
     """Returns statistics about notas agregadas (entries where estado_anterior == estado_nuevo)."""
     with get_conn() as conn:

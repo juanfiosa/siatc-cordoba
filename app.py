@@ -34,7 +34,7 @@ from database import (
     stats_tendencia_mensual, stats_por_unidad, stats_tiempo_por_tipo,
     stats_por_dia_semana, stats_categoria_por_estado, asignar_fiscal,
     causas_mas_antiguas_activas, stats_eficiencia_carriles, mediaciones_estancadas,
-    actualizar_descripcion, stats_notas,
+    actualizar_descripcion, stats_notas, stats_tiempo_por_estado,
 )
 from seguimiento_tab import render_tab_seguimiento
 from agenda_tab import render_tab_agenda
@@ -2178,6 +2178,22 @@ with tab_panel:
                     xaxis_title="Días promedio hasta resolución",
                 )
                 st.plotly_chart(_fig_ttp, use_container_width=True)
+
+        # ── Tiempo promedio por estado ────────────────────────────────────
+        _tpest = stats_tiempo_por_estado()
+        if _tpest:
+            st.markdown("---")
+            st.subheader("⏱️ Tiempo promedio en cada estado activo")
+            st.caption("Días promedio que una causa permanece en cada estado antes de avanzar.")
+            _tpest_cols = st.columns(len(_tpest))
+            _est_icons = {"ingresada":"📥","clasificada":"🔍","notificada":"📬","en_mediacion":"🤝"}
+            for _tc, _tp in zip(_tpest_cols, _tpest):
+                _tc.metric(
+                    f"{_est_icons.get(_tp['estado'],'')} {ESTADOS_LABEL.get(_tp['estado'], _tp['estado'])}",
+                    f"~{_tp['avg_dias']:.0f}d",
+                    delta=f"{_tp['n']} causas",
+                    help=f"Promedio de días en estado '{_tp['estado']}' antes de avanzar"
+                )
 
         if stats["personas"]:
             st.markdown("---")
