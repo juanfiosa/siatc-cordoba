@@ -259,8 +259,35 @@ def _panel_seguimientos(fiscal):
         _pct_total = round(stats["cumplidos"] * 100 / stats["total"])
         _estado_seg = "🟢 Buen ritmo de cumplimiento" if _pct_total >= 70 else \
                       ("🟡 Seguimiento en curso" if _pct_total >= 30 else "🔴 Bajo nivel de cumplimiento")
-        st.progress(_pct_total / 100,
-                    text=f"Cumplimiento global: {_pct_total}% ({stats['cumplidos']} de {stats['total']}) — {_estado_seg}")
+        _col_prog_seg, _col_exp_seg = st.columns([4, 1])
+        with _col_prog_seg:
+            st.progress(_pct_total / 100,
+                        text=f"Cumplimiento global: {_pct_total}% ({stats['cumplidos']} de {stats['total']}) — {_estado_seg}")
+        with _col_exp_seg:
+            try:
+                # Quick Excel export of active seguimientos
+                _segs_export = db.listar_seguimientos(estado="activo")
+                if _segs_export:
+                    import pandas as _pd_seg; from io import BytesIO as _BytesIO_seg
+                    _rows_e = []
+                    for _se in _segs_export:
+                        _dias_e = (date.today() - date.fromisoformat(_se.get("fecha_fin","2099-01-01"))).days * -1
+                        _rows_e.append({
+                            "Imputado/a": (_se.get("apellido_nombre","") or "").split(",")[0],
+                            "Expediente": _se.get("numero",""),
+                            "Tipo": TIPO_RES_LABEL.get(_se.get("tipo_resolucion",""),""),
+                            "Inicio": _se.get("fecha_inicio",""),
+                            "Fin": _se.get("fecha_fin",""),
+                            "Días restantes": _dias_e,
+                        })
+                    _buf_se = _BytesIO_seg()
+                    _pd_seg.DataFrame(_rows_e).to_excel(_buf_se, index=False, engine="openpyxl")
+                    st.download_button("⬇️ Excel", data=_buf_se.getvalue(),
+                                       file_name=f"seguimientos_activos_{date.today().isoformat()}.xlsx",
+                                       mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                       use_container_width=True, key="dl_segs_act_excel")
+            except Exception:
+                pass
 
     st.divider()
 
