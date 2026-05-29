@@ -1842,6 +1842,59 @@ with tab_panel:
                        delta=f"seguimiento completo" if _archivadas else None,
                        help="Causas con seguimiento completado y archivadas")
 
+            # Row 2 — additional KPIs
+            kc5, kc6, kc7, kc8 = st.columns(4)
+            _tiempos_res = stats_tiempos_resolucion()
+            if _tiempos_res:
+                _dias_tot = sum(
+                    (t["dias_promedio"] or 0) * t["n"]
+                    for t in _tiempos_res.values() if t.get("n", 0) > 0
+                )
+                _n_res_total = sum(t.get("n", 0) for t in _tiempos_res.values())
+                _dias_prom_global = round(_dias_tot / _n_res_total) if _n_res_total else None
+                kc5.metric(
+                    "Días prom. resolución",
+                    f"~{_dias_prom_global}d" if _dias_prom_global else "—",
+                    help="Promedio ponderado entre todos los carriles"
+                )
+            else:
+                kc5.metric("Días prom. resolución", "—")
+
+            # Seguimiento coverage
+            _resueltas_total = stats["por_estado"].get("resuelta", 0)
+            _segs_total = seg_s.get("total", 0) if isinstance(seg_s, dict) else 0
+            if _resueltas_total > 0:
+                _pct_seg_cov = round(_segs_total * 100 / _resueltas_total)
+                kc6.metric(
+                    "Cobertura seguimiento",
+                    f"{_pct_seg_cov}%",
+                    delta=f"{_segs_total} seguimientos / {_resueltas_total} resueltas",
+                    help="Seguimientos registrados vs. causas resueltas",
+                )
+            else:
+                kc6.metric("Cobertura seguimiento", "—")
+
+            # Audiencias per resolved causa ratio
+            if _resueltas_total > 0 and aud_s["total"] > 0:
+                _auds_per_causa = round(aud_s["total"] / max(total, 1), 1)
+                kc7.metric(
+                    "Audiencias / causa",
+                    f"{_auds_per_causa}",
+                    help="Audiencias totales dividido total de causas"
+                )
+            else:
+                kc7.metric("Audiencias / causa", "—")
+
+            # Backlog vs capacity
+            _activas_kpi = sum(stats["por_estado"].get(e, 0) for e in
+                               ("ingresada","clasificada","notificada","en_mediacion"))
+            kc8.metric(
+                "Causas activas",
+                _activas_kpi,
+                delta=f"{round(_activas_kpi * 100 / total)}% del total" if total else None,
+                help="Causas en estados activos (ingresada, clasificada, notificada, en mediación)",
+            )
+
         # ── Análisis demográfico ───────────────────────────────────────────
         st.markdown("---")
         st.subheader("👥 Perfil demográfico de imputados/as")
