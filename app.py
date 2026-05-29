@@ -1565,6 +1565,22 @@ with tab_panel:
     seg_s = _c_stats_seguimiento()
     aud_s = _c_stats_audiencias()
 
+    # "Mi productividad" — quick stats for the current fiscal
+    try:
+        _sfis_panel = _c_stats_por_fiscal()
+        _mi_sfis = next((f for f in _sfis_panel if f["fiscal_asignado"] == fiscal_nombre), None)
+        if _mi_sfis:
+            _mi_total = _mi_sfis["total"]
+            _mi_activas = _mi_total - (_mi_sfis.get("resueltas",0))
+            with st.expander(f"👤 Mi productividad — {fiscal_nombre}", expanded=False):
+                _mp1, _mp2, _mp3, _mp4 = st.columns(4)
+                _mp1.metric("Mis causas", _mi_total)
+                _mp2.metric("Activas", _mi_activas)
+                _mp3.metric("Resueltas", _mi_sfis.get("resueltas",0))
+                _mp4.metric("% Resolución", f"{_mi_sfis.get('pct_resolucion',0)}%")
+    except Exception:
+        pass
+
     # Quick system health bar
     if total > 0:
         _health_issues = []
