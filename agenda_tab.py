@@ -400,6 +400,22 @@ def render_tab_agenda(fiscal):
         st.markdown("")
         _vista_semana(st.session_state.get("sem_offset", 0))
 
+        # Seguimientos que vencen esta semana
+        _segs_sem_venc = db.listar_seguimientos(estado="activo")
+        _segs_sem_venc = [
+            s for s in _segs_sem_venc
+            if lunes.isoformat() <= s.get("fecha_fin","") <= viernes.isoformat()
+        ]
+        if _segs_sem_venc:
+            st.markdown("---")
+            st.markdown(f"**⏳ Seguimientos que vencen esta semana ({len(_segs_sem_venc)})**")
+            for _sv in _segs_sem_venc:
+                _nom_sv = (_sv.get("apellido_nombre","") or "").split(",")[0]
+                _fin_sv = _sv.get("fecha_fin","")
+                _tipo_sv = {"suspension":"Suspensión","mediacion":"Mediación","acuerdo":"Acuerdo"}.get(
+                    _sv.get("tipo_resolucion",""), _sv.get("tipo_resolucion",""))
+                st.caption(f"🔶 {_nom_sv} — {_tipo_sv} — Vence: {_fin_sv} | {_sv.get('numero','')}")
+
     elif vista == "📋 Lista de audiencias":
         _lista_audiencias(fiscal)
 
