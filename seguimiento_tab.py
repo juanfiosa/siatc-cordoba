@@ -94,11 +94,17 @@ def _form_nuevo_seguimiento(fiscal):
         tipo_res = st.selectbox("Tipo de resolución",
                                 list(TIPO_RES_LABEL.keys()),
                                 format_func=lambda k: TIPO_RES_LABEL[k])
-        fecha_inicio = st.date_input("Fecha de inicio", value=date.today())
+        fecha_inicio = st.date_input("Fecha de inicio", value=date.today(),
+                                     max_value=date.today())
     with col2:
         meses = st.selectbox("Duración (meses)", [3, 6, 9, 12], index=1)
         fecha_fin = fecha_inicio + timedelta(days=meses * 30)
-        st.info(f"Vencimiento estimado: **{fecha_fin.strftime('%d/%m/%Y')}**")
+        _dias_total = (fecha_fin - date.today()).days
+        _estado_seg_form = (
+            "🟢 Período válido" if fecha_fin > date.today()
+            else "🔴 ¡Fecha ya vencida! Revisá la fecha de inicio"
+        )
+        st.info(f"Vencimiento: **{fecha_fin.strftime('%d/%m/%Y')}** ({_dias_total}d) — {_estado_seg_form}")
 
     obs = st.text_area("Observaciones generales (opcional)", height=70)
 
