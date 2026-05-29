@@ -711,6 +711,32 @@ with tab_causas:
                     _fecha_hecho_str = _fh[:10] if _fh else "—"
                     st.markdown(f"**Fecha del hecho:** {_fecha_hecho_str}  |  **Ingresada:** {c['created_at'][:10]}")
 
+                    # Siguiente paso sugerido — guía contextual según estado/carril
+                    _pasos_gc = {
+                        "ingresada":    ("📋", "Clasificar la causa para determinar el carril (triage)"),
+                        "notificada":   ("📅", "Programar audiencia inicial"),
+                        "en_mediacion": ("✍️", "Suscribir acta de compromiso o solicitar suspensión a prueba"),
+                        "archivada":    ("✅", "Causa finalizada — sin acciones pendientes"),
+                    }
+                    if c["estado"] == "clasificada":
+                        if c.get("carril") == "verde":
+                            _paso_gc = ("📨", "Enviar cédula de citación a **mediación**")
+                        elif c.get("carril") == "rojo":
+                            _paso_gc = ("⚖️", "Notificar al imputado/a y preparar **requerimiento de apertura** del proceso")
+                        else:
+                            _paso_gc = ("📨", "Enviar cédula de notificación de **suspensión a prueba**")
+                    elif c["estado"] == "resuelta":
+                        _seg_ps = get_seguimiento_por_causa(c["id"])
+                        if _seg_ps:
+                            _paso_gc = ("✅", "Seguimiento registrado — controlar cumplimiento de condiciones")
+                        else:
+                            _paso_gc = ("🔍", "Registrar **seguimiento** de condiciones si corresponde")
+                    else:
+                        _paso_gc = _pasos_gc.get(c["estado"])
+                    if _paso_gc:
+                        _ps_ico, _ps_txt = _paso_gc
+                        st.caption(f"{_ps_ico} **Siguiente paso:** {_ps_txt}")
+
                     # Timeline
                     timeline = get_timeline(c["id"])
                     if timeline:
