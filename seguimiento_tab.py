@@ -257,6 +257,28 @@ def _panel_seguimientos(fiscal):
                 st.markdown(f"**Fiscal:** {seg['fiscal']}")
                 if seg["observaciones"]:
                     st.caption(seg["observaciones"])
+                # Próximo control date picker (only for active seguimientos)
+                if seg.get("estado") == "activo":
+                    from datetime import date as _dt_sc
+                    _pc_val = None
+                    if seg.get("proximo_control"):
+                        try:
+                            _pc_val = _dt_sc.fromisoformat(seg["proximo_control"])
+                        except Exception:
+                            pass
+                    _new_pc = st.date_input(
+                        "📅 Próximo control",
+                        value=_pc_val,
+                        min_value=_dt_sc.today(),
+                        key=f"s{seg['id']}_proximo_ctrl",
+                        help="Fecha del próximo control de cumplimiento de condiciones",
+                    )
+                    if _new_pc and (_pc_val is None or _new_pc != _pc_val):
+                        if st.button("Guardar fecha de control", key=f"s{seg['id']}_save_pc",
+                                     use_container_width=True):
+                            db.set_proximo_control(seg["id"], _new_pc.isoformat())
+                            st.success(f"Próximo control agendado para {_new_pc.strftime('%d/%m/%Y')}")
+                            st.rerun()
             with col_prog:
                 st.metric("Condiciones cumplidas", f"{prog['cumplidas']}/{prog['total']}")
                 st.progress(pct / 100, text=f"{pct}% completado")

@@ -156,6 +156,23 @@ with st.sidebar:
                 else:
                     st.caption(f"🟡 {s['apellido_nombre'].split(',')[0]} — {dias}d")
 
+        # Próximos controles agendados (dentro de 7 días)
+        _controles_prox = []
+        for s in activos:
+            if s.get("proximo_control"):
+                try:
+                    _pc_d = datetime.strptime(s["proximo_control"], "%Y-%m-%d").date()
+                    _pc_dias = (_pc_d - _date.today()).days
+                    if 0 <= _pc_dias <= 7:
+                        _controles_prox.append((_pc_dias, s))
+                except Exception:
+                    pass
+        if _controles_prox:
+            st.markdown("**📋 Controles próximos:**")
+            for _cpd, _cps in sorted(_controles_prox)[:3]:
+                _lbl = "HOY" if _cpd == 0 else f"en {_cpd}d"
+                st.caption(f"🔵 {_cps['apellido_nombre'].split(',')[0]} — control {_lbl}")
+
     # ── Audiencias del día ─────────────────────────────────────────────────
     hoy_auds = audiencias_hoy()
     if hoy_auds:

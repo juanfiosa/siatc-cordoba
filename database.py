@@ -152,6 +152,11 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_aud_causa ON audiencias(causa_id);
         CREATE INDEX IF NOT EXISTS idx_aud_fecha ON audiencias(fecha);
         """)
+        # Safe migrations — ALTER TABLE is idempotent via try/except
+        try:
+            conn.execute("ALTER TABLE seguimientos ADD COLUMN proximo_control TEXT")
+        except Exception:
+            pass  # column already exists
 
 
 def reset_db():
@@ -812,6 +817,13 @@ def cerrar_seguimiento(seguimiento_id: int, estado: str) -> bool:
     with get_conn() as conn:
         conn.execute("UPDATE seguimientos SET estado=? WHERE id=?", (estado, seguimiento_id))
     return True
+
+
+def set_proximo_control(seguimiento_id: int, fecha: str) -> None:
+    """Guarda o actualiza la fecha del próximo control de un seguimiento activo."""
+    with get_conn() as conn:
+        conn.execute("UPDATE seguimientos SET proximo_control=? WHERE id=?",
+                     (fecha, seguimiento_id))
 
 
 def get_seguimiento(seguimiento_id: int) -> dict | None:
