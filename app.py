@@ -459,6 +459,34 @@ with tab_nuevo:
             for f in clf["fundamento"]:
                 st.markdown(f"• {f}")
 
+            # Pasos a seguir — guía procesal por carril
+            _pasos_nc = {
+                "verde": [
+                    "**1.** Guardar la causa en el sistema (botón 💾)",
+                    "**2.** Generar y firmar el **Dictamen de derivación a mediación**",
+                    "**3.** Notificar al imputado/a con la **cédula de citación a mediación**",
+                    "**4.** En **📅 Agenda**, programar la audiencia de mediación",
+                    "**5.** Si hay acuerdo, registrar el seguimiento en **🔍 Seguimiento**",
+                ],
+                "amarillo": [
+                    "**1.** Guardar la causa en el sistema (botón 💾)",
+                    "**2.** Generar el **Dictamen de suspensión del proceso a prueba**",
+                    "**3.** Enviar **cédula de notificación** al imputado/a",
+                    "**4.** En **📅 Agenda**, programar audiencia para suscribir el acta",
+                    "**5.** Al acordar condiciones, registrar el **seguimiento** en 🔍",
+                ],
+                "rojo": [
+                    "**1.** Guardar la causa en el sistema (botón 💾)",
+                    "**2.** Generar el **Requerimiento de apertura del proceso contravencional**",
+                    "**3.** Notificar al imputado/a y a la defensa técnica",
+                    "**4.** Programar **audiencia contravencional** en 📅 Agenda",
+                    "**5.** Seguir el proceso conforme el Código de Convivencia Ciudadana",
+                ],
+            }
+            with st.expander(f"📋 Pasos a seguir — Carril {clf['carril'].upper()}", expanded=True):
+                for _paso in _pasos_nc.get(clf["carril"], []):
+                    st.markdown(_paso)
+
             # Casos similares (misma infracción, en el sistema)
             _similares = listar_causas(limit=100)
             _similares = [c for c in _similares if c.get("tipo_infraccion") == tipo][:4]
