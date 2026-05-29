@@ -378,6 +378,26 @@ def _panel_seguimientos(fiscal):
                     )
                 except Exception as _e_pdf:
                     st.caption(f"PDF no disponible: {_e_pdf}")
+                # Informe de incumplimiento si hay condiciones incumplidas
+                if prog["incumplidas"] > 0:
+                    try:
+                        from pdf_gen import pdf_informe_incumplimiento as _pii
+                        _conds_inc = [c for c in condiciones if c.get("estado") == "incumplido"]
+                        _caso_inc = {"numero": seg.get("numero",""), "tipo": "",
+                                     "imputado": seg.get("apellido_nombre",""),
+                                     "dni": seg.get("dni",""), "edad": 0, "unidad": seg.get("unidad","norte")}
+                        _pdf_inc = _pii(_caso_inc, dict(seg), _conds_inc, fiscal, seg.get("unidad","norte"))
+                        st.download_button(
+                            "⬇️ Informe incumplimiento",
+                            data=_pdf_inc,
+                            file_name=f"incumplimiento_{seg.get('numero','')}.pdf",
+                            mime="application/pdf",
+                            key=f"dl_inc_{seg['id']}",
+                            use_container_width=True,
+                            type="primary",
+                        )
+                    except Exception:
+                        pass
 
             # Detalle de condiciones
             st.markdown("##### Condiciones")
