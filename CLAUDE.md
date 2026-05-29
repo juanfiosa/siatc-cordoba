@@ -99,7 +99,7 @@ Requires OAuth in browser — cannot be done headlessly.
 | `stats_seguimiento()` | total, activos, cumplidos, incumplidos, vencidos |
 | `stats_audiencias()` | total, proximas, hoy, realizadas, ausentes |
 | `perfil_persona(id)` | {persona, causas, seguimientos, audiencias, antecedentes, total_causas} |
-| `listar_causas(estado, carril, unidad, busqueda, tipo_infraccion, limit)` | rows include persona_edad, domicilio, telefono |
+| `listar_causas(estado, carril, unidad, busqueda, tipo_infraccion, fecha_desde, fecha_hasta, limit)` | rows include persona_edad, domicilio, telefono |
 | `causas_similares(tipo_infraccion, exclude_persona_id, limit)` | causas of same type excluding a given persona |
 | `causas_sin_audiencia_programada(estados)` | causas in active states with no upcoming programada audiencia |
 | `causas_mes_actual_vs_anterior()` | {actual, anterior, delta, pct_cambio} — MoM comparison |
@@ -108,6 +108,7 @@ Requires OAuth in browser — cannot be done headlessly.
 | `actividad_reciente(limit)` | global feed joining estados_causa + causas + personas |
 | `stats_edad()` | {bucket: count} for 5 age groups (16-25, 26-35, 36-45, 46-55, 56+) |
 | `stats_edad_por_carril()` | cross-tab: {bucket: {verde, amarillo, rojo}} counts of causas |
+| `stats_por_fiscal()` | list of {fiscal_asignado, total, resueltas, pct_resolucion, pct_no_punitivo, dias_promedio, no_punitivas} |
 
 ## PDF functions (pdf_gen.py)
 
@@ -164,7 +165,25 @@ must handle all six categories.
 - **Causas sin audiencia programada** — dataframe of causas with no upcoming audiencia
 - **Reincidencia**: metrics + table of personas with ≥2 causas
 - **Causas sin actividad reciente** — configurable threshold (7/14/30/60 días)
-- Exportación Excel: causas, seguimientos, audiencias, reporte diario PDF
+- **Rendimiento por fiscal** table — total, resueltas, pct_resolucion, pct_no_punitivo, dias_promedio (ProgressColumn)
+- Exportación Excel: causas+personas+estadísticas+por_fiscal, seguimientos, audiencias, reporte diario PDF
+
+## Gestión de Causas filters (app.py Tab 2)
+- Row 1: busqueda (text), estado, carril, unidad
+- Row 2 (collapsible): tipo_infraccion selectbox + fecha_desde / fecha_hasta date inputs + "Limpiar" button
+- All filters wired to `listar_causas()`; clear resets session_state keys and reruns
+- Tipo infracción info card shown below selectbox in Nuevo Caso (articulo, categoria, gravedad, vecinal)
+- Tabla view shows "Sin mov. (días)" NumberColumn for active cases; includes CSV export button
+
+## Cached DB wrappers (app.py — TTL=60s)
+```python
+_c_stats_generales()       # wraps stats_generales()
+_c_stats_seguimiento()     # wraps stats_seguimiento()
+_c_stats_audiencias()      # wraps stats_audiencias()
+_c_sin_audiencia()         # wraps causas_sin_audiencia_programada()
+_c_stats_por_fiscal()      # wraps stats_por_fiscal()
+```
+All mutation sites call `st.cache_data.clear()` before `st.rerun()`.
 
 ## App-level alerts (app.py)
 After the main header, before tabs, SIATC shows warning banners for:

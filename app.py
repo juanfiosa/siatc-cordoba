@@ -65,6 +65,10 @@ def _c_stats_audiencias():
 def _c_sin_audiencia():
     return causas_sin_audiencia_programada()
 
+@st.cache_data(ttl=60)
+def _c_stats_por_fiscal():
+    return stats_por_fiscal()
+
 st.set_page_config(
     page_title="SIATC — Sistema Inteligente Contravencional",
     page_icon="⚖️",
@@ -1180,7 +1184,7 @@ with tab_panel:
                 st.caption("Sin datos de fiscales.")
 
         # ── Estadísticas detalladas por fiscal ────────────────────────────
-        _sfiscal = stats_por_fiscal()
+        _sfiscal = _c_stats_por_fiscal()
         if _sfiscal:
             st.markdown("---")
             st.subheader("👨‍⚖️ Rendimiento por fiscal")

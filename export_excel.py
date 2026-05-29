@@ -9,7 +9,7 @@ from io import BytesIO
 from datetime import date, datetime
 import database as db
 from data_cordoba import TIPOS_INFRACCION, UNIDADES
-from database import stats_edad, stats_edad_por_carril
+from database import stats_edad, stats_edad_por_carril, stats_por_fiscal
 
 CARRIL_LABEL = {"verde": "Mediación", "amarillo": "Suspensión", "rojo": "Proceso pleno"}
 TIPO_RES_LABEL = {"suspension": "Suspensión del Proceso a Prueba",
@@ -190,14 +190,33 @@ def causas_a_excel() -> bytes:
 
     df_stats = pd.DataFrame(_stats_rows, columns=["Sección", "Indicador", "Valor"])
 
+    # ── Hoja 4: Rendimiento por fiscal ────────────────────────────────────────
+    _sfiscal = stats_por_fiscal()
+    _rows_sfis = []
+    for sf in _sfiscal:
+        _rows_sfis.append({
+            "Fiscal":           sf["fiscal_asignado"],
+            "Total causas":     sf["total"],
+            "Resueltas/Archiv.":sf["resueltas"],
+            "% Resolución":     f"{sf['pct_resolucion']}%",
+            "No punitivas":     sf.get("no_punitivas", 0),
+            "% No punitivas":   f"{sf['pct_no_punitivo']}%",
+            "Prom. días resol.":sf["dias_promedio"] if sf["dias_promedio"] else "—",
+        })
+    df_sfis = pd.DataFrame(_rows_sfis) if _rows_sfis else pd.DataFrame(
+        columns=["Fiscal","Total causas","Resueltas/Archiv.","% Resolución",
+                 "No punitivas","% No punitivas","Prom. días resol."])
+
     buf = BytesIO()
     with pd.ExcelWriter(buf, engine="openpyxl") as writer:
         df_causas.to_excel(writer, sheet_name="Causas",      index=False, startrow=3)
         df_personas.to_excel(writer, sheet_name="Personas",  index=False, startrow=3)
         df_stats.to_excel(writer, sheet_name="Estadísticas", index=False, startrow=3)
+        df_sfis.to_excel(writer,   sheet_name="Por Fiscal",  index=False, startrow=3)
 
         # Formato columnas
-        for sheet, df in [("Causas", df_causas), ("Personas", df_personas), ("Estadísticas", df_stats)]:
+        for sheet, df in [("Causas", df_causas), ("Personas", df_personas),
+                          ("Estadísticas", df_stats), ("Por Fiscal", df_sfis)]:
             ws = writer.sheets[sheet]
             from openpyxl.styles import PatternFill, Font, Alignment
             # Encabezado de columnas (fila 4)
@@ -254,6 +273,7 @@ def causas_a_excel() -> bytes:
         _xl_header(writer, "Causas",        "Registro de Causas Contravencionales")
         _xl_header(writer, "Personas",      "Registro de Personas Imputadas")
         _xl_header(writer, "Estadísticas",  "Resumen Estadístico - SIATC")
+        _xl_header(writer, "Por Fiscal",    "Rendimiento por Fiscal Asignado")
 
     return buf.getvalue()
 
