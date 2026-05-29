@@ -33,6 +33,7 @@ from database import (
     proximas_audiencias_por_causa, causas_count_por_persona,
     stats_tendencia_mensual, stats_por_unidad, stats_tiempo_por_tipo,
     stats_por_dia_semana, stats_categoria_por_estado, asignar_fiscal,
+    causas_mas_antiguas_activas,
 )
 from seguimiento_tab import render_tab_seguimiento
 from agenda_tab import render_tab_agenda
@@ -2215,6 +2216,33 @@ with tab_panel:
             _df_inact = pd.DataFrame(_rows_inact).sort_values("Sin act. (días)", ascending=False)
             st.dataframe(_df_inact, use_container_width=True, hide_index=True,
                          column_config={"Sin act. (días)": st.column_config.NumberColumn("Sin act. (días)", format="%d días")})
+
+        # ── Top causas más antiguas activas ──────────────────────────────
+        _top_antigas = causas_mas_antiguas_activas(limit=5)
+        if _top_antigas:
+            st.markdown("---")
+            st.subheader("⏳ Causas activas más antiguas")
+            st.caption("Las 5 causas aún activas que llevan más tiempo abiertas desde su ingreso.")
+            _rows_ant = []
+            for c in _top_antigas:
+                try:
+                    _ant_dias = (datetime.now() - datetime.strptime(c["created_at"][:10], "%Y-%m-%d")).days
+                except Exception:
+                    _ant_dias = 0
+                _rows_ant.append({
+                    "Expediente":  c["numero"],
+                    "Imputado/a":  (c.get("apellido_nombre","") or "").split(",")[0],
+                    "Estado":      ESTADOS_LABEL.get(c["estado"], c["estado"]),
+                    "Carril":      {"verde":"🟢","amarillo":"🟡","rojo":"🔴"}.get(c.get("carril",""),"⚪"),
+                    "Días abierta": _ant_dias,
+                    "Fiscal":      c.get("fiscal_asignado",""),
+                    "Ingresada":   c.get("created_at","")[:10],
+                })
+            st.dataframe(
+                pd.DataFrame(_rows_ant),
+                use_container_width=True, hide_index=True,
+                column_config={"Días abierta": st.column_config.NumberColumn("Días abierta", format="%d días")},
+            )
 
         # ── Actividad reciente ────────────────────────────────────────────
         st.markdown("---")

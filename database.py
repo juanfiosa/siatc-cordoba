@@ -1162,6 +1162,22 @@ def causas_count_por_persona(persona_ids: list) -> dict:
     return {r["persona_id"]: r["n"] for r in rows}
 
 
+def causas_mas_antiguas_activas(limit: int = 5) -> list[dict]:
+    """Returns the oldest active causas (by created_at) still not resolved or archived."""
+    estados_activos = ("ingresada", "clasificada", "notificada", "en_mediacion")
+    placeholders = ",".join("?" * len(estados_activos))
+    with get_conn() as conn:
+        rows = conn.execute(
+            f"""SELECT c.*, p.apellido_nombre, p.dni as persona_dni
+                FROM causas c LEFT JOIN personas p ON c.persona_id = p.id
+                WHERE c.estado IN ({placeholders})
+                ORDER BY c.created_at ASC
+                LIMIT ?""",
+            list(estados_activos) + [limit]
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
 def stats_categoria_por_estado() -> dict:
     """
     Returns {categoria: {estado: count}} for all causas.
