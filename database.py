@@ -1187,6 +1187,23 @@ def causas_mas_antiguas_activas(limit: int = 5) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+def stats_notas() -> dict:
+    """Returns statistics about notas agregadas (entries where estado_anterior == estado_nuevo)."""
+    with get_conn() as conn:
+        total = conn.execute(
+            "SELECT COUNT(*) as n FROM estados_causa WHERE estado_anterior = estado_nuevo AND estado_anterior IS NOT NULL"
+        ).fetchone()["n"]
+        por_usuario = conn.execute(
+            """SELECT usuario, COUNT(*) as n FROM estados_causa
+               WHERE estado_anterior = estado_nuevo AND estado_anterior IS NOT NULL
+               GROUP BY usuario ORDER BY n DESC LIMIT 5"""
+        ).fetchall()
+    return {
+        "total": total,
+        "por_usuario": [dict(r) for r in por_usuario],
+    }
+
+
 def mediaciones_estancadas(dias: int = 30) -> list[dict]:
     """Returns causas in 'en_mediacion' state with no update in more than N days."""
     from datetime import datetime as _dt, timedelta as _td

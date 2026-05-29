@@ -34,7 +34,7 @@ from database import (
     stats_tendencia_mensual, stats_por_unidad, stats_tiempo_por_tipo,
     stats_por_dia_semana, stats_categoria_por_estado, asignar_fiscal,
     causas_mas_antiguas_activas, stats_eficiencia_carriles, mediaciones_estancadas,
-    actualizar_descripcion,
+    actualizar_descripcion, stats_notas,
 )
 from seguimiento_tab import render_tab_seguimiento
 from agenda_tab import render_tab_agenda
@@ -2744,6 +2744,19 @@ with tab_panel:
                 use_container_width=True, hide_index=True,
                 column_config={"Días abierta": st.column_config.NumberColumn("Días abierta", format="%d días")},
             )
+
+        # ── Estadísticas de notas ────────────────────────────────────────
+        _notas_stats = stats_notas()
+        if _notas_stats.get("total", 0) > 0:
+            st.markdown("---")
+            st.subheader("📝 Notas y anotaciones")
+            _nst1, _nst2 = st.columns([1, 2])
+            _nst1.metric("Total notas registradas", _notas_stats["total"],
+                         help="Entradas de texto sin cambio de estado en los historiales")
+            if _notas_stats.get("por_usuario"):
+                _nst2.markdown("**Top anotadores:**")
+                for _nu in _notas_stats["por_usuario"][:3]:
+                    _nst2.caption(f"• {_nu.get('usuario','')} — {_nu['n']} nota(s)")
 
         # ── Actividad reciente ────────────────────────────────────────────
         st.markdown("---")
