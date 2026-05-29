@@ -8,6 +8,7 @@ import streamlit as st
 from datetime import date, datetime, timedelta
 import database as db
 from database import agregar_nota_causa
+from pdf_gen import pdf_agenda_semanal
 from data_cordoba import TIPOS_INFRACCION, UNIDADES
 
 CARRIL_COLOR = {"verde": "🟢", "amarillo": "🟡", "rojo": "🔴"}
@@ -313,15 +314,16 @@ def render_tab_agenda(fiscal):
             st.markdown(f"<div style='text-align:center;font-weight:bold'>"
                         f"Semana del {lunes.strftime('%d/%m')} al {viernes.strftime('%d/%m/%Y')}"
                         f"</div>", unsafe_allow_html=True)
-        # Weekly stats summary
+        # Weekly stats summary + PDF export
         _sem_auds = db.listar_audiencias(
             desde=lunes.isoformat(),
             hasta=(lunes + timedelta(days=6)).isoformat()
         )
+        _col_sum, _col_pdf = st.columns([4, 1])
         if _sem_auds:
             from collections import Counter as _C
             _cnt_sem = _C(a["estado"] for a in _sem_auds)
-            st.markdown(
+            _col_sum.markdown(
                 f"<small>Semana: **{len(_sem_auds)} audiencias** — "
                 f"🔵 {_cnt_sem.get('programada',0)} programadas &nbsp;"
                 f"🟢 {_cnt_sem.get('realizada',0)} realizadas &nbsp;"
@@ -329,6 +331,22 @@ def render_tab_agenda(fiscal):
                 f"🟡 {_cnt_sem.get('reprogramada',0)} reprogramadas</small>",
                 unsafe_allow_html=True
             )
+            try:
+                _unidad_ag = db.listar_causas(limit=1)
+                _unidad_ag_key = _unidad_ag[0].get("unidad", "norte") if _unidad_ag else "norte"
+                _pdf_sem = pdf_agenda_semanal(
+                    _sem_auds, lunes.isoformat(), viernes.isoformat(), fiscal, _unidad_ag_key
+                )
+                _col_pdf.download_button(
+                    "⬇️ PDF semana",
+                    data=_pdf_sem,
+                    file_name=f"agenda_{lunes.strftime('%Y%m%d')}.pdf",
+                    mime="application/pdf",
+                    key=f"dl_agenda_sem_{lunes.isoformat()}",
+                    use_container_width=True,
+                )
+            except Exception:
+                pass
         st.markdown("")
         _vista_semana(st.session_state.get("sem_offset", 0))
 

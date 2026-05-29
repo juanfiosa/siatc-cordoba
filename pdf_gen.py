@@ -1098,6 +1098,92 @@ def pdf_informe_seguimiento(seg: dict, condiciones: list, prog: dict,
     return buf.getvalue()
 
 
+def pdf_agenda_semanal(audiencias: list, desde: str, hasta: str,
+                       fiscal_nombre: str, unidad_key: str) -> bytes:
+    """
+    PDF con la agenda de audiencias de la semana.
+    audiencias: lista de dicts de listar_audiencias() filtrada por el rango desde/hasta.
+    """
+    pdf = PDFMPFBase(unidad_key)
+    pdf.alias_nb_pages()
+    pdf.add_page()
+
+    pdf.titulo_documento("Agenda Semanal de Audiencias")
+    pdf._sf("B", 9)
+    pdf.set_text_color(*AZUL_CLARO)
+    _desde_fmt = "/".join(reversed(desde.split("-"))) if desde else "—"
+    _hasta_fmt  = "/".join(reversed(hasta.split("-")))  if hasta  else "—"
+    pdf.cell(0, 6, _s(f"Semana: {_desde_fmt} al {_hasta_fmt}  -  Generado: {datetime.now().strftime('%d/%m/%Y %H:%M hs')}"), ln=True)
+    pdf.set_text_color(*NEGRO)
+    pdf.ln(4)
+
+    # Agrupar por fecha
+    from collections import defaultdict as _dd
+    por_fecha: dict = _dd(list)
+    for a in audiencias:
+        por_fecha[a["fecha"]].append(a)
+
+    TIPO_L = {
+        "audiencia": "Audiencia contravencional",
+        "mediacion": "Audiencia de mediacion",
+        "acta_compromiso": "Suscripcion acta de compromiso",
+        "control_seg": "Control de seguimiento",
+    }
+    DIAS_ES = {0: "Lunes", 1: "Martes", 2: "Miercoles", 3: "Jueves",
+               4: "Viernes", 5: "Sabado", 6: "Domingo"}
+
+    for fecha_iso in sorted(por_fecha):
+        auds_dia = sorted(por_fecha[fecha_iso], key=lambda x: x.get("hora",""))
+        try:
+            _d = datetime.strptime(fecha_iso, "%Y-%m-%d")
+            _dia_nombre = DIAS_ES.get(_d.weekday(), "")
+            _fecha_lbl = f"{_dia_nombre} {_d.strftime('%d/%m/%Y')}"
+        except Exception:
+            _fecha_lbl = fecha_iso
+
+        pdf._sf("B", 10)
+        pdf.set_text_color(*AZUL_MPF)
+        pdf.set_fill_color(240, 244, 255)
+        pdf.cell(0, 7, _s(f"{_fecha_lbl}  ({len(auds_dia)} audiencia(s))"), fill=True, ln=True)
+        pdf.set_text_color(*NEGRO)
+        pdf._sf("", 9)
+        pdf.ln(2)
+
+        for a in auds_dia:
+            hora  = _s(a.get("hora", ""))
+            nom   = _s(a.get("apellido_nombre", "")).split(",")[0].strip()
+            num   = _s(a.get("numero", ""))
+            tipo  = _s(TIPO_L.get(a.get("tipo",""), a.get("tipo","")))
+            est   = _s(a.get("estado","")).capitalize()
+            lugar = _s(a.get("lugar","") or "Sede de la Unidad")
+            pdf.cell(20, 5, hora, ln=False)
+            pdf.cell(55, 5, nom, ln=False)
+            pdf.cell(45, 5, num, ln=False)
+            pdf.cell(50, 5, tipo[:30], ln=False)
+            pdf.cell(20, 5, est, ln=True)
+            pdf._sf("I", 8)
+            pdf.set_text_color(*GRIS_TEXTO)
+            pdf.cell(20, 4, "", ln=False)
+            pdf.cell(170, 4, _s(f"Lugar: {lugar}"), ln=True)
+            pdf.set_text_color(*NEGRO)
+            pdf._sf("", 9)
+        pdf.ln(4)
+
+    # Total
+    pdf._sf("B", 9)
+    pdf.cell(0, 5, _s(f"Total: {len(audiencias)} audiencia(s) en la semana."), ln=True)
+    pdf.ln(2)
+    pdf._sf("I", 7)
+    pdf.set_text_color(*GRIS_TEXTO)
+    pdf.cell(0, 4,
+        _s(f"Generado por SIATC - MPF Cordoba - {datetime.now().strftime('%d/%m/%Y %H:%M')}"),
+        ln=True, align="C")
+
+    buf = BytesIO()
+    pdf.output(buf)
+    return buf.getvalue()
+
+
 # -- Punto de entrada ---------------------------------------------------------
 
 def generar_pdf(tipo_doc, caso, clf, fiscal, unidad):
