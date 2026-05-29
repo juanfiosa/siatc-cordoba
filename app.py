@@ -2337,6 +2337,34 @@ with tab_panel:
                                  column_config={"Días": st.column_config.NumberColumn("Días rest.")})
                 else:
                     st.info("No hay seguimientos activos.")
+                # Mini Gantt for active seguimientos
+                if activos_list:
+                    _gantt_segs = []
+                    for _sg in activos_list[:10]:  # limit to 10 for readability
+                        _gantt_segs.append({
+                            "Imputado": _sg["apellido_nombre"].split(",")[0][:18],
+                            "Inicio": _sg.get("fecha_inicio", datetime.now().strftime("%Y-%m-%d")),
+                            "Fin": _sg.get("fecha_fin", datetime.now().strftime("%Y-%m-%d")),
+                            "Tipo": {"suspension":"Suspensión","mediacion":"Mediación"}.get(_sg.get("tipo_resolucion",""),"Acuerdo"),
+                        })
+                    if _gantt_segs:
+                        try:
+                            _df_gantt_seg = pd.DataFrame(_gantt_segs)
+                            _fig_gantt_seg = px.timeline(
+                                _df_gantt_seg, x_start="Inicio", x_end="Fin",
+                                y="Imputado", color="Tipo",
+                                color_discrete_map={"Suspensión":"#F39C12","Mediación":"#2ECC71","Acuerdo":"#3498DB"},
+                                title="Línea de tiempo: seguimientos activos",
+                            )
+                            _fig_gantt_seg.update_yaxes(autorange="reversed")
+                            _fig_gantt_seg.update_layout(
+                                height=max(150, len(_gantt_segs) * 30 + 60),
+                                legend=dict(orientation="h", y=1.1),
+                                margin=dict(l=0, r=0, t=40, b=0),
+                            )
+                            st.plotly_chart(_fig_gantt_seg, use_container_width=True)
+                        except Exception:
+                            pass
 
         # ── Causas resueltas/en mediación sin seguimiento ──────────────────
         _sin_seg_panel = _c_sin_seguimiento()
