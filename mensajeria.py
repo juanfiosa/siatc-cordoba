@@ -390,3 +390,52 @@ def render_nuevo_mensaje(causa_id: int | None, causa_numero: str,
             )
             st.success(f"Mensaje enviado a {OFICINAS.get(dest_sel,{}).get('label','oficina destinataria')}.")
             st.rerun()
+
+
+def render_editor_titulares(nodo_key: str, fiscal_nombre: str):
+    """
+    UI para editar los titulares de las oficinas del nodo.
+    Se muestra en el Panel de Control bajo 'Configuración del nodo'.
+    """
+    oficinas_nodo = get_oficinas(nodo_key)
+    titulares_actuales = db.get_titulares_nodo(nodo_key)
+
+    st.subheader("👤 Titulares de oficinas")
+    st.caption(
+        "Cargá el nombre del fiscal o funcionario titular de cada oficina. "
+        "Una vez guardado, aparecerá en los mensajes y el panel del nodo."
+    )
+
+    CARGOS = ["Fiscal", "Fiscal Adjunto/a", "Ayudante Fiscal", "Fiscal Interino/a",
+              "Of. Mayor", "Secretario/a", "Otro"]
+
+    for oficina_key, o in oficinas_nodo.items():
+        if o.get("tipo") == "fantasma":
+            continue   # no editar fantasmas
+        actual = titulares_actuales.get(oficina_key, {})
+        with st.expander(
+            f"{o['icon']} {o['label']}"
+            + (f" — {actual['titular']}" if actual.get("titular") else " — *sin titular cargado*"),
+            expanded=False,
+        ):
+            col_n, col_c, col_btn = st.columns([4, 2, 1])
+            _nombre_val = actual.get("titular", "")
+            _cargo_val  = actual.get("cargo", "Fiscal")
+            nuevo_nombre = col_n.text_input(
+                "Nombre y apellido",
+                value=_nombre_val,
+                placeholder="Ej: Dr. Juan Pérez",
+                key=f"tit_nombre_{nodo_key}_{oficina_key}",
+            )
+            nuevo_cargo = col_c.selectbox(
+                "Cargo",
+                CARGOS,
+                index=CARGOS.index(_cargo_val) if _cargo_val in CARGOS else 0,
+                key=f"tit_cargo_{nodo_key}_{oficina_key}",
+            )
+            if col_btn.button("💾", key=f"tit_save_{nodo_key}_{oficina_key}",
+                              help="Guardar", use_container_width=True):
+                db.set_titular(nodo_key, oficina_key, nuevo_nombre.strip(),
+                               nuevo_cargo, fiscal_nombre)
+                st.success("Titular guardado.")
+                st.rerun()

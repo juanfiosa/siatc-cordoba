@@ -200,6 +200,21 @@ def init_db():
             leido_at         TEXT
         );
 
+        -- ── Titulares de oficinas (editable por cada nodo) ─────────────────
+        -- Guarda el nombre del titular actual de cada oficina por nodo.
+        -- La estructura (oficinas, flujos) viene de config_nodos.py;
+        -- los nombres de los funcionarios vienen de aquí.
+        CREATE TABLE IF NOT EXISTS oficinas_titulares (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            nodo_key    TEXT    NOT NULL,
+            oficina_key TEXT    NOT NULL,
+            titular     TEXT    NOT NULL DEFAULT '',
+            cargo       TEXT    DEFAULT '',  -- Fiscal, Ayudante Fiscal, Interino, etc.
+            updated_at  TEXT    DEFAULT (datetime('now','localtime')),
+            updated_by  TEXT    DEFAULT '',
+            UNIQUE(nodo_key, oficina_key)
+        );
+
         CREATE INDEX IF NOT EXISTS idx_msg_causa    ON mensajes_interoficina(causa_id);
         CREATE INDEX IF NOT EXISTS idx_msg_destino  ON mensajes_interoficina(oficina_destino);
         CREATE INDEX IF NOT EXISTS idx_msg_origen   ON mensajes_interoficina(oficina_origen);
@@ -1287,6 +1302,42 @@ def stats_tiempo_por_estado() -> list[dict]:
         """).fetchall()
     result = [dict(r) for r in rows if r["avg_dias"] is not None]
     return sorted(result, key=lambda x: ESTADO_ORDER.get(x["estado"], 99))
+
+
+def get_titular(nodo_key: str, oficina_key: str) -> dict:
+    """Retorna el titular de una oficina. Dict vacío si no está cargado."""
+    with get_conn() as conn:
+        r = conn.execute(
+            "SELECT * FROM oficinas_titulares WHERE nodo_key=? AND oficina_key=?",
+            (nodo_key, oficina_key)
+        ).fetchone()
+    return dict(r) if r else {}
+
+
+def set_titular(nodo_key: str, oficina_key: str,
+                titular: str, cargo: str = "", updated_by: str = "") -> None:
+    """Guarda o actualiza el titular de una oficina."""
+    with get_conn() as conn:
+        conn.execute(
+            """INSERT INTO oficinas_titulares (nodo_key, oficina_key, titular, cargo, updated_by)
+               VALUES (?,?,?,?,?)
+               ON CONFLICT(nodo_key, oficina_key)
+               DO UPDATE SET titular=excluded.titular, cargo=excluded.cargo,
+                             updated_by=excluded.updated_by,
+                             updated_at=datetime('now','localtime')""",
+            (nodo_key, oficina_key, titular, cargo, updated_by)
+        )
+
+
+def get_titulares_nodo(nodo_key: str) -> dict[str, dict]:
+    """Retorna {oficina_key: {titular, cargo}} para todo el nodo."""
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT oficina_key, titular, cargo, updated_at FROM oficinas_titulares WHERE nodo_key=?",
+            (nodo_key,)
+        ).fetchall()
+    return {r["oficina_key"]: {"titular": r["titular"], "cargo": r["cargo"],
+                                "updated_at": r["updated_at"]} for r in rows}
 
 
 def get_favoritos(unidad: str, fiscal: str = "") -> list[str]:

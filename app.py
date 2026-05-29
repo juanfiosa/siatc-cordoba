@@ -54,7 +54,7 @@ from mensajeria import (
     get_mensajes_causa, marcar_leido, marcar_procesado,
     count_no_leidos, registrar_pase, get_historial_pases,
     get_oficina_actual, render_bandeja, render_nuevo_mensaje,
-    render_badge_oficina,
+    render_badge_oficina, render_editor_titulares,
 )
 
 # ── Init ───────────────────────────────────────────────────────────────────────
@@ -3038,6 +3038,12 @@ with tab_panel:
             if st.button(f"⬇️ Cargar más actividad (mostrando {_act_limit})", key="act_load_more"):
                 st.session_state["act_feed_limit"] = _act_limit + 15
                 st.rerun()
+
+        # ── Configuración del nodo — titulares de oficinas ───────────────────
+        st.markdown("---")
+        with st.expander("🏛️ Titulares de oficinas del nodo", expanded=False):
+            _nodo_key_panel = st.session_state.get("nodo_key", "cba_norte")
+            render_editor_titulares(_nodo_key_panel, fiscal_nombre)
 
         # ── Gestor de favoritas ────────────────────────────────────────────
         st.markdown("---")
