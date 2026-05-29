@@ -1143,7 +1143,32 @@ with tab_causas:
                     # Timeline
                     timeline = get_timeline(c["id"])
                     if timeline:
-                        st.markdown("**Historial de estados:**")
+                        _tl_hdr, _tl_exp = st.columns([4, 1])
+                        _tl_hdr.markdown("**Historial de estados:**")
+                        # Timeline CSV export
+                        try:
+                            import io as _io_tl
+                            _tl_rows = []
+                            for _tl in timeline:
+                                _tl_rows.append({
+                                    "Fecha": _tl.get("created_at","")[:16],
+                                    "Estado anterior": ESTADOS_LABEL.get(_tl.get("estado_anterior",""),"—"),
+                                    "Estado nuevo": ESTADOS_LABEL.get(_tl.get("estado_nuevo",""),""),
+                                    "Usuario": _tl.get("usuario",""),
+                                    "Observaciones": _tl.get("observaciones",""),
+                                })
+                            _tl_csv = _io_tl.StringIO()
+                            pd.DataFrame(_tl_rows).to_csv(_tl_csv, index=False)
+                            _tl_exp.download_button(
+                                "⬇️", data=_tl_csv.getvalue().encode("utf-8"),
+                                file_name=f"{c['numero']}_historial.csv",
+                                mime="text/csv",
+                                key=f"dl_tl_{c['id']}",
+                                help="Exportar historial como CSV",
+                                use_container_width=True,
+                            )
+                        except Exception:
+                            pass
                         for t in timeline:
                             _es_nota = t.get("estado_anterior") == t.get("estado_nuevo") and t.get("estado_anterior")
                             if _es_nota:
