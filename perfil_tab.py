@@ -89,6 +89,26 @@ def render_perfil(persona_id: int):
 
     st.markdown(_badge_antecedentes(antec), unsafe_allow_html=True)
 
+    # ── Actividad reciente de la persona (últimos 30 días) ───────────────────
+    _hoy_pf = date.today()
+    _hace30 = (_hoy_pf - timedelta(days=30)).isoformat()
+    _auds_recientes = [a for a in auds if a.get("fecha","") >= _hace30]
+    _causas_activas = [c for c in causas if c.get("estado") in
+                       ("ingresada","clasificada","notificada","en_mediacion")]
+    if _auds_recientes or _causas_activas:
+        _tags = []
+        if _causas_activas:
+            _tags.append(f"📂 {len(_causas_activas)} causa(s) activa(s)")
+        if _auds_recientes:
+            _n_aud_prog = sum(1 for a in _auds_recientes if a.get("estado") == "programada")
+            _n_aud_real = sum(1 for a in _auds_recientes if a.get("estado") == "realizada")
+            _n_aud_aus  = sum(1 for a in _auds_recientes if a.get("estado") == "ausente")
+            _tags.append(f"📅 {len(_auds_recientes)} audiencia(s) (últimos 30d): {_n_aud_prog} prog. / {_n_aud_real} realiz. / {_n_aud_aus} ausente(s)")
+        _segs_activos = [s for s in segs if s.get("estado") == "activo"]
+        if _segs_activos:
+            _tags.append(f"🔍 {len(_segs_activos)} seguimiento(s) activo(s)")
+        st.info("  |  ".join(_tags))
+
     # ── Línea de tiempo visual ────────────────────────────────────────────────
     _gantt_rows = []
     _today = date.today().isoformat()
