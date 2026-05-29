@@ -537,6 +537,33 @@ def _panel_seguimientos(fiscal):
                         st.warning("Seguimiento revocado.")
                         st.rerun()
 
+                # Add condition to existing active seguimiento
+                if seg.get("estado") == "activo":
+                    with st.expander("➕ Agregar nueva condición al seguimiento", expanded=False):
+                        _new_tipo_c = st.selectbox(
+                            "Tipo", list(TIPO_COND_LABEL.keys()),
+                            format_func=lambda k: TIPO_COND_LABEL[k],
+                            key=f"new_cond_tipo_{seg['id']}"
+                        )
+                        _new_desc_c = st.text_input("Descripción de la condición",
+                                                     key=f"new_cond_desc_{seg['id']}")
+                        _nc1, _nc2 = st.columns(2)
+                        _new_val_c = _nc1.number_input("Meta cuantitativa (0 = sin meta)",
+                                                        min_value=0.0, step=1.0,
+                                                        key=f"new_cond_val_{seg['id']}")
+                        _new_uni_c = _nc2.selectbox("Unidad", ["","horas","pesos","controles","sesiones"],
+                                                      key=f"new_cond_uni_{seg['id']}")
+                        if st.button("Agregar condición", key=f"new_cond_btn_{seg['id']}", type="primary"):
+                            if _new_desc_c.strip():
+                                db.agregar_condicion(
+                                    seg["id"], _new_tipo_c, _new_desc_c.strip(),
+                                    _new_val_c, _new_uni_c, ""
+                                )
+                                st.success("Condición agregada al seguimiento.")
+                                st.rerun()
+                            else:
+                                st.warning("Ingresá una descripción para la condición.")
+
 
 # ── Punto de entrada público ──────────────────────────────────────────────────
 
