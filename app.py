@@ -89,16 +89,26 @@ st.markdown("""
 .main-header {
     background: linear-gradient(90deg,#1a2f5e 0%,#2e5090 100%);
     padding:1.2rem 2rem; border-radius:8px; color:white; margin-bottom:1.2rem;
+    box-shadow: 0 2px 8px rgba(30,47,94,0.25);
 }
-.carril-verde    {background:#d4edda;border-left:5px solid #28a745;padding:1rem;border-radius:4px;margin:0.5rem 0}
-.carril-amarillo {background:#fff3cd;border-left:5px solid #ffc107;padding:1rem;border-radius:4px;margin:0.5rem 0}
-.carril-rojo     {background:#f8d7da;border-left:5px solid #dc3545;padding:1rem;border-radius:4px;margin:0.5rem 0}
-.timeline-item   {border-left:3px solid #2e5090;padding:0.4rem 0.8rem;margin:0.3rem 0;background:#f8f9fa;border-radius:0 4px 4px 0}
+.carril-verde    {background:#d4edda;border-left:5px solid #28a745;padding:1rem;border-radius:4px;margin:0.5rem 0;
+                  box-shadow:0 1px 3px rgba(40,167,69,0.15)}
+.carril-amarillo {background:#fff3cd;border-left:5px solid #ffc107;padding:1rem;border-radius:4px;margin:0.5rem 0;
+                  box-shadow:0 1px 3px rgba(255,193,7,0.15)}
+.carril-rojo     {background:#f8d7da;border-left:5px solid #dc3545;padding:1rem;border-radius:4px;margin:0.5rem 0;
+                  box-shadow:0 1px 3px rgba(220,53,69,0.15)}
+.timeline-item   {border-left:3px solid #2e5090;padding:0.4rem 0.8rem;margin:0.3rem 0;background:#f8f9fa;
+                  border-radius:0 4px 4px 0;transition:background 0.2s}
+.timeline-item:hover {background:#e8eaf6}
 .doc-preview     {background:#fafafa;border:1px solid #ccc;border-radius:4px;padding:1.2rem;
                   font-family:'Courier New',monospace;font-size:0.76rem;white-space:pre-wrap;
-                  max-height:420px;overflow-y:auto}
-.antec-badge     {background:#dc3545;color:white;border-radius:12px;padding:2px 10px;font-size:0.8rem;font-weight:bold}
-.antec-ok        {background:#28a745;color:white;border-radius:12px;padding:2px 10px;font-size:0.8rem}
+                  max-height:420px;overflow-y:auto;line-height:1.4}
+.antec-badge     {background:#dc3545;color:white;border-radius:12px;padding:2px 10px;font-size:0.8rem;
+                  font-weight:bold;display:inline-block;margin:4px 0}
+.antec-ok        {background:#28a745;color:white;border-radius:12px;padding:2px 10px;font-size:0.8rem;
+                  display:inline-block;margin:4px 0}
+/* Subtle hover on expanders */
+div[data-testid="stExpander"] > div:first-child:hover {background:#f0f4ff !important}
 </style>
 """, unsafe_allow_html=True)
 
