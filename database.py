@@ -1149,6 +1149,30 @@ def causas_count_por_persona(persona_ids: list) -> dict:
     return {r["persona_id"]: r["n"] for r in rows}
 
 
+def stats_por_dia_semana() -> list[dict]:
+    """
+    Returns count of causas created per day of week (0=Mon … 6=Sun).
+    Useful for staffing/resource planning charts.
+    """
+    with get_conn() as conn:
+        rows = conn.execute("""
+            SELECT CAST(strftime('%w', created_at) AS INTEGER) AS dow, COUNT(*) AS n
+            FROM causas
+            GROUP BY dow
+            ORDER BY dow
+        """).fetchall()
+    # SQLite: %w is 0=Sunday, 1=Monday … convert to Mon=0 … Sun=6
+    DIA = {0: "Dom", 1: "Lun", 2: "Mar", 3: "Mié", 4: "Jue", 5: "Vie", 6: "Sáb"}
+    # remap: SQLite 0→Sun, 1→Mon … → ISO 0→Mon … 6→Sun
+    iso_map = {1: 0, 2: 1, 3: 2, 4: 3, 5: 4, 6: 5, 0: 6}
+    result = [{
+        "dia_num": iso_map.get(r["dow"], r["dow"]),
+        "dia":     ["Lun","Mar","Mié","Jue","Vie","Sáb","Dom"][iso_map.get(r["dow"], r["dow"])],
+        "n":       r["n"],
+    } for r in rows]
+    return sorted(result, key=lambda x: x["dia_num"])
+
+
 def stats_tiempo_por_tipo() -> list[dict]:
     """
     Avg resolution days and count per tipo_infraccion (only resolved/archived causas).

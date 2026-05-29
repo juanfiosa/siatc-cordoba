@@ -32,6 +32,7 @@ from database import (
     causas_mes_actual_vs_anterior, stats_por_fiscal, causas_sin_seguimiento,
     proximas_audiencias_por_causa, causas_count_por_persona,
     stats_tendencia_mensual, stats_por_unidad, stats_tiempo_por_tipo,
+    stats_por_dia_semana,
 )
 from seguimiento_tab import render_tab_seguimiento
 from agenda_tab import render_tab_agenda
@@ -1365,6 +1366,33 @@ with tab_panel:
                 ))
                 fig4.update_layout(title="Causas por unidad", height=280)
                 st.plotly_chart(fig4, use_container_width=True)
+
+        # ── Distribución por día de semana ────────────────────────────────
+        _dow_data = stats_por_dia_semana()
+        if _dow_data:
+            st.markdown("---")
+            _col_dow, _col_blank = st.columns([2, 1])
+            with _col_dow:
+                _df_dow = pd.DataFrame(_dow_data)
+                _colors_dow = ["#2e5090" if d not in ("Sáb","Dom") else "#adb5bd"
+                               for d in _df_dow["dia"]]
+                _fig_dow = go.Figure(go.Bar(
+                    x=_df_dow["dia"], y=_df_dow["n"],
+                    marker_color=_colors_dow,
+                    text=_df_dow["n"], textposition="outside",
+                ))
+                _fig_dow.update_layout(
+                    title="Causas ingresadas por día de semana",
+                    height=260, yaxis_title="Causas", xaxis_title="",
+                    margin=dict(t=40, b=10),
+                )
+                st.plotly_chart(_fig_dow, use_container_width=True)
+            with _col_blank:
+                if len(_dow_data) >= 5:
+                    _max_dow = max(_dow_data, key=lambda x: x["n"])
+                    _min_dow = min(_dow_data, key=lambda x: x["n"])
+                    st.metric("Día más activo", _max_dow["dia"], delta=f"{_max_dow['n']} causas")
+                    st.metric("Día menos activo", _min_dow["dia"], delta=f"{_min_dow['n']} causas")
 
         # Evolución temporal + por fiscal
         meses_data  = causas_por_mes(18)
