@@ -1,0 +1,437 @@
+# -*- coding: utf-8 -*-
+"""
+Módulo de mensajería inter-oficina — SIATC MPF Córdoba
+Gestiona pases de expediente y notificaciones entre oficinas del MPF.
+"""
+
+from __future__ import annotations
+import streamlit as st
+from datetime import datetime
+import database as db
+
+# ── Catálogo de oficinas ──────────────────────────────────────────────────────
+OFICINAS = {
+    # ── Internas MPF (activas) ───────────────────────────────────────────────
+    "policia_judicial": {
+        "label": "Policía Judicial",
+        "label_corto": "P. Judicial",
+        "icon": "🔎",
+        "tipo": "activa",
+        "descripcion": "Auxiliar del MPF — levanta actas y eleva actuaciones al fiscal",
+    },
+    "unidad_norte": {
+        "label": "Unidad Contravencional Norte",
+        "label_corto": "U. Norte",
+        "icon": "⚖️",
+        "tipo": "activa",
+        "descripcion": "Fiscalía contravencional — Zona Norte de Córdoba",
+    },
+    "unidad_sur": {
+        "label": "Unidad Contravencional Sur",
+        "label_corto": "U. Sur",
+        "icon": "⚖️",
+        "tipo": "activa",
+        "descripcion": "Fiscalía contravencional — Zona Sur / Centro",
+    },
+    "unidad_genero": {
+        "label": "Unidad Contravencional de Género",
+        "label_corto": "U. Género",
+        "icon": "⚖️",
+        "tipo": "activa",
+        "descripcion": "Fiscalía contravencional — Violencia de género",
+    },
+    "camara": {
+        "label": "Fiscalía de Cámara",
+        "label_corto": "Cámara",
+        "icon": "🏛️",
+        "tipo": "activa",
+        "descripcion": "Revisión de resoluciones y apelaciones (Art. 144-145 CCC)",
+    },
+    "mesa_entradas": {
+        "label": "Mesa de Entradas / Despacho",
+        "label_corto": "Mesa Ent.",
+        "icon": "📋",
+        "tipo": "activa",
+        "descripcion": "Recepción y registro de actuaciones",
+    },
+
+    # ── Externas / Fantasma (pendiente acuerdo institucional) ─────────────────
+    "mediacion": {
+        "label": "Centro Judicial de Mediación",
+        "label_corto": "Mediación",
+        "icon": "🤝",
+        "tipo": "fantasma",
+        "descripcion": "Poder Judicial — activo en sistema cuando haya acuerdo",
+    },
+    "juzgado_control": {
+        "label": "Juzgado de Control Contravencional",
+        "label_corto": "Juzgado",
+        "icon": "⚖️",
+        "tipo": "fantasma",
+        "descripcion": "Poder Judicial — pendiente acuerdo interinstitucional",
+    },
+}
+
+# Tipos de mensaje con descripción
+TIPOS_MENSAJE = {
+    "notificacion": {
+        "label": "Notificación",
+        "icon": "📢",
+        "descripcion": "Comunica un hecho o providencia (no requiere respuesta obligatoria)",
+        "color": "#cce5ff",
+    },
+    "instruccion": {
+        "label": "Instrucción",
+        "icon": "📋",
+        "descripcion": "Orden del fiscal que requiere acuse de recibo y respuesta",
+        "color": "#fff3cd",
+    },
+    "consulta": {
+        "label": "Consulta",
+        "icon": "❓",
+        "descripcion": "Solicita orientación o decisión al receptor",
+        "color": "#d4edda",
+    },
+    "respuesta": {
+        "label": "Respuesta",
+        "icon": "↩️",
+        "descripcion": "Responde a una instrucción o consulta previa",
+        "color": "#e2e3e5",
+    },
+    "resolucion": {
+        "label": "Resolución",
+        "icon": "📜",
+        "descripcion": "Comunicación de una resolución formal",
+        "color": "#f8d7da",
+    },
+}
+
+# Flujos permitidos entre oficinas (qué puede enviar a quién)
+FLUJOS_PERMITIDOS = {
+    "policia_judicial": ["unidad_norte", "unidad_sur", "unidad_genero", "mesa_entradas"],
+    "unidad_norte":     ["policia_judicial", "camara", "mesa_entradas", "mediacion", "juzgado_control"],
+    "unidad_sur":       ["policia_judicial", "camara", "mesa_entradas", "mediacion", "juzgado_control"],
+    "unidad_genero":    ["policia_judicial", "camara", "mesa_entradas", "mediacion", "juzgado_control"],
+    "camara":           ["unidad_norte", "unidad_sur", "unidad_genero"],
+    "mesa_entradas":    ["unidad_norte", "unidad_sur", "unidad_genero", "policia_judicial"],
+    "mediacion":        ["unidad_norte", "unidad_sur", "unidad_genero"],
+    "juzgado_control":  ["unidad_norte", "unidad_sur", "unidad_genero", "camara"],
+}
+
+# Plantillas de mensajes frecuentes por tipo de comunicación
+PLANTILLAS = {
+    ("policia_judicial", "instruccion"): [
+        ("Cítese al imputado/a", "Sírvase citar al imputado/a {imputado} (DNI {dni}) a comparecer ante esta Unidad el día ______ a las ______ hs. Adjunto cédula de notificación."),
+        ("Procédase al secuestro", "Ordénese el secuestro de los elementos descriptos en las actuaciones de la causa {numero}. Procédase conforme art. 129 CCC."),
+        ("Elévese acta de diligencia", "Procédase a labrar acta circunstanciada de la diligencia realizada en causa {numero} y elévese a esta Fiscalía en el plazo de 48 hs."),
+        ("Deje en libertad al detenido", "Dispóngase la libertad del detenido/a {imputado} (DNI {dni}), en causa {numero}."),
+    ],
+    ("policia_judicial", "notificacion"): [
+        ("Ingreso de nueva causa", "Se eleva actuación contravencional labrada por hecho ocurrido el {fecha}. Imputado/a: {imputado} (DNI {dni}). Infracción: {infraccion}."),
+        ("Diligencia cumplida", "Se informa que se dio cumplimiento a la instrucción impartida en causa {numero}. Imputado/a notificado/a con fecha ______."),
+        ("Imputado incomparece", "Se hace saber que el/la imputado/a {imputado} (DNI {dni}) no compareció a la citación dispuesta en causa {numero} para el día ______."),
+        ("Secuestro efectuado", "Se informa que se efectuó el secuestro ordenado en causa {numero}. Los elementos se encuentran a disposición de esa Fiscalía."),
+    ],
+    ("unidad_norte", "instruccion"): [
+        ("Instrucción a Policía Judicial", "Instrúyase a Policía Judicial para que proceda conforme se indica en la presente y en los plazos previstos por el Código de Convivencia Ciudadana."),
+    ],
+}
+
+
+# ── CRUD — Mensajes ────────────────────────────────────────────────────────────
+
+def enviar_mensaje(
+    causa_id: int | None,
+    tipo: str,
+    asunto: str,
+    cuerpo: str,
+    oficina_origen: str,
+    usuario_origen: str,
+    oficina_destino: str,
+    adjunto_tipo: str = "",
+    prioridad: str = "normal",
+    referencia_id: int | None = None,
+) -> int:
+    """Crea un mensaje inter-oficina. Retorna el id del mensaje."""
+    with db.get_conn() as conn:
+        cur = conn.execute(
+            """INSERT INTO mensajes_interoficina
+               (causa_id, tipo, asunto, cuerpo, oficina_origen, usuario_origen,
+                oficina_destino, adjunto_tipo, prioridad, referencia_id)
+               VALUES (?,?,?,?,?,?,?,?,?,?)""",
+            (causa_id, tipo, asunto, cuerpo, oficina_origen, usuario_origen,
+             oficina_destino, adjunto_tipo, prioridad, referencia_id)
+        )
+    return cur.lastrowid
+
+
+def get_bandeja_entrada(oficina: str, solo_no_leidos: bool = False) -> list[dict]:
+    """Mensajes recibidos por una oficina, ordenados por prioridad y fecha."""
+    sql = """
+        SELECT m.*, c.numero, c.apellido_nombre
+        FROM mensajes_interoficina m
+        LEFT JOIN causas c ON m.causa_id = c.id
+        WHERE m.oficina_destino = ?
+    """
+    params = [oficina]
+    if solo_no_leidos:
+        sql += " AND m.leido_at IS NULL"
+    sql += " ORDER BY CASE m.prioridad WHEN 'urgente' THEN 0 ELSE 1 END, m.created_at DESC"
+    with db.get_conn() as conn:
+        rows = conn.execute(sql, params).fetchall()
+    return [dict(r) for r in rows]
+
+
+def get_bandeja_salida(oficina: str) -> list[dict]:
+    """Mensajes enviados por una oficina."""
+    with db.get_conn() as conn:
+        rows = conn.execute(
+            """SELECT m.*, c.numero, c.apellido_nombre
+               FROM mensajes_interoficina m
+               LEFT JOIN causas c ON m.causa_id = c.id
+               WHERE m.oficina_origen = ?
+               ORDER BY m.created_at DESC""",
+            (oficina,)
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def get_mensajes_causa(causa_id: int) -> list[dict]:
+    """Todos los mensajes de una causa, ordenados cronológicamente."""
+    with db.get_conn() as conn:
+        rows = conn.execute(
+            """SELECT m.*
+               FROM mensajes_interoficina m
+               WHERE m.causa_id = ?
+               ORDER BY m.created_at ASC""",
+            (causa_id,)
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def marcar_leido(mensaje_id: int) -> None:
+    with db.get_conn() as conn:
+        conn.execute(
+            "UPDATE mensajes_interoficina SET leido_at=datetime('now','localtime'), estado='recibido' WHERE id=?",
+            (mensaje_id,)
+        )
+
+
+def marcar_procesado(mensaje_id: int) -> None:
+    with db.get_conn() as conn:
+        conn.execute(
+            "UPDATE mensajes_interoficina SET estado='procesado' WHERE id=?",
+            (mensaje_id,)
+        )
+
+
+def count_no_leidos(oficina: str) -> int:
+    with db.get_conn() as conn:
+        r = conn.execute(
+            "SELECT COUNT(*) as n FROM mensajes_interoficina WHERE oficina_destino=? AND leido_at IS NULL",
+            (oficina,)
+        ).fetchone()
+    return r["n"] if r else 0
+
+
+# ── CRUD — Pases de expediente ─────────────────────────────────────────────────
+
+def registrar_pase(
+    causa_id: int,
+    oficina_origen: str,
+    usuario_origen: str,
+    oficina_destino: str,
+    motivo: str,
+    observaciones: str = "",
+) -> int:
+    """Registra el pase formal del expediente entre oficinas.
+    Para oficinas fantasma genera una notificación de 'pase externo'.
+    Actualiza oficina_actual en causas.
+    """
+    with db.get_conn() as conn:
+        # Update current office on the causa
+        conn.execute(
+            "UPDATE causas SET oficina_actual=?, updated_at=datetime('now','localtime') WHERE id=?",
+            (oficina_destino, causa_id)
+        )
+        cur = conn.execute(
+            """INSERT INTO pases_expediente
+               (causa_id, oficina_origen, usuario_origen, oficina_destino, motivo, observaciones)
+               VALUES (?,?,?,?,?,?)""",
+            (causa_id, oficina_origen, usuario_origen, oficina_destino, motivo, observaciones)
+        )
+        pase_id = cur.lastrowid
+
+    # Auto-insert timeline note
+    db.agregar_nota_causa(
+        causa_id,
+        f"PASE A OFICINA: Expediente remitido a {OFICINAS.get(oficina_destino, {}).get('label', oficina_destino)}. "
+        f"Motivo: {motivo}.",
+        usuario_origen,
+    )
+    return pase_id
+
+
+def get_historial_pases(causa_id: int) -> list[dict]:
+    """Historial de pases de un expediente."""
+    with db.get_conn() as conn:
+        rows = conn.execute(
+            "SELECT * FROM pases_expediente WHERE causa_id=? ORDER BY created_at ASC",
+            (causa_id,)
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def get_oficina_actual(causa_id: int) -> str:
+    """Retorna la oficina que actualmente tiene el expediente."""
+    with db.get_conn() as conn:
+        r = conn.execute(
+            "SELECT oficina_actual FROM causas WHERE id=?", (causa_id,)
+        ).fetchone()
+    return (r["oficina_actual"] or "unidad") if r else "unidad"
+
+
+# ── UI — Componentes reutilizables ─────────────────────────────────────────────
+
+def render_badge_oficina(oficina_key: str, small: bool = False) -> str:
+    """Retorna HTML de un badge de oficina."""
+    o = OFICINAS.get(oficina_key, {"icon": "📋", "label_corto": oficina_key, "tipo": "activa"})
+    color = "#cce5ff" if o["tipo"] == "activa" else "#e2e3e5"
+    size = "0.7rem" if small else "0.8rem"
+    return (
+        f"<span style='background:{color};border-radius:10px;padding:2px 8px;"
+        f"font-size:{size};white-space:nowrap'>{o['icon']} {o['label_corto']}</span>"
+    )
+
+
+def render_bandeja(oficina: str, fiscal_nombre: str):
+    """Renderiza la bandeja de entrada de una oficina."""
+    mensajes = get_bandeja_entrada(oficina)
+    no_leidos = [m for m in mensajes if not m.get("leido_at")]
+
+    if not mensajes:
+        st.info("📭 Bandeja vacía — no hay mensajes recibidos.")
+        return
+
+    for m in mensajes:
+        tm = TIPOS_MENSAJE.get(m["tipo"], TIPOS_MENSAJE["notificacion"])
+        leido = bool(m.get("leido_at"))
+        urgente = m.get("prioridad") == "urgente"
+
+        bg = "#fff8e1" if urgente and not leido else ("#f8f9fa" if leido else "white")
+        border = "#dc3545" if urgente and not leido else (tm["color"])
+
+        with st.container():
+            st.markdown(
+                f"<div style='border-left:4px solid {border};background:{bg};"
+                f"padding:8px 12px;margin:4px 0;border-radius:0 6px 6px 0'>",
+                unsafe_allow_html=True
+            )
+            col_info, col_acc = st.columns([5, 1])
+            with col_info:
+                _from = OFICINAS.get(m["oficina_origen"], {}).get("label_corto", m["oficina_origen"])
+                _causa_ref = f"  ·  **{m['numero']}**" if m.get("numero") else ""
+                st.markdown(
+                    f"{'🔴 ' if urgente and not leido else ''}"
+                    f"**{tm['icon']} {m['asunto']}**{_causa_ref}  \n"
+                    f"*De: {_from} · {m['created_at'][:16]}*"
+                    + (f"  \n{m['cuerpo'][:200]}{'…' if len(m.get('cuerpo',''))>200 else ''}" if m.get("cuerpo") else "")
+                )
+            with col_acc:
+                if not leido:
+                    if st.button("✓ Leído", key=f"msg_read_{m['id']}", use_container_width=True):
+                        marcar_leido(m["id"])
+                        st.rerun()
+                elif m["estado"] != "procesado" and m["tipo"] in ("instruccion", "consulta"):
+                    if st.button("✅ Procesado", key=f"msg_proc_{m['id']}", use_container_width=True, type="primary"):
+                        marcar_procesado(m["id"])
+                        st.rerun()
+            st.markdown("</div>", unsafe_allow_html=True)
+
+
+def render_nuevo_mensaje(causa_id: int | None, causa_numero: str,
+                          oficina_origen: str, fiscal_nombre: str):
+    """Formulario para enviar un nuevo mensaje inter-oficina."""
+    destinos_posibles = FLUJOS_PERMITIDOS.get(oficina_origen, [])
+    if not destinos_posibles:
+        st.warning("Esta oficina no tiene destinos configurados.")
+        return
+
+    col1, col2 = st.columns(2)
+    with col1:
+        dest_sel = st.selectbox(
+            "Oficina destinataria",
+            destinos_posibles,
+            format_func=lambda k: f"{OFICINAS.get(k,{}).get('icon','📋')} {OFICINAS.get(k,{}).get('label', k)}"
+                                   + (" 👻" if OFICINAS.get(k,{}).get("tipo") == "fantasma" else ""),
+            key=f"msg_dest_{causa_id}",
+        )
+        if OFICINAS.get(dest_sel, {}).get("tipo") == "fantasma":
+            st.warning("⚠️ Oficina externa: el mensaje generará un documento PDF para envío físico.")
+    with col2:
+        tipo_sel = st.selectbox(
+            "Tipo",
+            list(TIPOS_MENSAJE.keys()),
+            format_func=lambda k: f"{TIPOS_MENSAJE[k]['icon']} {TIPOS_MENSAJE[k]['label']}",
+            key=f"msg_tipo_{causa_id}",
+        )
+
+    # Template selector
+    plantillas_disp = PLANTILLAS.get((oficina_origen, tipo_sel), [])
+    if plantillas_disp:
+        plantilla_sel = st.selectbox(
+            "Plantilla",
+            ["— Escribir manualmente —"] + [p[0] for p in plantillas_disp],
+            key=f"msg_plantilla_{causa_id}",
+        )
+        _txt_plantilla = ""
+        if plantilla_sel != "— Escribir manualmente —":
+            _txt_plantilla = next(p[1] for p in plantillas_disp if p[0] == plantilla_sel)
+    else:
+        plantilla_sel = None
+        _txt_plantilla = ""
+
+    asunto = st.text_input(
+        "Asunto",
+        value=plantilla_sel if plantilla_sel and plantilla_sel != "— Escribir manualmente —" else "",
+        key=f"msg_asunto_{causa_id}",
+    )
+    cuerpo = st.text_area(
+        "Cuerpo del mensaje",
+        value=_txt_plantilla,
+        height=120,
+        key=f"msg_cuerpo_{causa_id}",
+    )
+
+    col_pri, col_adj, col_btn = st.columns([1, 2, 1])
+    prioridad = col_pri.radio("Prioridad", ["normal", "urgente"], horizontal=True,
+                               key=f"msg_pri_{causa_id}")
+    adjunto = col_adj.selectbox(
+        "Adjunto",
+        ["", "cedula", "acta", "requerimiento", "resolucion", "dictamen"],
+        format_func=lambda k: {
+            "": "Sin adjunto", "cedula": "📄 Cédula de notificación",
+            "acta": "📄 Acta", "requerimiento": "📄 Requerimiento",
+            "resolucion": "📄 Resolución", "dictamen": "📄 Dictamen",
+        }.get(k, k),
+        key=f"msg_adj_{causa_id}",
+    )
+
+    if col_btn.button("📤 Enviar", key=f"msg_enviar_{causa_id}",
+                       type="primary", use_container_width=True):
+        if not asunto.strip():
+            st.warning("Completá el asunto.")
+        else:
+            enviar_mensaje(
+                causa_id=causa_id,
+                tipo=tipo_sel,
+                asunto=asunto,
+                cuerpo=cuerpo,
+                oficina_origen=oficina_origen,
+                usuario_origen=fiscal_nombre,
+                oficina_destino=dest_sel,
+                adjunto_tipo=adjunto,
+                prioridad=prioridad,
+            )
+            st.success(f"Mensaje enviado a {OFICINAS.get(dest_sel,{}).get('label','oficina destinataria')}.")
+            st.rerun()

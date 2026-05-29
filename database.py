@@ -162,8 +162,53 @@ def init_db():
             created_at  TEXT    DEFAULT (datetime('now','localtime')),
             UNIQUE(unidad, fiscal, tipo_key)
         );
+
+        -- ── Tenencia del expediente ──────────────────────────────────────
+        -- Registra los pases formales del file entre oficinas MPF
+        CREATE TABLE IF NOT EXISTS pases_expediente (
+            id               INTEGER PRIMARY KEY AUTOINCREMENT,
+            causa_id         INTEGER NOT NULL REFERENCES causas(id),
+            oficina_origen   TEXT    NOT NULL,
+            usuario_origen   TEXT    NOT NULL DEFAULT '',
+            oficina_destino  TEXT    NOT NULL,
+            motivo           TEXT    NOT NULL DEFAULT '',
+            estado           TEXT    DEFAULT 'enviado',  -- enviado|recibido|rechazado
+            observaciones    TEXT    DEFAULT '',
+            created_at       TEXT    DEFAULT (datetime('now','localtime')),
+            recibido_at      TEXT
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_pases_causa    ON pases_expediente(causa_id);
+        CREATE INDEX IF NOT EXISTS idx_pases_destino  ON pases_expediente(oficina_destino);
+
+        -- ── Mensajería inter-oficina ─────────────────────────────────────
+        -- Notificaciones/instrucciones sin mover el expediente
+        CREATE TABLE IF NOT EXISTS mensajes_interoficina (
+            id               INTEGER PRIMARY KEY AUTOINCREMENT,
+            causa_id         INTEGER REFERENCES causas(id),
+            tipo             TEXT    NOT NULL,  -- notificacion|instruccion|consulta|respuesta|resolucion
+            asunto           TEXT    NOT NULL,
+            cuerpo           TEXT    DEFAULT '',
+            oficina_origen   TEXT    NOT NULL,
+            usuario_origen   TEXT    NOT NULL DEFAULT '',
+            oficina_destino  TEXT    NOT NULL,
+            estado           TEXT    DEFAULT 'enviado',  -- enviado|recibido|procesado
+            referencia_id    INTEGER REFERENCES mensajes_interoficina(id),
+            adjunto_tipo     TEXT    DEFAULT '',  -- cedula|acta|requerimiento|resolucion|''
+            prioridad        TEXT    DEFAULT 'normal',  -- urgente|normal
+            created_at       TEXT    DEFAULT (datetime('now','localtime')),
+            leido_at         TEXT
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_msg_causa    ON mensajes_interoficina(causa_id);
+        CREATE INDEX IF NOT EXISTS idx_msg_destino  ON mensajes_interoficina(oficina_destino);
+        CREATE INDEX IF NOT EXISTS idx_msg_origen   ON mensajes_interoficina(oficina_origen);
         """)
         # Safe migrations — ALTER TABLE is idempotent via try/except
+        try:
+            conn.execute("ALTER TABLE causas ADD COLUMN oficina_actual TEXT DEFAULT 'unidad'")
+        except Exception:
+            pass
         try:
             conn.execute("ALTER TABLE seguimientos ADD COLUMN proximo_control TEXT")
         except Exception:

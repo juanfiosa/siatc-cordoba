@@ -48,6 +48,14 @@ from database import (
     crear_audiencia, actualizar_estado_audiencia,
     perfil_persona, listar_personas,
 )
+from mensajeria import (
+    OFICINAS, TIPOS_MENSAJE, FLUJOS_PERMITIDOS,
+    enviar_mensaje, get_bandeja_entrada, get_bandeja_salida,
+    get_mensajes_causa, marcar_leido, marcar_procesado,
+    count_no_leidos, registrar_pase, get_historial_pases,
+    get_oficina_actual, render_bandeja, render_nuevo_mensaje,
+    render_badge_oficina,
+)
 
 # ── Init ───────────────────────────────────────────────────────────────────────
 init_db()
@@ -369,10 +377,16 @@ if _alertas:
         for alerta in _alertas:
             st.warning(alerta)
 
+# ── Badge de mensajes no leídos ────────────────────────────────────────────────
+_oficina_usuario = st.session_state.get("oficina_key", "unidad_norte")
+_n_no_leidos = count_no_leidos(_oficina_usuario)
+_msg_tab_label = f"📨 Mensajería" + (f" ({_n_no_leidos})" if _n_no_leidos else "")
+
 # ── Tabs ───────────────────────────────────────────────────────────────────────
-tab_nuevo, tab_causas, tab_demo, tab_seg, tab_agenda, tab_perfil, tab_panel = st.tabs([
+tab_nuevo, tab_causas, tab_demo, tab_seg, tab_agenda, tab_perfil, tab_panel, tab_msgs = st.tabs([
     "📋 Nuevo Caso", "📂 Gestión de Causas", "🗂️ Casos Demo",
-    "🔍 Seguimiento", "📅 Agenda", "👤 Perfil", "📊 Panel de Control"
+    "🔍 Seguimiento", "📅 Agenda", "👤 Perfil", "📊 Panel de Control",
+    _msg_tab_label
 ])
 
 
@@ -3140,3 +3154,139 @@ with tab_panel:
                     f"Servidor: {datetime.now().strftime('%d/%m/%Y %H:%M')}",
                     language=None
                 )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 8 — MENSAJERÍA INTER-OFICINA
+# ══════════════════════════════════════════════════════════════════════════════
+with tab_msgs:
+    st.header("📨 Mensajería Inter-Oficina — MPF Córdoba")
+    st.caption(
+        "Comunicaciones entre oficinas del Ministerio Público Fiscal. "
+        "El expediente no se mueve — solo circula información y providencias."
+    )
+
+    # Determinar oficina del usuario logueado
+    _oficina_key_msg = st.session_state.get("oficina_key", "unidad_norte")
+    _oficina_info    = OFICINAS.get(_oficina_key_msg, {})
+
+    # Selector de oficina (para demo sin auth completa)
+    _col_of, _col_info_of = st.columns([2, 3])
+    with _col_of:
+        _oficina_key_msg = st.selectbox(
+            "Mi oficina",
+            [k for k, v in OFICINAS.items() if v["tipo"] == "activa"],
+            format_func=lambda k: f"{OFICINAS[k]['icon']} {OFICINAS[k]['label']}",
+            index=list(k for k, v in OFICINAS.items() if v["tipo"] == "activa").index(
+                _oficina_key_msg
+            ) if _oficina_key_msg in OFICINAS else 0,
+            key="msg_mi_oficina",
+        )
+        _n_entrada = count_no_leidos(_oficina_key_msg)
+    with _col_info_of:
+        st.info(
+            f"**{OFICINAS[_oficina_key_msg]['icon']} {OFICINAS[_oficina_key_msg]['label']}**  \n"
+            f"{OFICINAS[_oficina_key_msg]['descripcion']}  \n"
+            + (f"📬 **{_n_entrada} mensaje(s) no leído(s)**" if _n_entrada else "📭 Sin mensajes nuevos")
+        )
+
+    _vista_msg = st.radio(
+        "Vista",
+        ["📥 Bandeja de entrada", "📤 Bandeja de salida", "✉️ Nuevo mensaje"],
+        horizontal=True, label_visibility="collapsed", key="msg_vista"
+    )
+
+    st.divider()
+
+    if _vista_msg == "📥 Bandeja de entrada":
+        _solo_nr = st.checkbox("Solo no leídos", key="msg_solo_nr")
+        mensajes_entrada = get_bandeja_entrada(_oficina_key_msg, solo_no_leidos=_solo_nr)
+        if not mensajes_entrada:
+            st.info("📭 Bandeja vacía.")
+        else:
+            for _m in mensajes_entrada:
+                _tm    = TIPOS_MENSAJE.get(_m["tipo"], TIPOS_MENSAJE["notificacion"])
+                _leido = bool(_m.get("leido_at"))
+                _urg   = _m.get("prioridad") == "urgente"
+                _bg    = "#fff8e1" if _urg and not _leido else ("#f8f9fa" if _leido else "white")
+                _bord  = "#dc3545" if _urg else _tm["color"]
+                _from  = OFICINAS.get(_m["oficina_origen"], {}).get("label_corto", _m["oficina_origen"])
+                _causa = f"  ·  **{_m['numero']}**" if _m.get("numero") else ""
+
+                with st.container():
+                    st.markdown(
+                        f"<div style='border-left:4px solid {_bord};background:{_bg};"
+                        f"padding:8px 14px;margin:4px 0;border-radius:0 6px 6px 0'>",
+                        unsafe_allow_html=True
+                    )
+                    _c1, _c2, _c3 = st.columns([1, 5, 1])
+                    _c1.markdown(f"<div style='font-size:1.8rem;text-align:center'>{_tm['icon']}</div>",
+                                 unsafe_allow_html=True)
+                    with _c2:
+                        st.markdown(
+                            f"{'🔴 **URGENTE** — ' if _urg and not _leido else ''}"
+                            f"**{_m['asunto']}**{_causa}  \n"
+                            f"*De: {_from} · {_m['created_at'][:16]}*"
+                            + (f"  \n{_m['cuerpo'][:300]}" if _m.get("cuerpo") else "")
+                        )
+                        if _m.get("adjunto_tipo"):
+                            st.caption(f"📎 Adjunto: {_m['adjunto_tipo']}")
+                    with _c3:
+                        if not _leido:
+                            if st.button("✓ Leído", key=f"rd_{_m['id']}", use_container_width=True):
+                                marcar_leido(_m["id"])
+                                st.cache_data.clear()
+                                st.rerun()
+                        if _m["tipo"] in ("instruccion", "consulta") and _m["estado"] != "procesado":
+                            if st.button("↩️ Responder", key=f"rsp_{_m['id']}", use_container_width=True):
+                                st.session_state["msg_responder_id"] = _m["id"]
+                                st.session_state["msg_responder_causa"] = _m.get("causa_id")
+                                st.session_state["msg_vista"] = "✉️ Nuevo mensaje"
+                                st.rerun()
+                    st.markdown("</div>", unsafe_allow_html=True)
+
+    elif _vista_msg == "📤 Bandeja de salida":
+        salida = get_bandeja_salida(_oficina_key_msg)
+        if not salida:
+            st.info("No hay mensajes enviados aún.")
+        else:
+            for _m in salida:
+                _tm   = TIPOS_MENSAJE.get(_m["tipo"], TIPOS_MENSAJE["notificacion"])
+                _to   = OFICINAS.get(_m["oficina_destino"], {}).get("label_corto", _m["oficina_destino"])
+                _causa= f"  ·  **{_m['numero']}**" if _m.get("numero") else ""
+                _est_color = {"enviado": "#ffc107", "recibido": "#28a745", "procesado": "#6c757d"}
+                _est = _m.get("estado", "enviado")
+                st.markdown(
+                    f"<div style='border-left:4px solid {_est_color.get(_est,'#ccc')};"
+                    f"padding:8px 14px;margin:4px 0;background:#f8f9fa;border-radius:0 6px 6px 0'>"
+                    f"{_tm['icon']} **{_m['asunto']}**{_causa}  \n"
+                    f"*Para: {_to} · {_m['created_at'][:16]} · Estado: {_est}*"
+                    f"</div>",
+                    unsafe_allow_html=True
+                )
+
+    else:  # Nuevo mensaje
+        # Pre-fill if replying
+        _ref_id   = st.session_state.pop("msg_responder_id", None)
+        _ref_causa= st.session_state.pop("msg_responder_causa", None)
+
+        # Select causa (optional)
+        all_causas_msg = listar_causas(limit=500)
+        causa_opts_msg = {"(Mensaje general — sin causa específica)": None} | {
+            f"{c['numero']} — {c.get('apellido_nombre','').split(',')[0]}": c["id"]
+            for c in all_causas_msg
+        }
+        causa_sel_msg = st.selectbox(
+            "Causa vinculada (opcional)",
+            list(causa_opts_msg.keys()),
+            key="msg_causa_sel"
+        )
+        causa_id_msg = causa_opts_msg[causa_sel_msg]
+
+        render_nuevo_mensaje(
+            causa_id=causa_id_msg,
+            causa_numero=causa_sel_msg.split(" —")[0] if causa_id_msg else "",
+            oficina_origen=_oficina_key_msg,
+            fiscal_nombre=fiscal_nombre,
+        )
+
