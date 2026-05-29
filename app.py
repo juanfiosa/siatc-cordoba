@@ -196,10 +196,16 @@ with st.sidebar:
     # Búsqueda rápida
     st.markdown("---")
     st.markdown("**🔎 Búsqueda rápida**")
-    _q_rapid = st.text_input("Causa o DNI", placeholder="Ej: García o UCN-00001",
+    _q_rapid = st.text_input("Nombre, DNI o expediente", placeholder="Ej: García, 38421667 o UCN-00001",
                              key="busqueda", label_visibility="collapsed")
     if _q_rapid:
         st.session_state["busqueda_rapida_causas"] = _q_rapid
+        # DNI pattern — if input is all digits 7-9 chars, offer profile jump
+        if _q_rapid.isdigit() and 7 <= len(_q_rapid) <= 9:
+            if st.button(f"👤 Ver perfil DNI {_q_rapid}", key="sb_dni_perfil",
+                         use_container_width=True, type="secondary"):
+                st.session_state["perfil_busqueda"] = _q_rapid
+                st.session_state["goto_perfil"] = True
 
     # Últimas causas modificadas
     _ultimas = listar_causas(limit=4)
