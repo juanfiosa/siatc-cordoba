@@ -232,6 +232,26 @@ After the main header, before tabs, SIATC shows warning banners for:
 - Seguimientos incumplidos
 - Incomparecencias en los últimos 7 días
 - Causas notificadas/clasificadas sin audiencia programada
+- Causas resueltas/en_mediación sin seguimiento
+- Seguimientos con próximo control HOY
+- Mediaciones estancadas >30 días sin actualización
+Auto-notes for seguimientos that expired yesterday/today (once per session).
+
+## Gestión de Causas (app.py Tab 2) — Full feature list
+- 7-option sort: Recientes / Más antiguas / Carril / Estado / 🚨 Urgencia / Fiscal / custom
+- 3 view modes: 📋 Detalle / 📊 Tabla / 🗂️ Kanban (pipeline por estado)
+- Extended filters: tipo_infraccion · fecha_desde/hasta · fiscal · solo_reincidentes · antigüedad_mínima
+- Global "✕ Todo" clear button in filter row 1
+- 7-metric quick-stats banner (Total, Personas, Activas, Resueltas, 🟢/🟡/🔴)
+- Causa expanders show: carril icon, reincidente badge ⚠️, inactivity indicator
+- Each expander col_info: DNI, Art., categoría, tel: link, Maps link, descripción (✏️ editable), fecha hecho, res. estimada
+- Siguiente paso sugerido based on estado + carril
+- Próxima audiencia badge (blue highlight)
+- Otras causas del mismo imputado (when reincidente)
+- Documents history with PDF download
+- col_acciones: ⭐ Prioritaria · Estado + motivo cierre templates · Nota rápida (with templates) · 📋 Datos popover (with email draft) · Audiencia popover (with observations) · Expediente completo PDF · Reasignar fiscal · Generar documento
+- CSV export in Tabla view; ↗ nav button in actividad feed
+- causas prioritarias (session bookmarks) expanded section at top
 
 ## Gestión de Causas (app.py Tab 2)
 Each causa expander shows:
