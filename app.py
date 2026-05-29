@@ -2660,7 +2660,8 @@ with tab_panel:
         # ── Actividad reciente ────────────────────────────────────────────
         st.markdown("---")
         st.subheader("🕐 Actividad reciente")
-        _actividad = actividad_reciente(limit=12)
+        _act_limit = st.session_state.get("act_feed_limit", 15)
+        _actividad = actividad_reciente(limit=_act_limit)
         if not _actividad:
             st.info("No hay actividad registrada aún.")
         else:
@@ -2699,6 +2700,12 @@ with tab_panel:
                                  use_container_width=True):
                         st.session_state["gc_busqueda"] = _num_a
                         st.session_state["causa_sel_id"] = _act.get("causa_id")
+
+        # Load more button for actividad
+        if len(_actividad) >= _act_limit:
+            if st.button(f"⬇️ Cargar más actividad (mostrando {_act_limit})", key="act_load_more"):
+                st.session_state["act_feed_limit"] = _act_limit + 15
+                st.rerun()
 
         # ── Opciones de demostración ───────────────────────────────────────
         st.markdown("---")
