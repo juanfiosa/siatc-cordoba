@@ -279,6 +279,28 @@ Ministerio Público Fiscal · Provincia de Córdoba &nbsp;|&nbsp; Código de Con
 </div>
 """, unsafe_allow_html=True)
 
+# ── Auto-notas para seguimientos vencidos (una vez por sesión) ────────────────
+if not st.session_state.get("_autonota_vencidos_done"):
+    try:
+        from datetime import date as _date_an, timedelta as _tda_an
+        _ayer = (_date_an.today() - _tda_an(days=1)).isoformat()
+        _hoy_an = _date_an.today().isoformat()
+        _venc_an = [s for s in listar_seguimientos(estado="activo")
+                    if _ayer <= s.get("fecha_fin","") <= _hoy_an]
+        for _vs in _venc_an:
+            agregar_nota_causa(
+                _vs["causa_id"],
+                f"VENCIMIENTO AUTOMÁTICO: El seguimiento post-resolución "
+                f"(período {_vs['fecha_inicio']} → {_vs['fecha_fin']}) "
+                "venció sin cierre formal. Se requiere evaluación del estado.",
+                "SIATC Sistema"
+            )
+        if _venc_an:
+            st.cache_data.clear()
+    except Exception:
+        pass
+    st.session_state["_autonota_vencidos_done"] = True
+
 # ── Alertas críticas ──────────────────────────────────────────────────────────
 _alertas = []
 from datetime import date as _date_now
