@@ -351,6 +351,24 @@ def render_perfil(persona_id: int):
                 st.success("Datos actualizados correctamente.")
                 st.rerun()
         st.caption(f"Registrado: {p.get('created_at','')[:10]}  |  DNI: {p.get('dni','')}")
+    # vCard-style text download
+    _vcf_text = (
+        f"BEGIN:VCARD\r\nVERSION:3.0\r\n"
+        f"FN:{p.get('apellido_nombre','')}\r\n"
+        f"TITLE:Imputado/a — SIATC MPF Córdoba\r\n"
+        f"UID:{p.get('dni','')}\r\n"
+        f"NOTE:DNI {p.get('dni','')}, {p.get('edad','')} años\r\n"
+        + (f"ADR:;;{p.get('domicilio','')};;;\r\n" if p.get('domicilio') else "")
+        + (f"TEL:{p.get('telefono','')}\r\n" if p.get('telefono') else "")
+        + "END:VCARD\r\n"
+    )
+    st.download_button(
+        "⬇️ Exportar contacto (.vcf)",
+        data=_vcf_text.encode("utf-8"),
+        file_name=f"{p.get('dni','persona')}.vcf",
+        mime="text/vcard",
+        key=f"dl_vcf_{p['id']}",
+    )
 
 
 def render_buscador_perfil():
