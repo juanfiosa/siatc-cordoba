@@ -473,12 +473,8 @@ with tab_nuevo:
             )
 
         st.markdown("#### Datos del hecho")
-        # ── Acordeón de títulos del CCC ────────────────────────────────────
-        _cat_icons_nc = {
-            "Tránsito": "🚗", "Convivencia": "🏘️", "Comercio": "🏪",
-            "Espacio Público": "🌳", "Integridad": "⚠️", "Animales": "🐾",
-            "Propiedad": "🏠", "Pirotecnia": "🎆", "Protección Menores": "👶",
-        }
+        # ── Acordeón de títulos del CCC (Ley 10.326, Libro II) ─────────────
+        from data_cordoba import TITULOS_CCC
         # Determine current selection (persisted in session_state)
         _tipo_default = list(TIPOS_INFRACCION.keys())[0]
         if "nc_tipo_sel" not in st.session_state:
@@ -503,14 +499,11 @@ with tab_nuevo:
             toggle_favorito(unidad_key, fiscal_nombre, tipo)
             st.rerun()
 
-        # ── Acordeón: un expander por título/categoría ─────────────────
-        # Group by category in display order
-        _display_order = ["Tránsito", "Convivencia", "Integridad", "Propiedad",
-                          "Animales", "Comercio", "Espacio Público",
-                          "Pirotecnia", "Protección Menores"]
-        _tipos_por_cat = {}
+        # ── Acordeón: un expander por Título del Libro II del CCC ─────────
+        # Agrupa por titulo_ccc (I, II, III… VIII) en orden
+        _tipos_por_titulo = {}
         for _k, _v in TIPOS_INFRACCION.items():
-            _tipos_por_cat.setdefault(_v["categoria"], []).append(_k)
+            _tipos_por_titulo.setdefault(_v.get("titulo_ccc", "?"), []).append(_k)
 
         _grav_icon = {1:"🟢", 2:"🟡", 3:"🔴", 4:"🔴"}
         _modo_nc   = st.radio(
@@ -519,29 +512,28 @@ with tab_nuevo:
             horizontal=True, label_visibility="collapsed", key="nc_modo_tipo"
         )
 
-        for _cat in _display_order:
-            _tipos_cat = _tipos_por_cat.get(_cat, [])
-            if not _tipos_cat:
+        for _tnum in ["I","II","III","IV","V","VI","VII","VIII"]:
+            _tipos_t = _tipos_por_titulo.get(_tnum, [])
+            if not _tipos_t:
                 continue
             if _modo_nc == "⭐ Solo favoritas":
-                _tipos_cat = [k for k in _tipos_cat if k in _favs_nc]
-                if not _tipos_cat:
+                _tipos_t = [k for k in _tipos_t if k in _favs_nc]
+                if not _tipos_t:
                     continue
 
-            _icon       = _cat_icons_nc.get(_cat, "📋")
-            _n_fav_cat  = sum(1 for k in _tipos_cat if k in _favs_nc)
-            _fav_badge  = f" · {_n_fav_cat}⭐" if _n_fav_cat and _modo_nc != "⭐ Solo favoritas" else ""
-            _is_active  = _sel_info.get("categoria") == _cat  # expand active category
+            _titulo_lbl = TITULOS_CCC.get(_tnum, f"Título {_tnum}")
+            _n_fav_t    = sum(1 for k in _tipos_t if k in _favs_nc)
+            _fav_badge  = f"  ·  {_n_fav_t} ⭐" if _n_fav_t and _modo_nc != "⭐ Solo favoritas" else ""
+            _is_active  = _sel_info.get("titulo_ccc") == _tnum
             with st.expander(
-                f"{_icon} **{_cat}** — {len(_tipos_cat)} infracción(es){_fav_badge}",
+                f"**{_titulo_lbl}** — {len(_tipos_t)} art.{_fav_badge}",
                 expanded=_is_active
             ):
-                for _tk in _tipos_cat:
+                for _tk in _tipos_t:
                     _tv = TIPOS_INFRACCION[_tk]
                     _g  = _grav_icon.get(_tv.get("gravedad_base", 1), "⚪")
                     _is_sel = (_tk == tipo)
                     _col_txt, _col_btn = st.columns([6, 1])
-                    # Highlight selected row
                     _txt_style = "**" if _is_sel else ""
                     _col_txt.markdown(
                         f"{'✅ ' if _is_sel else ''}{_txt_style}{_tv['articulo']} — {_tv['label']}{_txt_style}  \n"

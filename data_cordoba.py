@@ -2,598 +2,569 @@
 Tipos de infracciones del Código de Convivencia Ciudadana de Córdoba
 Ley Provincial N° 10.326 (28/03/2016) y modificatorias.
 
-Estructura: cada infracción tiene
-  - label          : descripción corta
-  - categoria      : agrupación funcional para el sistema
-  - articulo       : artículo del CCC
+ESTRUCTURA DEL LIBRO II (Infracciones):
+  Título I   — Convivencia Ciudadana, Menores, Discriminación y Hostigamiento (Arts 51-66)
+  Título II  — Protección del Personal de Educación y Salud (Art 67)
+  Título III — Propiedad Pública y Privada / Seguridad (Arts 68-73)
+  Título IV  — Orden Económico, Alarmas y Comunicaciones (Arts 74-79)
+  Título V   — Desórdenes Públicos, Alcohol y Protección de Niñez (Arts 80-85)
+  Título VI  — Seguridad Pública, Animales y Pirotecnia (Arts 86-103)
+  Título VII — Tránsito y Seguridad Vial (Arts 104-111)
+  Título VIII— Registros, Transporte y Comercio de Animales (Arts 112-118)
+
+Cada infracción contiene:
+  - label          : descripción breve
+  - titulo_ccc     : Título del Libro II al que pertenece (para el acordeón)
+  - capitulo_ccc   : Capítulo dentro del Título
+  - articulo       : artículo(s) del CCC
   - gravedad_base  : 1=Baja, 2=Media, 3=Alta, 4=Muy alta
-  - es_conflicto_vecinal : True si es apto para derivación a mediación vecinal
-  - frecuencia     : "muy_alta" | "alta" | "media" | "baja" (estadístico real MPF)
-  - favorito       : True si aparece destacada por defecto en Nuevo Caso
+  - es_conflicto_vecinal: apto para mediación vecinal
+  - frecuencia     : "muy_alta" | "alta" | "media" | "baja"
+  - favorito       : True = destacada por defecto en Nuevo Caso
 """
+
+# ── Etiquetas de los Títulos (acordeón) ──────────────────────────────────────
+TITULOS_CCC = {
+    "I":   "Título I — Convivencia Ciudadana, Menores, Discriminación y Hostigamiento",
+    "II":  "Título II — Protección del Personal de Educación y Salud",
+    "III": "Título III — Propiedad Pública y Privada",
+    "IV":  "Título IV — Orden Económico, Alarmas y Comunicaciones",
+    "V":   "Título V — Desórdenes Públicos, Alcohol y Protección de la Niñez",
+    "VI":  "Título VI — Seguridad Pública, Animales y Pirotecnia",
+    "VII": "Título VII — Tránsito y Seguridad Vial",
+    "VIII":"Título VIII — Registros, Transporte y Comercio de Animales",
+}
 
 TIPOS_INFRACCION = {
 
-    # ═══════════════════════════════════════════════════════
-    # TRÁNSITO Y SEGURIDAD VIAL  (Arts. 104–114)
-    # ═══════════════════════════════════════════════════════
-    "transito_sin_documentacion": {
-        "label": "Circular sin documentación (licencia/cédula)",
-        "categoria": "Tránsito",
-        "articulo": "Art. 111 CCC",
-        "gravedad_base": 1,
-        "es_conflicto_vecinal": False,
-        "frecuencia": "muy_alta",
-        "favorito": True,
-    },
-    "transito_sin_casco": {
-        "label": "Circular sin casco o sin placa identificatoria (moto)",
-        "categoria": "Tránsito",
-        "articulo": "Art. 111 CCC",
-        "gravedad_base": 1,
-        "es_conflicto_vecinal": False,
-        "frecuencia": "muy_alta",
-        "favorito": True,
-    },
-    "transito_alcoholemia": {
-        "label": "Conducción bajo efecto de alcohol / estupefacientes",
-        "categoria": "Tránsito",
-        "articulo": "Art. 109 CCC",
-        "gravedad_base": 3,
-        "es_conflicto_vecinal": False,
-        "frecuencia": "alta",
-        "favorito": True,
-    },
-    "transito_conduccion_peligrosa": {
-        "label": "Conducción peligrosa (imprudente, negligente)",
-        "categoria": "Tránsito",
-        "articulo": "Art. 105 CCC",
-        "gravedad_base": 2,
-        "es_conflicto_vecinal": False,
-        "frecuencia": "alta",
-        "favorito": True,
-    },
-    "transito_carreras_via_publica": {
-        "label": "Carreras / competencias no autorizadas en vía pública",
-        "categoria": "Tránsito",
-        "articulo": "Art. 106 CCC",
-        "gravedad_base": 3,
-        "es_conflicto_vecinal": False,
-        "frecuencia": "baja",
-        "favorito": False,
-    },
-    "transito_conductor_menor_edad": {
-        "label": "Conductor menor de edad sin habilitación",
-        "categoria": "Tránsito",
-        "articulo": "Art. 104 CCC",
-        "gravedad_base": 2,
-        "es_conflicto_vecinal": False,
-        "frecuencia": "media",
-        "favorito": True,
-    },
-    "transito_obstruccion_senales": {
-        "label": "Obstrucción de señales viales o de interés público",
-        "categoria": "Tránsito",
-        "articulo": "Art. 107 CCC",
-        "gravedad_base": 2,
-        "es_conflicto_vecinal": False,
-        "frecuencia": "baja",
-        "favorito": False,
-    },
-    "transito_omision_senalamiento": {
-        "label": "Omisión de señalamiento de peligro en vía pública",
-        "categoria": "Tránsito",
-        "articulo": "Art. 108 CCC",
-        "gravedad_base": 2,
-        "es_conflicto_vecinal": False,
-        "frecuencia": "baja",
-        "favorito": False,
-    },
-    "transito_omision_documentos_carga": {
-        "label": "Omisión de llevar documentación para transporte de carga",
-        "categoria": "Tránsito",
-        "articulo": "Art. 114 CCC",
-        "gravedad_base": 1,
-        "es_conflicto_vecinal": False,
-        "frecuencia": "baja",
-        "favorito": False,
-    },
-
-    # ═══════════════════════════════════════════════════════
-    # CONVIVENCIA VECINAL  (Arts. 51–67, 80–84)
-    # ═══════════════════════════════════════════════════════
-    "ruidos_molestos_nocturnos": {
-        "label": "Ruidos molestos en horario nocturno",
-        "categoria": "Convivencia",
-        "articulo": "Art. 81 CCC",
-        "gravedad_base": 1,
-        "es_conflicto_vecinal": True,
-        "frecuencia": "muy_alta",
-        "favorito": True,
-    },
-    "ruidos_molestos_diurnos": {
-        "label": "Ruidos molestos / escándalo en horario diurno",
-        "categoria": "Convivencia",
-        "articulo": "Art. 81 CCC",
-        "gravedad_base": 1,
-        "es_conflicto_vecinal": True,
-        "frecuencia": "alta",
-        "favorito": True,
-    },
-    "riña_verbal_vecinal": {
-        "label": "Escándalo / altercado verbal entre vecinos",
-        "categoria": "Convivencia",
-        "articulo": "Art. 80 CCC",
-        "gravedad_base": 2,
-        "es_conflicto_vecinal": True,
-        "frecuencia": "alta",
-        "favorito": True,
-    },
-    "molestias_personas_sitios_publicos": {
-        "label": "Molestias a personas en sitios públicos (gestos, palabras ofensivas)",
-        "categoria": "Convivencia",
+    # ═══════════════════════════════════════════════════════════════════════
+    # TÍTULO I — Arts 51-66
+    # Capítulo I: Molestias en la vía pública (Arts 51-53)
+    # ═══════════════════════════════════════════════════════════════════════
+    "molestias_sitios_publicos": {
+        "label": "Molestias a personas en sitios públicos (gestos, palabras, gratificaciones)",
+        "titulo_ccc": "I", "capitulo_ccc": "I",
         "articulo": "Art. 51 CCC",
-        "gravedad_base": 1,
-        "es_conflicto_vecinal": True,
-        "frecuencia": "media",
-        "favorito": False,
-    },
-    "hostigamiento_maltrato_intimidacion": {
-        "label": "Hostigamiento, maltrato o intimidación",
-        "categoria": "Convivencia",
-        "articulo": "Art. 65 CCC",
-        "gravedad_base": 2,
-        "es_conflicto_vecinal": True,
-        "frecuencia": "media",
-        "favorito": True,
-    },
-    "agravio_personal_educacion_salud": {
-        "label": "Agravio o intimidación al personal de educación o salud",
-        "categoria": "Convivencia",
-        "articulo": "Art. 67 CCC",
-        "gravedad_base": 2,
-        "es_conflicto_vecinal": False,
-        "frecuencia": "baja",
-        "favorito": False,
-    },
-    "actos_discriminatorios": {
-        "label": "Actos discriminatorios (por raza, género, religión, etc.)",
-        "categoria": "Convivencia",
-        "articulo": "Art. 62 CCC",
-        "gravedad_base": 2,
-        "es_conflicto_vecinal": False,
-        "frecuencia": "baja",
-        "favorito": False,
-    },
-    "expresiones_discriminatorias": {
-        "label": "Expresiones discriminatorias en vía pública",
-        "categoria": "Convivencia",
-        "articulo": "Art. 63 CCC",
-        "gravedad_base": 2,
-        "es_conflicto_vecinal": False,
-        "frecuencia": "baja",
-        "favorito": False,
+        "gravedad_base": 1, "es_conflicto_vecinal": True,
+        "frecuencia": "media", "favorito": False,
     },
     "actos_indecencia_publica": {
         "label": "Actos contrarios a la decencia pública en vía pública",
-        "categoria": "Convivencia",
+        "titulo_ccc": "I", "capitulo_ccc": "I",
         "articulo": "Art. 52 CCC",
-        "gravedad_base": 1,
-        "es_conflicto_vecinal": False,
-        "frecuencia": "media",
-        "favorito": False,
+        "gravedad_base": 1, "es_conflicto_vecinal": False,
+        "frecuencia": "media", "favorito": False,
     },
     "tocamientos_indecorosos": {
         "label": "Tocamientos indecorosos en transporte o espacio público",
-        "categoria": "Convivencia",
+        "titulo_ccc": "I", "capitulo_ccc": "I",
         "articulo": "Art. 53 CCC",
-        "gravedad_base": 3,
-        "es_conflicto_vecinal": False,
-        "frecuencia": "media",
-        "favorito": True,
-    },
-    "ebriedad_escandalosa": {
-        "label": "Ebriedad o intoxicación escandalosa en vía pública",
-        "categoria": "Convivencia",
-        "articulo": "Art. 82 CCC",
-        "gravedad_base": 1,
-        "es_conflicto_vecinal": False,
-        "frecuencia": "alta",
-        "favorito": True,
-    },
-    "expendio_prohibido_bebidas": {
-        "label": "Expendio de bebidas alcohólicas fuera de horario o sin habilitación",
-        "categoria": "Convivencia",
-        "articulo": "Art. 83 CCC",
-        "gravedad_base": 2,
-        "es_conflicto_vecinal": False,
-        "frecuencia": "media",
-        "favorito": False,
+        "gravedad_base": 3, "es_conflicto_vecinal": False,
+        "frecuencia": "media", "favorito": True,
     },
 
-    # ═══════════════════════════════════════════════════════
-    # ANIMALES  (Arts. 89, 92, 93, 115–116)
-    # ═══════════════════════════════════════════════════════
-    "animales_sueltos": {
-        "label": "Animal suelto / sin correa en espacio público",
-        "categoria": "Animales",
-        "articulo": "Art. 93 CCC",
-        "gravedad_base": 1,
-        "es_conflicto_vecinal": True,
-        "frecuencia": "alta",
-        "favorito": True,
+    # Capítulo II: Menores (Arts 54-57)
+    "admision_menores_espectaculos": {
+        "label": "Admisión indebida de menores en espectáculos no aptos",
+        "titulo_ccc": "I", "capitulo_ccc": "II",
+        "articulo": "Art. 54 CCC",
+        "gravedad_base": 2, "es_conflicto_vecinal": False,
+        "frecuencia": "baja", "favorito": False,
     },
-    "tenencia_animales_peligrosos": {
-        "label": "Tenencia o circulación de animales potencialmente peligrosos",
-        "categoria": "Animales",
-        "articulo": "Art. 89 CCC",
-        "gravedad_base": 2,
-        "es_conflicto_vecinal": False,
-        "frecuencia": "media",
-        "favorito": True,
-    },
-    "animales_en_predios_ajenos": {
-        "label": "Presencia de animales en predios ajenos causando daño",
-        "categoria": "Animales",
-        "articulo": "Art. 92 CCC",
-        "gravedad_base": 1,
-        "es_conflicto_vecinal": True,
-        "frecuencia": "media",
-        "favorito": False,
-    },
-    "abandono_animales": {
-        "label": "Abandono de animales domésticos",
-        "categoria": "Animales",
-        "articulo": "Art. 93 CCC",
-        "gravedad_base": 2,
-        "es_conflicto_vecinal": False,
-        "frecuencia": "baja",
-        "favorito": False,
-    },
-    "faenamiento_ilegal": {
-        "label": "Faenamiento y transporte ilegal de animales",
-        "categoria": "Animales",
-        "articulo": "Art. 115 CCC",
-        "gravedad_base": 3,
-        "es_conflicto_vecinal": False,
-        "frecuencia": "baja",
-        "favorito": False,
-    },
-
-    # ═══════════════════════════════════════════════════════
-    # PROPIEDAD Y SEGURIDAD  (Arts. 68–79, 87–88, 91, 94, 99)
-    # ═══════════════════════════════════════════════════════
-    "daño_propiedad_publica": {
-        "label": "Daño / perjuicio a la propiedad pública (grafitis, roturas)",
-        "categoria": "Propiedad",
-        "articulo": "Art. 68 CCC",
-        "gravedad_base": 2,
-        "es_conflicto_vecinal": False,
-        "frecuencia": "media",
-        "favorito": True,
-    },
-    "daño_propiedad_privada": {
-        "label": "Daño / perjuicio a la propiedad privada",
-        "categoria": "Propiedad",
-        "articulo": "Art. 68 CCC",
-        "gravedad_base": 2,
-        "es_conflicto_vecinal": True,
-        "frecuencia": "media",
-        "favorito": True,
-    },
-    "interrupcion_servicios_publicos": {
-        "label": "Interrupción dolosa de servicios públicos",
-        "categoria": "Propiedad",
-        "articulo": "Art. 68 bis CCC",
-        "gravedad_base": 3,
-        "es_conflicto_vecinal": False,
-        "frecuencia": "baja",
-        "favorito": False,
-    },
-    "posesion_ganzuas": {
-        "label": "Posesión injustificada de llaves alteradas o ganzúas",
-        "categoria": "Propiedad",
-        "articulo": "Art. 69 CCC",
-        "gravedad_base": 2,
-        "es_conflicto_vecinal": False,
-        "frecuencia": "baja",
-        "favorito": False,
-    },
-    "conducta_sospechosa": {
-        "label": "Conducta sospechosa (merodeo, manipulación de cerraduras, etc.)",
-        "categoria": "Propiedad",
-        "articulo": "Art. 70 CCC",
-        "gravedad_base": 1,
-        "es_conflicto_vecinal": False,
-        "frecuencia": "media",
-        "favorito": False,
-    },
-    "falsos_avisos_alarmas": {
-        "label": "Falsos avisos, alarmas o denuncias (bomberos, policía, etc.)",
-        "categoria": "Propiedad",
-        "articulo": "Art. 77 CCC",
-        "gravedad_base": 2,
-        "es_conflicto_vecinal": False,
-        "frecuencia": "baja",
-        "favorito": False,
-    },
-    "inobservancia_seguridad": {
-        "label": "Inobservancia de medidas de seguridad reglamentarias",
-        "categoria": "Propiedad",
-        "articulo": "Art. 87 CCC",
-        "gravedad_base": 2,
-        "es_conflicto_vecinal": False,
-        "frecuencia": "media",
-        "favorito": False,
-    },
-    "negativa_identificarse": {
-        "label": "Negativa u omisión a identificarse / informe falso a la autoridad",
-        "categoria": "Propiedad",
-        "articulo": "Art. 88 CCC",
-        "gravedad_base": 2,
-        "es_conflicto_vecinal": False,
-        "frecuencia": "media",
-        "favorito": False,
-    },
-    "peligro_incendio": {
-        "label": "Provocar peligro de incendio por imprudencia o negligencia",
-        "categoria": "Propiedad",
-        "articulo": "Art. 91 CCC",
-        "gravedad_base": 3,
-        "es_conflicto_vecinal": False,
-        "frecuencia": "baja",
-        "favorito": False,
-    },
-    "construcciones_ruinosas": {
-        "label": "Construcciones o instalaciones ruinosas o peligrosas",
-        "categoria": "Propiedad",
-        "articulo": "Art. 94 CCC",
-        "gravedad_base": 2,
-        "es_conflicto_vecinal": False,
-        "frecuencia": "baja",
-        "favorito": False,
-    },
-    "incumplimiento_normas_seguridad": {
-        "label": "Incumplimiento de normas de seguridad en establecimientos",
-        "categoria": "Propiedad",
-        "articulo": "Art. 99 CCC",
-        "gravedad_base": 2,
-        "es_conflicto_vecinal": False,
-        "frecuencia": "media",
-        "favorito": False,
-    },
-
-    # ═══════════════════════════════════════════════════════
-    # COMERCIO Y ESTABLECIMIENTOS  (Arts. 58–61, 76, 79, 83)
-    # ═══════════════════════════════════════════════════════
-    "establecimiento_ruidos": {
-        "label": "Establecimiento comercial con ruidos excesivos",
-        "categoria": "Comercio",
-        "articulo": "Art. 81 CCC",
-        "gravedad_base": 2,
-        "es_conflicto_vecinal": False,
-        "frecuencia": "media",
-        "favorito": True,
-    },
-    "establecimiento_horario": {
-        "label": "Establecimiento comercial fuera de horario habilitado",
-        "categoria": "Comercio",
-        "articulo": "Art. 83 CCC",
-        "gravedad_base": 2,
-        "es_conflicto_vecinal": False,
-        "frecuencia": "media",
-        "favorito": True,
-    },
-    "venta_ambulante_sin_habilitacion": {
-        "label": "Venta ambulante sin habilitación municipal",
-        "categoria": "Comercio",
-        "articulo": "Art. 60 CCC",
-        "gravedad_base": 1,
-        "es_conflicto_vecinal": False,
-        "frecuencia": "media",
-        "favorito": True,
-    },
-    "cuidado_vehiculos_sin_autorizacion": {
-        "label": "Cuidado de vehículos sin autorización legal (\"trapitos\")",
-        "categoria": "Comercio",
-        "articulo": "Art. 60 CCC",
-        "gravedad_base": 1,
-        "es_conflicto_vecinal": False,
-        "frecuencia": "alta",
-        "favorito": True,
-    },
-    "ejercicio_abusivo_admision": {
-        "label": "Ejercicio abusivo del derecho de admisión (discriminación en locales)",
-        "categoria": "Comercio",
-        "articulo": "Art. 59 CCC",
-        "gravedad_base": 2,
-        "es_conflicto_vecinal": False,
-        "frecuencia": "baja",
-        "favorito": False,
-    },
-    "reventa_entradas": {
-        "label": "Reventa prohibida de entradas a espectáculos públicos",
-        "categoria": "Comercio",
-        "articulo": "Art. 79 CCC",
-        "gravedad_base": 1,
-        "es_conflicto_vecinal": False,
-        "frecuencia": "baja",
-        "favorito": False,
-    },
-
-    # ═══════════════════════════════════════════════════════
-    # ESPACIO PÚBLICO  (Arts. 58–60, 72–73, 80–82, 90)
-    # ═══════════════════════════════════════════════════════
-    "consumo_alcohol_via_publica": {
-        "label": "Consumo de alcohol en vía pública",
-        "categoria": "Espacio Público",
-        "articulo": "Art. 82 CCC",
-        "gravedad_base": 1,
-        "es_conflicto_vecinal": False,
-        "frecuencia": "alta",
-        "favorito": True,
-    },
-    "deterioro_bienes_publicos": {
-        "label": "Deterioro de bienes públicos (grafitis, vandalismo)",
-        "categoria": "Espacio Público",
-        "articulo": "Art. 68 CCC",
-        "gravedad_base": 2,
-        "es_conflicto_vecinal": False,
-        "frecuencia": "media",
-        "favorito": True,
-    },
-    "quema_residuos": {
-        "label": "Quema de residuos o materiales en espacio público",
-        "categoria": "Espacio Público",
-        "articulo": "Art. 91 CCC",
-        "gravedad_base": 2,
-        "es_conflicto_vecinal": False,
-        "frecuencia": "media",
-        "favorito": True,
-    },
-    "obstruccion_espacio_publico": {
-        "label": "Obstrucción de espacio público (vereda, accesos)",
-        "categoria": "Espacio Público",
-        "articulo": "Art. 51 CCC",
-        "gravedad_base": 1,
-        "es_conflicto_vecinal": True,
-        "frecuencia": "media",
-        "favorito": False,
-    },
-    "daño_obras_arte_monumentos": {
-        "label": "Daño a obras de arte, monumentos o patrimonio histórico",
-        "categoria": "Espacio Público",
-        "articulo": "Art. 72 CCC",
-        "gravedad_base": 3,
-        "es_conflicto_vecinal": False,
-        "frecuencia": "baja",
-        "favorito": False,
-    },
-    "organizacion_consumo_alcohol": {
-        "label": "Organizar o promover competencias de consumo de alcohol",
-        "categoria": "Espacio Público",
-        "articulo": "Art. 84 CCC",
-        "gravedad_base": 2,
-        "es_conflicto_vecinal": False,
-        "frecuencia": "baja",
-        "favorito": False,
-    },
-
-    # ═══════════════════════════════════════════════════════
-    # PIROTECNIA  (Arts. 95–100)
-    # ═══════════════════════════════════════════════════════
-    "pirotecnia_uso_prohibido": {
-        "label": "Uso de pirotecnia prohibida en espacios públicos",
-        "categoria": "Pirotecnia",
-        "articulo": "Art. 96 CCC",
-        "gravedad_base": 2,
-        "es_conflicto_vecinal": False,
-        "frecuencia": "media",
-        "favorito": True,
-    },
-    "pirotecnia_venta_menores": {
-        "label": "Venta de artículos pirotécnicos a menores de edad",
-        "categoria": "Pirotecnia",
-        "articulo": "Art. 97 CCC",
-        "gravedad_base": 2,
-        "es_conflicto_vecinal": False,
-        "frecuencia": "baja",
-        "favorito": False,
-    },
-    "pirotecnia_fabricacion_ilegal": {
-        "label": "Fabricación ilegal de artículos pirotécnicos",
-        "categoria": "Pirotecnia",
-        "articulo": "Art. 95 CCC",
-        "gravedad_base": 3,
-        "es_conflicto_vecinal": False,
-        "frecuencia": "baja",
-        "favorito": False,
-    },
-
-    # ═══════════════════════════════════════════════════════
-    # INTEGRIDAD PERSONAL  (Arts. 53, 65–67, 102–103)
-    # ═══════════════════════════════════════════════════════
-    "amenazas_leves": {
-        "label": "Amenazas leves (sin arma)",
-        "categoria": "Integridad",
-        "articulo": "Art. 65 CCC",
-        "gravedad_base": 3,
-        "es_conflicto_vecinal": True,
-        "frecuencia": "media",
-        "favorito": True,
-    },
-    "agresion_fisica_leve": {
-        "label": "Agresión física leve (sin lesiones graves)",
-        "categoria": "Integridad",
-        "articulo": "Art. 65 CCC",
-        "gravedad_base": 4,
-        "es_conflicto_vecinal": True,
-        "frecuencia": "media",
-        "favorito": True,
-    },
-    "acoso_callejero": {
-        "label": "Acoso callejero / hostigamiento en espacio público",
-        "categoria": "Integridad",
-        "articulo": "Art. 65 CCC",
-        "gravedad_base": 3,
-        "es_conflicto_vecinal": False,
-        "frecuencia": "media",
-        "favorito": True,
-    },
-    "portacion_ilegal_armas": {
-        "label": "Portación ilegal de armas blancas o de fuego",
-        "categoria": "Integridad",
-        "articulo": "Art. 102 CCC",
-        "gravedad_base": 4,
-        "es_conflicto_vecinal": False,
-        "frecuencia": "media",
-        "favorito": True,
-    },
-    "disparo_armas_publico": {
-        "label": "Disparo de armas o encendido de fuego en sitios públicos",
-        "categoria": "Integridad",
-        "articulo": "Art. 103 CCC",
-        "gravedad_base": 4,
-        "es_conflicto_vecinal": False,
-        "frecuencia": "baja",
-        "favorito": False,
-    },
-
-    # ═══════════════════════════════════════════════════════
-    # PROTECCIÓN DE MENORES  (Arts. 54–57, 75, 85)
-    # ═══════════════════════════════════════════════════════
     "expendio_alcohol_menores": {
-        "label": "Expendio o suministro de alcohol a menores de edad",
-        "categoria": "Protección Menores",
+        "label": "Expendio o consumo de alcohol a menores de edad",
+        "titulo_ccc": "I", "capitulo_ccc": "II",
         "articulo": "Art. 55 CCC",
-        "gravedad_base": 2,
-        "es_conflicto_vecinal": False,
-        "frecuencia": "media",
-        "favorito": True,
+        "gravedad_base": 2, "es_conflicto_vecinal": False,
+        "frecuencia": "media", "favorito": True,
+    },
+    "vehiculo_ninos_interior": {
+        "label": "Vehículo con niños en su interior sin adulto responsable",
+        "titulo_ccc": "I", "capitulo_ccc": "II",
+        "articulo": "Art. 56 CCC",
+        "gravedad_base": 2, "es_conflicto_vecinal": False,
+        "frecuencia": "baja", "favorito": False,
     },
     "suministro_objetos_peligrosos_menores": {
         "label": "Suministro de objetos peligrosos a menores",
-        "categoria": "Protección Menores",
+        "titulo_ccc": "I", "capitulo_ccc": "II",
         "articulo": "Art. 57 CCC",
-        "gravedad_base": 2,
-        "es_conflicto_vecinal": False,
-        "frecuencia": "baja",
-        "favorito": False,
+        "gravedad_base": 2, "es_conflicto_vecinal": False,
+        "frecuencia": "baja", "favorito": False,
     },
-    "admision_menores_espectaculos": {
-        "label": "Admisión indebida de menores en espectáculos no aptos",
-        "categoria": "Protección Menores",
-        "articulo": "Art. 54 CCC",
-        "gravedad_base": 2,
-        "es_conflicto_vecinal": False,
-        "frecuencia": "baja",
-        "favorito": False,
+
+    # Capítulo III: Derecho de admisión (Arts 58-60)
+    "derecho_admision": {
+        "label": "Discriminación en el derecho de admisión a locales",
+        "titulo_ccc": "I", "capitulo_ccc": "III",
+        "articulo": "Art. 58 CCC",
+        "gravedad_base": 2, "es_conflicto_vecinal": False,
+        "frecuencia": "baja", "favorito": False,
+    },
+    "ejercicio_abusivo_admision": {
+        "label": "Ejercicio abusivo del derecho de admisión (discriminación en locales)",
+        "titulo_ccc": "I", "capitulo_ccc": "III",
+        "articulo": "Art. 59 CCC",
+        "gravedad_base": 2, "es_conflicto_vecinal": False,
+        "frecuencia": "baja", "favorito": False,
+    },
+    "cuidado_vehiculos_sin_autorizacion": {
+        "label": "Cuidado de vehículos sin autorización legal (\"trapitos\")",
+        "titulo_ccc": "I", "capitulo_ccc": "III",
+        "articulo": "Art. 60 CCC",
+        "gravedad_base": 1, "es_conflicto_vecinal": False,
+        "frecuencia": "alta", "favorito": True,
+    },
+
+    # Capítulo IV: Wiskerías (Art 61)
+    "whiskerias_cabarets": {
+        "label": "Violación a la prohibición de whiskerías, cabarets, clubes nocturnos",
+        "titulo_ccc": "I", "capitulo_ccc": "IV",
+        "articulo": "Art. 61 CCC",
+        "gravedad_base": 2, "es_conflicto_vecinal": False,
+        "frecuencia": "baja", "favorito": False,
+    },
+
+    # Capítulo V: Discriminación (Arts 62-64)
+    "actos_discriminatorios": {
+        "label": "Actos discriminatorios (por raza, género, religión, etc.)",
+        "titulo_ccc": "I", "capitulo_ccc": "V",
+        "articulo": "Art. 62 CCC",
+        "gravedad_base": 2, "es_conflicto_vecinal": False,
+        "frecuencia": "baja", "favorito": False,
+    },
+    "expresiones_discriminatorias": {
+        "label": "Expresiones discriminatorias en vía pública",
+        "titulo_ccc": "I", "capitulo_ccc": "V",
+        "articulo": "Art. 63 CCC",
+        "gravedad_base": 2, "es_conflicto_vecinal": False,
+        "frecuencia": "baja", "favorito": False,
+    },
+
+    # Capítulo VI: Hostigamiento (Arts 65-66)
+    "hostigamiento_maltrato_intimidacion": {
+        "label": "Hostigamiento, maltrato o intimidación",
+        "titulo_ccc": "I", "capitulo_ccc": "VI",
+        "articulo": "Art. 65 CCC",
+        "gravedad_base": 2, "es_conflicto_vecinal": True,
+        "frecuencia": "media", "favorito": True,
+    },
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # TÍTULO II — Art 67
+    # ═══════════════════════════════════════════════════════════════════════
+    "agravio_personal_educacion_salud": {
+        "label": "Agravio o intimidación al personal de centros educativos o de salud",
+        "titulo_ccc": "II", "capitulo_ccc": "Único",
+        "articulo": "Art. 67 CCC",
+        "gravedad_base": 2, "es_conflicto_vecinal": False,
+        "frecuencia": "baja", "favorito": False,
+    },
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # TÍTULO III — Arts 68-73
+    # Capítulo I: Propiedad (Arts 68-71)
+    # ═══════════════════════════════════════════════════════════════════════
+    "daño_propiedad_publica": {
+        "label": "Daño a la propiedad pública (grafitis, roturas, vandalismo)",
+        "titulo_ccc": "III", "capitulo_ccc": "I",
+        "articulo": "Art. 68 CCC",
+        "gravedad_base": 2, "es_conflicto_vecinal": False,
+        "frecuencia": "media", "favorito": True,
+    },
+    "daño_propiedad_privada": {
+        "label": "Daño a la propiedad privada",
+        "titulo_ccc": "III", "capitulo_ccc": "I",
+        "articulo": "Art. 68 CCC",
+        "gravedad_base": 2, "es_conflicto_vecinal": True,
+        "frecuencia": "media", "favorito": True,
+    },
+    "interrupcion_servicios_publicos": {
+        "label": "Interrupción dolosa de servicios públicos",
+        "titulo_ccc": "III", "capitulo_ccc": "I",
+        "articulo": "Art. 68 bis CCC",
+        "gravedad_base": 3, "es_conflicto_vecinal": False,
+        "frecuencia": "baja", "favorito": False,
+    },
+    "posesion_ganzuas": {
+        "label": "Posesión injustificada de llaves alteradas o ganzúas",
+        "titulo_ccc": "III", "capitulo_ccc": "I",
+        "articulo": "Art. 69 CCC",
+        "gravedad_base": 2, "es_conflicto_vecinal": False,
+        "frecuencia": "baja", "favorito": False,
+    },
+    "conducta_sospechosa": {
+        "label": "Conducta sospechosa (merodeo, manipulación de cerraduras)",
+        "titulo_ccc": "III", "capitulo_ccc": "I",
+        "articulo": "Art. 70 CCC",
+        "gravedad_base": 1, "es_conflicto_vecinal": False,
+        "frecuencia": "media", "favorito": False,
+    },
+    "merodeo_zona_rural": {
+        "label": "Merodeo en zona rural sin justificación",
+        "titulo_ccc": "III", "capitulo_ccc": "I",
+        "articulo": "Art. 71 CCC",
+        "gravedad_base": 1, "es_conflicto_vecinal": False,
+        "frecuencia": "baja", "favorito": False,
+    },
+
+    # Capítulo II: Monumentos y arqueología (Arts 72-73)
+    "daño_monumentos_historicos": {
+        "label": "Daño a obras de arte, monumentos o patrimonio histórico",
+        "titulo_ccc": "III", "capitulo_ccc": "II",
+        "articulo": "Art. 72 CCC",
+        "gravedad_base": 3, "es_conflicto_vecinal": False,
+        "frecuencia": "baja", "favorito": False,
+    },
+    "daño_bienes_arqueologicos": {
+        "label": "Daño a bienes con valor arqueológico",
+        "titulo_ccc": "III", "capitulo_ccc": "II",
+        "articulo": "Art. 73 CCC",
+        "gravedad_base": 3, "es_conflicto_vecinal": False,
+        "frecuencia": "baja", "favorito": False,
+    },
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # TÍTULO IV — Arts 74-79
+    # ═══════════════════════════════════════════════════════════════════════
+    "falsa_apariencia": {
+        "label": "Falsa apariencia para obtener beneficios indebidos",
+        "titulo_ccc": "IV", "capitulo_ccc": "I",
+        "articulo": "Art. 74 CCC",
+        "gravedad_base": 2, "es_conflicto_vecinal": False,
+        "frecuencia": "baja", "favorito": False,
+    },
+    "exposicion_menores_incapaces": {
+        "label": "Exposición de menores o incapaces a situación de riesgo",
+        "titulo_ccc": "IV", "capitulo_ccc": "II",
+        "articulo": "Art. 75 CCC",
+        "gravedad_base": 3, "es_conflicto_vecinal": False,
+        "frecuencia": "baja", "favorito": False,
+    },
+    "irregularidades_subasta": {
+        "label": "Irregularidades en subasta pública",
+        "titulo_ccc": "IV", "capitulo_ccc": "III",
+        "articulo": "Art. 76 CCC",
+        "gravedad_base": 2, "es_conflicto_vecinal": False,
+        "frecuencia": "baja", "favorito": False,
+    },
+    "falsos_avisos_alarmas": {
+        "label": "Falsos avisos, alarmas o denuncias (bomberos, policía, emergencias)",
+        "titulo_ccc": "IV", "capitulo_ccc": "IV",
+        "articulo": "Art. 77 CCC",
+        "gravedad_base": 2, "es_conflicto_vecinal": False,
+        "frecuencia": "baja", "favorito": False,
+    },
+    "uso_indebido_telefonos": {
+        "label": "Uso indebido de teléfonos (llamadas falsas o molestas)",
+        "titulo_ccc": "IV", "capitulo_ccc": "IV",
+        "articulo": "Art. 78 CCC",
+        "gravedad_base": 1, "es_conflicto_vecinal": False,
+        "frecuencia": "baja", "favorito": False,
+    },
+    "reventa_entradas": {
+        "label": "Reventa prohibida de entradas a espectáculos públicos",
+        "titulo_ccc": "IV", "capitulo_ccc": "V",
+        "articulo": "Art. 79 CCC",
+        "gravedad_base": 1, "es_conflicto_vecinal": False,
+        "frecuencia": "baja", "favorito": False,
+    },
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # TÍTULO V — Arts 80-85
+    # Capítulo I: Desórdenes (Arts 80-81)
+    # ═══════════════════════════════════════════════════════════════════════
+    "riña_desordenes_publicos": {
+        "label": "Desórdenes públicos — riña o pelea en vía pública",
+        "titulo_ccc": "V", "capitulo_ccc": "I",
+        "articulo": "Art. 80 CCC",
+        "gravedad_base": 2, "es_conflicto_vecinal": True,
+        "frecuencia": "alta", "favorito": True,
+    },
+    "ruidos_molestos_nocturnos": {
+        "label": "Escándalos o ruidos molestos en horario nocturno",
+        "titulo_ccc": "V", "capitulo_ccc": "I",
+        "articulo": "Art. 81 CCC",
+        "gravedad_base": 1, "es_conflicto_vecinal": True,
+        "frecuencia": "muy_alta", "favorito": True,
+    },
+    "ruidos_molestos_diurnos": {
+        "label": "Escándalos o ruidos molestos en horario diurno",
+        "titulo_ccc": "V", "capitulo_ccc": "I",
+        "articulo": "Art. 81 CCC",
+        "gravedad_base": 1, "es_conflicto_vecinal": True,
+        "frecuencia": "alta", "favorito": True,
+    },
+
+    # Capítulo II: Alcohol y protección NNyA (Arts 82-85)
+    "ebriedad_escandalosa": {
+        "label": "Ebriedad o intoxicación escandalosa en vía pública",
+        "titulo_ccc": "V", "capitulo_ccc": "II",
+        "articulo": "Art. 82 CCC",
+        "gravedad_base": 1, "es_conflicto_vecinal": False,
+        "frecuencia": "alta", "favorito": True,
+    },
+    "expendio_prohibido_bebidas": {
+        "label": "Expendio de bebidas alcohólicas fuera de horario o sin habilitación",
+        "titulo_ccc": "V", "capitulo_ccc": "II",
+        "articulo": "Art. 83 CCC",
+        "gravedad_base": 2, "es_conflicto_vecinal": False,
+        "frecuencia": "media", "favorito": True,
+    },
+    "competencias_consumo_alcohol": {
+        "label": "Organizar o promover competencias de consumo de alcohol",
+        "titulo_ccc": "V", "capitulo_ccc": "II",
+        "articulo": "Art. 84 CCC",
+        "gravedad_base": 2, "es_conflicto_vecinal": False,
+        "frecuencia": "baja", "favorito": False,
+    },
+    "proteccion_nnya_alcohol": {
+        "label": "Permisión o tolerancia de consumo de alcohol en menores",
+        "titulo_ccc": "V", "capitulo_ccc": "II",
+        "articulo": "Art. 85 CCC",
+        "gravedad_base": 2, "es_conflicto_vecinal": False,
+        "frecuencia": "baja", "favorito": False,
+    },
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # TÍTULO VI — Arts 86-103
+    # Capítulo I: Seguridad pública y animales (Arts 86-94)
+    # ═══════════════════════════════════════════════════════════════════════
+    "falsa_denuncia_contravencion": {
+        "label": "Falsa denuncia contravencional",
+        "titulo_ccc": "VI", "capitulo_ccc": "I",
+        "articulo": "Art. 86 CCC",
+        "gravedad_base": 2, "es_conflicto_vecinal": False,
+        "frecuencia": "baja", "favorito": False,
+    },
+    "inobservancia_seguridad": {
+        "label": "Inobservancia de medidas de seguridad reglamentarias",
+        "titulo_ccc": "VI", "capitulo_ccc": "I",
+        "articulo": "Art. 87 CCC",
+        "gravedad_base": 2, "es_conflicto_vecinal": False,
+        "frecuencia": "media", "favorito": False,
+    },
+    "negativa_identificarse": {
+        "label": "Negativa u omisión a identificarse / informe falso a la autoridad",
+        "titulo_ccc": "VI", "capitulo_ccc": "I",
+        "articulo": "Art. 88 CCC",
+        "gravedad_base": 2, "es_conflicto_vecinal": False,
+        "frecuencia": "media", "favorito": False,
+    },
+    "tenencia_animales_peligrosos": {
+        "label": "Tenencia o circulación de animales potencialmente peligrosos",
+        "titulo_ccc": "VI", "capitulo_ccc": "I",
+        "articulo": "Art. 89 CCC",
+        "gravedad_base": 2, "es_conflicto_vecinal": False,
+        "frecuencia": "media", "favorito": True,
+    },
+    "juegos_fiestas_populares": {
+        "label": "Juegos peligrosos en ocasión de fiestas populares o religiosas",
+        "titulo_ccc": "VI", "capitulo_ccc": "I",
+        "articulo": "Art. 90 CCC",
+        "gravedad_base": 1, "es_conflicto_vecinal": False,
+        "frecuencia": "baja", "favorito": False,
+    },
+    "peligro_incendio": {
+        "label": "Provocar peligro de incendio por imprudencia o negligencia",
+        "titulo_ccc": "VI", "capitulo_ccc": "I",
+        "articulo": "Art. 91 CCC",
+        "gravedad_base": 3, "es_conflicto_vecinal": False,
+        "frecuencia": "baja", "favorito": False,
+    },
+    "animales_en_predios_ajenos": {
+        "label": "Presencia de animales en predios ajenos causando daño",
+        "titulo_ccc": "VI", "capitulo_ccc": "I",
+        "articulo": "Art. 92 CCC",
+        "gravedad_base": 1, "es_conflicto_vecinal": True,
+        "frecuencia": "media", "favorito": False,
+    },
+    "animales_sueltos": {
+        "label": "Deambulación de animales sueltos / sin correa en espacio público",
+        "titulo_ccc": "VI", "capitulo_ccc": "I",
+        "articulo": "Art. 93 CCC",
+        "gravedad_base": 1, "es_conflicto_vecinal": True,
+        "frecuencia": "alta", "favorito": True,
+    },
+    "construcciones_ruinosas": {
+        "label": "Construcciones o instalaciones ruinosas o peligrosas",
+        "titulo_ccc": "VI", "capitulo_ccc": "I",
+        "articulo": "Art. 94 CCC",
+        "gravedad_base": 2, "es_conflicto_vecinal": False,
+        "frecuencia": "baja", "favorito": False,
+    },
+
+    # Capítulo II: Pirotecnia (Arts 95-101)
+    "pirotecnia_fabricacion": {
+        "label": "Fabricación ilegal de artículos pirotécnicos",
+        "titulo_ccc": "VI", "capitulo_ccc": "II",
+        "articulo": "Art. 95 CCC",
+        "gravedad_base": 3, "es_conflicto_vecinal": False,
+        "frecuencia": "baja", "favorito": False,
+    },
+    "pirotecnia_uso_prohibido": {
+        "label": "Uso de pirotecnia prohibida en espacios públicos",
+        "titulo_ccc": "VI", "capitulo_ccc": "II",
+        "articulo": "Art. 96 CCC",
+        "gravedad_base": 2, "es_conflicto_vecinal": False,
+        "frecuencia": "media", "favorito": True,
+    },
+    "pirotecnia_venta_menores": {
+        "label": "Venta de artículos pirotécnicos a menores de edad",
+        "titulo_ccc": "VI", "capitulo_ccc": "II",
+        "articulo": "Art. 97 CCC",
+        "gravedad_base": 2, "es_conflicto_vecinal": False,
+        "frecuencia": "baja", "favorito": False,
+    },
+    "pirotecnia_espectaculos": {
+        "label": "Uso de pirotecnia en espectáculos públicos (prohibición)",
+        "titulo_ccc": "VI", "capitulo_ccc": "II",
+        "articulo": "Art. 98 CCC",
+        "gravedad_base": 2, "es_conflicto_vecinal": False,
+        "frecuencia": "baja", "favorito": False,
+    },
+    "incumplimiento_normas_seguridad": {
+        "label": "Incumplimiento de normas de seguridad en establecimientos",
+        "titulo_ccc": "VI", "capitulo_ccc": "II",
+        "articulo": "Art. 99 CCC",
+        "gravedad_base": 2, "es_conflicto_vecinal": False,
+        "frecuencia": "media", "favorito": False,
+    },
+
+    # Capítulo III: Armas (Arts 102-103)
+    "portacion_ilegal_armas": {
+        "label": "Portación ilegal de armas blancas o de fuego",
+        "titulo_ccc": "VI", "capitulo_ccc": "III",
+        "articulo": "Art. 102 CCC",
+        "gravedad_base": 4, "es_conflicto_vecinal": False,
+        "frecuencia": "media", "favorito": True,
+    },
+    "disparo_armas_publico": {
+        "label": "Disparo de armas o encendido de fuego en sitios públicos",
+        "titulo_ccc": "VI", "capitulo_ccc": "III",
+        "articulo": "Art. 103 CCC",
+        "gravedad_base": 4, "es_conflicto_vecinal": False,
+        "frecuencia": "baja", "favorito": False,
+    },
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # TÍTULO VII — Arts 104-111 (Tránsito)
+    # Capítulo Único
+    # ═══════════════════════════════════════════════════════════════════════
+    "transito_conductor_menor_edad": {
+        "label": "Conductor menor de edad sin habilitación",
+        "titulo_ccc": "VII", "capitulo_ccc": "Único",
+        "articulo": "Art. 104 CCC",
+        "gravedad_base": 2, "es_conflicto_vecinal": False,
+        "frecuencia": "media", "favorito": True,
+    },
+    "transito_conduccion_peligrosa": {
+        "label": "Conducción peligrosa (imprudente, negligente o antirreglamentaria)",
+        "titulo_ccc": "VII", "capitulo_ccc": "Único",
+        "articulo": "Art. 105 CCC",
+        "gravedad_base": 2, "es_conflicto_vecinal": False,
+        "frecuencia": "alta", "favorito": True,
+    },
+    "transito_carreras_via_publica": {
+        "label": "Carreras o competencias no autorizadas en vía pública",
+        "titulo_ccc": "VII", "capitulo_ccc": "Único",
+        "articulo": "Art. 106 CCC",
+        "gravedad_base": 3, "es_conflicto_vecinal": False,
+        "frecuencia": "baja", "favorito": False,
+    },
+    "transito_obstruccion_senales": {
+        "label": "Obstrucción de señales viales o de interés público",
+        "titulo_ccc": "VII", "capitulo_ccc": "Único",
+        "articulo": "Art. 107 CCC",
+        "gravedad_base": 2, "es_conflicto_vecinal": False,
+        "frecuencia": "baja", "favorito": False,
+    },
+    "transito_omision_senalamiento": {
+        "label": "Omisión de señalamiento de peligro en vía pública",
+        "titulo_ccc": "VII", "capitulo_ccc": "Único",
+        "articulo": "Art. 108 CCC",
+        "gravedad_base": 2, "es_conflicto_vecinal": False,
+        "frecuencia": "baja", "favorito": False,
+    },
+    "transito_alcoholemia": {
+        "label": "Conducción en estado de ebriedad o bajo efecto de estupefacientes",
+        "titulo_ccc": "VII", "capitulo_ccc": "Único",
+        "articulo": "Art. 109 CCC",
+        "gravedad_base": 3, "es_conflicto_vecinal": False,
+        "frecuencia": "alta", "favorito": True,
+    },
+    "transito_sin_documentacion": {
+        "label": "Transitar sin documentación, sin casco o sin placa identificatoria",
+        "titulo_ccc": "VII", "capitulo_ccc": "Único",
+        "articulo": "Art. 111 CCC",
+        "gravedad_base": 1, "es_conflicto_vecinal": False,
+        "frecuencia": "muy_alta", "favorito": True,
+    },
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # TÍTULO VIII — Arts 112-118
+    # Capítulo I: Registros y documentación (Arts 112-114)
+    # ═══════════════════════════════════════════════════════════════════════
+    "omision_listas_registros": {
+        "label": "Omisión de enviar listas o llevar registros reglamentarios",
+        "titulo_ccc": "VIII", "capitulo_ccc": "I",
+        "articulo": "Art. 112 CCC",
+        "gravedad_base": 1, "es_conflicto_vecinal": False,
+        "frecuencia": "baja", "favorito": False,
+    },
+    "omision_registro_pasajeros": {
+        "label": "Omisión de llevar registro de pasajeros (transporte público)",
+        "titulo_ccc": "VIII", "capitulo_ccc": "I",
+        "articulo": "Art. 113 CCC",
+        "gravedad_base": 1, "es_conflicto_vecinal": False,
+        "frecuencia": "baja", "favorito": False,
+    },
+    "omision_documentacion_carga": {
+        "label": "Omisión de llevar documentación para el transporte de carga",
+        "titulo_ccc": "VIII", "capitulo_ccc": "I",
+        "articulo": "Art. 114 CCC",
+        "gravedad_base": 1, "es_conflicto_vecinal": False,
+        "frecuencia": "baja", "favorito": False,
+    },
+
+    # Capítulo II: Faenamiento y comercio de animales (Arts 115-118)
+    "faenamiento_ilegal": {
+        "label": "Faenamiento y transporte ilegal de animales",
+        "titulo_ccc": "VIII", "capitulo_ccc": "II",
+        "articulo": "Art. 115 CCC",
+        "gravedad_base": 3, "es_conflicto_vecinal": False,
+        "frecuencia": "baja", "favorito": False,
+    },
+    "comercializacion_animales_ilegal": {
+        "label": "Comercialización de animales faenados ilegalmente",
+        "titulo_ccc": "VIII", "capitulo_ccc": "II",
+        "articulo": "Art. 116 CCC",
+        "gravedad_base": 3, "es_conflicto_vecinal": False,
+        "frecuencia": "baja", "favorito": False,
     },
 }
 
 # ── Favoritos por defecto ─────────────────────────────────────────────────────
-# Selección inicial para Nuevo Caso. El fiscal puede personalizar desde el Panel.
 FAVORITOS_DEFAULT = [k for k, v in TIPOS_INFRACCION.items() if v.get("favorito")]
+
+# ── Helper: condiciones de suspensión por tipo ────────────────────────────────
+def get_condiciones_para(tipo_infraccion: str) -> list:
+    """Retorna las condiciones de suspensión apropiadas para el tipo dado."""
+    v = TIPOS_INFRACCION.get(tipo_infraccion, {})
+    titulo = v.get("titulo_ccc", "")
+    if tipo_infraccion == "transito_alcoholemia":
+        return CONDICIONES_SUSPENSION["transito_alcoholemia"]
+    elif titulo == "VII":
+        return CONDICIONES_SUSPENSION["transito"]
+    elif titulo in ("I", "V"):
+        return CONDICIONES_SUSPENSION["convivencia"]
+    elif titulo == "VI":
+        return CONDICIONES_SUSPENSION["integridad"] if v.get("gravedad_base", 1) >= 3 else CONDICIONES_SUSPENSION["espacio_publico"]
+    elif titulo == "VIII":
+        return CONDICIONES_SUSPENSION["comercio"]
+    elif titulo in ("III", "IV"):
+        return CONDICIONES_SUSPENSION["espacio_publico"]
+    return CONDICIONES_SUSPENSION["convivencia"]
 
 # ── Condiciones de suspensión por categoría ───────────────────────────────────
 CONDICIONES_SUSPENSION = {
@@ -614,7 +585,7 @@ CONDICIONES_SUSPENSION = {
         "Acreditar participación en taller de resolución pacífica de conflictos",
     ],
     "comercio": [
-        "Adecuar el establecimiento a los niveles de ruido permitidos por la normativa municipal dentro de los TREINTA (30) días",
+        "Adecuar el establecimiento a los niveles reglamentarios dentro de los TREINTA (30) días",
         "No reincidir en infracciones similares por el término de UN (1) año",
         "Prestar TREINTA (30) horas de trabajo comunitario en organismo a designar",
     ],
@@ -627,33 +598,14 @@ CONDICIONES_SUSPENSION = {
     "espacio_publico": [
         "No reincidir en conductas perturbadoras del espacio público por el término de SEIS (6) meses",
         "Prestar VEINTE (20) horas de trabajo comunitario en tareas de limpieza y mantenimiento de espacios públicos",
-        "Abonar multa correspondiente a tarifa por deterioro de bienes comunes según art. 94 CCC",
+        "Abonar multa correspondiente por deterioro de bienes comunes según art. 94 CCC",
     ],
 }
 
-# ── Helper: condiciones por categoría de infracción ──────────────────────────
-def get_condiciones_para(tipo_infraccion: str) -> list:
-    """Retorna las condiciones de suspensión apropiadas para el tipo dado."""
-    v = TIPOS_INFRACCION.get(tipo_infraccion, {})
-    cat = v.get("categoria", "")
-    if tipo_infraccion == "transito_alcoholemia":
-        return CONDICIONES_SUSPENSION["transito_alcoholemia"]
-    elif cat == "Tránsito":
-        return CONDICIONES_SUSPENSION["transito"]
-    elif cat in ("Convivencia", "Animales", "Espacio Público", "Pirotecnia", "Comercio"):
-        return CONDICIONES_SUSPENSION.get(
-            {"Convivencia": "convivencia", "Comercio": "comercio",
-             "Espacio Público": "espacio_publico", "Pirotecnia": "espacio_publico",
-             "Animales": "convivencia"}[cat], CONDICIONES_SUSPENSION["convivencia"]
-        )
-    elif cat == "Integridad":
-        return CONDICIONES_SUSPENSION["integridad"]
-    return CONDICIONES_SUSPENSION["convivencia"]
-
 UNIDADES = {
     "norte": "Unidad Contravencional Norte - Antonio del Viso 756, Barrio Alta Cordoba",
-    "sur": "Unidad Contravencional Sur - Guzman 1075, Centro",
-    "genero": "Unidad Contravencional de Violencia de Genero - Entre Rios 680",
+    "sur":   "Unidad Contravencional Sur - Guzman 1075, Centro",
+    "genero":"Unidad Contravencional de Violencia de Genero - Entre Rios 680",
 }
 
 CASOS_DEMO = [
@@ -699,7 +651,7 @@ CASOS_DEMO = [
     },
     {
         "numero": "2024-UCN-00398",
-        "tipo": "riña_verbal_vecinal",
+        "tipo": "riña_desordenes_publicos",
         "imputado": "Martínez, Jorge Alberto",
         "dni": "25.661.003",
         "edad": 48,
