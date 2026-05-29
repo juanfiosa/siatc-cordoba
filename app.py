@@ -34,6 +34,7 @@ from database import (
     stats_tendencia_mensual, stats_por_unidad, stats_tiempo_por_tipo,
     stats_por_dia_semana, stats_categoria_por_estado, asignar_fiscal,
     causas_mas_antiguas_activas, stats_eficiencia_carriles, mediaciones_estancadas,
+    actualizar_descripcion,
 )
 from seguimiento_tab import render_tab_seguimiento
 from agenda_tab import render_tab_agenda
@@ -1049,7 +1050,21 @@ with tab_causas:
                     else:
                         _dom_display = "—"
                     st.markdown(f"📞 **Tel.:** {_tel}  |  🏠 **Dom.:** {_dom_display}")
-                    st.markdown(f"**Descripción:** {c.get('descripcion') or '—'}")
+                    _desc_col, _desc_edit_col = st.columns([5, 1])
+                    _desc_col.markdown(f"**Descripción:** {c.get('descripcion') or '—'}")
+                    with _desc_edit_col.popover("✏️", help="Editar descripción"):
+                        _new_desc = st.text_area(
+                            "Nueva descripción",
+                            value=c.get("descripcion","") or "",
+                            height=100,
+                            key=f"edit_desc_{c['id']}"
+                        )
+                        if st.button("Guardar", key=f"edit_desc_btn_{c['id']}", type="primary"):
+                            actualizar_descripcion(c["id"], _new_desc)
+                            agregar_nota_causa(c["id"], f"Descripción actualizada por {fiscal_nombre}.", fiscal_nombre)
+                            st.cache_data.clear()
+                            st.success("Descripción actualizada.")
+                            st.rerun()
                     _fh = c.get("fecha_hecho","")
                     _fecha_hecho_str = _fh[:10] if _fh else "—"
                     # Estimated resolution date based on carril

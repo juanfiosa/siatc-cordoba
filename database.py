@@ -839,6 +839,15 @@ def asignar_fiscal(causa_id: int, fiscal: str) -> None:
         )
 
 
+def actualizar_descripcion(causa_id: int, descripcion: str) -> None:
+    """Actualiza la descripción de los hechos de una causa."""
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE causas SET descripcion=?, updated_at=datetime('now','localtime') WHERE id=?",
+            (descripcion, causa_id)
+        )
+
+
 def get_seguimiento(seguimiento_id: int) -> dict | None:
     with get_conn() as conn:
         row = conn.execute(
