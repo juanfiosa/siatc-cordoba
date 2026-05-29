@@ -830,6 +830,15 @@ def set_proximo_control(seguimiento_id: int, fecha: str) -> None:
                      (fecha, seguimiento_id))
 
 
+def asignar_fiscal(causa_id: int, fiscal: str) -> None:
+    """Reasigna el fiscal a cargo de una causa."""
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE causas SET fiscal_asignado=?, updated_at=datetime('now','localtime') WHERE id=?",
+            (fiscal, causa_id)
+        )
+
+
 def get_seguimiento(seguimiento_id: int) -> dict | None:
     with get_conn() as conn:
         row = conn.execute(

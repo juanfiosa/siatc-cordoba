@@ -32,7 +32,7 @@ from database import (
     causas_mes_actual_vs_anterior, stats_por_fiscal, causas_sin_seguimiento,
     proximas_audiencias_por_causa, causas_count_por_persona,
     stats_tendencia_mensual, stats_por_unidad, stats_tiempo_por_tipo,
-    stats_por_dia_semana, stats_categoria_por_estado,
+    stats_por_dia_semana, stats_categoria_por_estado, asignar_fiscal,
 )
 from seguimiento_tab import render_tab_seguimiento
 from agenda_tab import render_tab_agenda
@@ -1031,6 +1031,30 @@ with tab_causas:
                             st.cache_data.clear()
                             st.success(f"Audiencia agendada para {_fecha_aud.strftime('%d/%m/%Y')} {_hora_aud.strftime('%H:%M')}")
                             st.rerun()
+
+                    st.markdown("---")
+                    st.markdown("**👨‍⚖️ Fiscal asignado:**")
+                    with st.popover("Reasignar fiscal", use_container_width=True):
+                        _fiscal_actual = c.get("fiscal_asignado","")
+                        _nuevo_fiscal = st.text_input(
+                            "Nombre del fiscal",
+                            value=_fiscal_actual,
+                            placeholder="Ej: Dr. Carlos Medina",
+                            key=f"reasig_fiscal_{c['id']}",
+                        )
+                        if st.button("Guardar", key=f"reasig_btn_{c['id']}", type="primary"):
+                            if _nuevo_fiscal.strip():
+                                asignar_fiscal(c["id"], _nuevo_fiscal.strip())
+                                agregar_nota_causa(
+                                    c["id"],
+                                    f"Causa reasignada al fiscal: {_nuevo_fiscal.strip()}.",
+                                    fiscal_nombre,
+                                )
+                                st.cache_data.clear()
+                                st.success(f"Reasignada a {_nuevo_fiscal.strip()}")
+                                st.rerun()
+                            else:
+                                st.warning("Ingresá el nombre del fiscal.")
 
                     st.markdown("---")
                     st.markdown("**Generar documento:**")
