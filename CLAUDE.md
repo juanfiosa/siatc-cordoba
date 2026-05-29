@@ -103,6 +103,9 @@ Requires OAuth in browser — cannot be done headlessly.
 | `causas_similares(tipo_infraccion, exclude_persona_id, limit)` | causas of same type excluding a given persona |
 | `causas_sin_audiencia_programada(estados)` | causas in active states with no upcoming programada audiencia |
 | `causas_count_por_persona(persona_ids)` | bulk dict {persona_id: total_causas} — single query for reincidente badge |
+| `stats_por_unidad()` | list of {unidad, total, cerradas, verde, amarillo, rojo, pct_resolucion, dias_promedio} |
+| `stats_tendencia_mensual(meses)` | list of {mes, ingresadas, cerradas} for last N months (two-query merge) |
+| `set_proximo_control(seg_id, fecha)` | updates seguimientos.proximo_control field |
 | `causas_mes_actual_vs_anterior()` | {actual, anterior, delta, pct_cambio} — MoM comparison |
 | `personas_reincidentes(min_causas)` | personas with ≥ min_causas, with carriles and estados |
 | `agregar_nota_causa(causa_id, nota, usuario)` | insert note into estados_causa (anterior==nuevo), touch updated_at |
@@ -167,20 +170,34 @@ must handle all six categories.
 - **Reincidencia**: metrics + table of personas with ≥2 causas
 - **Causas sin actividad reciente** — configurable threshold (7/14/30/60 días)
 - **Rendimiento por fiscal** table — total, resueltas, pct_resolucion, pct_no_punitivo, dias_promedio (ProgressColumn)
-- Exportación Excel: causas+personas+estadísticas+por_fiscal, seguimientos, audiencias, reporte diario PDF
+- **Tendencia mensual ingresadas vs. cerradas** dual-line chart + shrinking/growing backlog banner
+- **Rendimiento por unidad** table (Norte/Sur/Género) — total, cerradas, %, dias_promedio, carril breakdown
+- Exportación Excel: 6 sheets — Causas, Personas, Estadísticas, Por Fiscal, Por Unidad, Tendencia mensual + reporte diario PDF
 
 ## Gestión de Causas filters (app.py Tab 2)
 - Row 1: busqueda (text), estado, carril, unidad
-- Row 2 (collapsible): tipo_infraccion selectbox + fecha_desde / fecha_hasta date inputs + "Limpiar" button
-- All filters wired to `listar_causas()`; clear resets session_state keys and reruns
+- Row 2 (collapsible expander): tipo_infraccion selectbox + fecha_desde / fecha_hasta + "⚠️ Solo reincidentes" checkbox + "Limpiar" button
+- All filters wired to `listar_causas()`; Solo reincidentes applied in-memory via `causas_count_por_persona()`
 - Tipo infracción info card shown below selectbox in Nuevo Caso (articulo, categoria, gravedad, vecinal)
-- Tabla view shows "Sin mov. (días)" NumberColumn for active cases; includes CSV export button
+- Tabla view shows "Sin mov. (días)" NumberColumn for active cases, próx. audiencia column, CSV export
+- **Sort options**: Recientes | Más antiguas | Carril | Estado | 🚨 Urgencia (composite score: inactivity + carril + reincidencia)
 - **Quick-stats banner**: 6-metric row (Total, Activas, Resueltas, Verde/Amarillo/Rojo) shown for current filter
 - **Reincidente badge**: expander header shows ⚠️ Rein. when persona has >1 causa (bulk lookup via `causas_count_por_persona()`)
 - **Siguiente paso sugerido**: `st.caption` inside each expander with contextual next-action hint based on estado+carril
   - ingresada → triage; clasificada verde → citación mediación; clasificada amarillo → citación suspensión;
     clasificada rojo → requerimiento apertura; notificada → programar audiencia;
     en_mediacion → suscribir acta; resuelta → verificar seguimiento (auto-checks via `get_seguimiento_por_causa`)
+
+## Seguimiento (seguimiento_tab.py)
+- Auto-suggest close banner when all conditions are `cumplido`
+- Error banner when conditions are `incumplido`
+- Close button becomes primary (blue) when all conditions met
+- On close (cumplido/incumplido/revocado): auto-insert causa timeline note
+- **Informe PDF** download button per seguimiento (uses `pdf_informe_seguimiento()`)
+- **Próximo control** date picker (active seguimientos only) — stored in `seguimientos.proximo_control`
+  via `set_proximo_control()`; sidebar shows upcoming controls within 7 days
+- **Auto Acta de Compromiso** PDF offered for download immediately after seguimiento creation,
+  before page rerun; shows "Continuar" button to reset the form
 
 ## Cached DB wrappers (app.py — TTL=60s)
 ```python
@@ -225,18 +242,15 @@ On audiencia state change:
 - **ausente**: auto-insert INCOMPARECENCIA nota in causa timeline with date + hearing type
 - **realizada**: auto-insert confirmation nota with optional observation
 Both use `agregar_nota_causa()` for the audit trail.
-
-## Seguimiento (seguimiento_tab.py)
-- Auto-suggest close banner when all conditions are `cumplido`
-- Error banner when conditions are `incumplido`
-- Close button becomes primary (blue) when all conditions met
-- On close (cumplido/incumplido/revocado): auto-insert causa timeline note
-- **Informe PDF** download button per seguimiento (uses `pdf_informe_seguimiento()`)
+Comparecencia KPI (realizada/total_closed) shown in 6-column metrics row.
+Conflict detection: warns when same date+hora already has a programada audiencia.
 
 ## Perfil (perfil_tab.py)
 - Visual Gantt timeline (px.timeline) showing causas/seguimientos/audiencias over time
 - "Causas similares" expander per infraction type (uses `causas_similares()`)
 - Editable contact form (nombre, edad, domicilio, teléfono) via `upsert_persona()`
+- Timeline differentiates notes (grey border, 📝) from state transitions (blue border)
+- Causa expander titles show próxima audiencia date when one is programada (bulk-fetched)
 
 ## Known issues / decisions
 - `demo_seed.py → ya_poblado()` checks `n >= 5` (not `>= 15`), so adding
