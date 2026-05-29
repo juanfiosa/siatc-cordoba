@@ -1280,11 +1280,12 @@ with tab_causas:
                                 key=f"qa_hora_{c['id']}")
                         from data_cordoba import UNIDADES as _UN
                         _lugar_aud = _UN.get(c.get("unidad","norte"), "Sede de la Unidad")
+                        _obs_aud = st.text_input("Observaciones (opcional)", key=f"qa_obs_{c['id']}")
                         if st.button("Agendar", key=f"qa_btn_{c['id']}", type="primary"):
                             crear_audiencia(c["id"], _tipo_aud,
                                            _fecha_aud.isoformat(),
                                            _hora_aud.strftime("%H:%M"),
-                                           _lugar_aud, "")
+                                           _lugar_aud, _obs_aud)
                             st.cache_data.clear()
                             st.success(f"Audiencia agendada para {_fecha_aud.strftime('%d/%m/%Y')} {_hora_aud.strftime('%H:%M')}")
                             st.rerun()
