@@ -98,13 +98,13 @@ Tramitación completa ante el Tribunal.<br>
 
 def _render_tabs():
     tabs_info = [
-        ("📋 Nuevo Caso",        "Ingresá DNI para autocompletar datos del imputado/a (nombre, domicilio, teléfono, antecedentes). Triaje automático con documento PDF listo para descargar."),
-        ("📂 Gestión de Causas", "Buscá por nombre, DNI o descripción. Vista detalle o tabla compacta. Agregá notas rápidas, agendá audiencias y generá documentos desde cada causa."),
-        ("🗂️ Casos Demo",       "15 casos representativos de una semana real. Cargalos con un clic para explorar el flujo completo."),
-        ("🔍 Seguimiento",       "Registrá períodos de prueba y condiciones. Monitoreá avances, registrá acreditaciones parciales y cerrá seguimientos con un clic."),
-        ("📅 Agenda",            "Vista semanal y lista de audiencias. Programá nuevas, actualizá estados (realizada/ausente/reprogramada) y exportá a Excel con teléfono."),
-        ("👤 Perfil",            "Historial completo de una persona: causas, audiencias, seguimientos. Editá domicilio y teléfono directamente. Descargá la ficha institucional en PDF."),
-        ("📊 Panel de Control",  "Dashboard completo: carriles, categorías, tiempos vs. proceso tradicional, KPIs, actividad reciente, alertas y exportación a Excel / reporte PDF del día."),
+        ("📋 Nuevo Caso",        "Ingresá DNI para autocompletar datos del imputado/a. Triaje automático determina carril y muestra pasos a seguir. Generá PDFs al instante y agregá observación inicial."),
+        ("📂 Gestión de Causas", "Filtrá por estado, carril, unidad, fiscal y tipo de infracción. Ordená por urgencia. Vista detalle con siguiente paso sugerido y badge de reincidente, o tabla compacta con indicadores de inactividad."),
+        ("🗂️ Casos Demo",       "15 casos representativos de una semana real. Cargá todos de una vez o individualmente. Explorá el flujo completo sin afectar datos reales."),
+        ("🔍 Seguimiento",       "Registrá condiciones post-resolución con acreditación parcial. Agendá próximos controles. El Acta de Compromiso se genera automáticamente al guardar."),
+        ("📅 Agenda",            "Vista semanal con detección de conflictos de horario. Lista filtrable con exportación a PDF, Excel (.xlsx) y calendario (.ics). KPI de comparecencia en tiempo real."),
+        ("👤 Perfil",            "Historial completo con timeline visual Gantt. Causas similares en el sistema. Editá domicilio y teléfono. Próxima audiencia visible directamente en el historial."),
+        ("📊 Panel de Control",  "Dashboard ejecutivo: tendencia mensual, pipeline por categoría, KPIs (8 métricas), rendimiento por fiscal y unidad, demografía, reincidentes, alertas y 6 formatos de exportación."),
     ]
     for emoji_nombre, desc in tabs_info:
         st.markdown(f"""<div class="tab-card">
