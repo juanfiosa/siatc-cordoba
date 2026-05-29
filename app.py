@@ -22,7 +22,7 @@ from document_gen import (
 from pdf_gen import generar_pdf, pdf_reporte_diario
 from database import (
     init_db, reset_db, buscar_persona_por_dni, contar_antecedentes,
-    guardar_causa, avanzar_estado, agregar_nota_causa, listar_causas, get_causa, get_timeline,
+    guardar_causa, avanzar_estado, agregar_nota_causa, listar_causas, causas_similares, get_causa, get_timeline,
     guardar_documento, listar_documentos, stats_generales, causas_por_tipo,
     historial_persona, upsert_persona, ESTADOS, ESTADOS_LABEL,
     listar_seguimientos, stats_seguimiento, causas_por_mes, causas_por_fiscal,
@@ -566,18 +566,18 @@ with tab_nuevo:
                 for _paso in _pasos_nc.get(clf["carril"], []):
                     st.markdown(_paso)
 
-            # Casos similares (misma infracción, en el sistema)
-            _similares = listar_causas(limit=100)
-            _similares = [c for c in _similares if c.get("tipo_infraccion") == tipo][:4]
+            # Casos similares — uses causas_similares() which excludes the current persona
+            _exc_persona_id = persona_encontrada.get("id") if persona_encontrada else None
+            _similares = causas_similares(tipo, exclude_persona_id=_exc_persona_id, limit=5)
             if _similares:
-                with st.expander(f"📂 {len(_similares)} caso(s) similar(es) en el sistema"):
+                with st.expander(f"📂 {len(_similares)} caso(s) similar(es) de otras personas en el sistema"):
                     for sc in _similares:
-                        _sc_inf = TIPOS_INFRACCION.get(sc["tipo_infraccion"], {})
                         _ic     = {"verde":"🟢","amarillo":"🟡","rojo":"🔴"}.get(sc.get("carril",""),"⚪")
-                        _est    = ESTADOS_LABEL.get(sc["estado"], sc["estado"])
+                        _est    = ESTADOS_LABEL.get(sc.get("estado",""), sc.get("estado",""))
+                        _resol  = sc.get("updated_at","")[:10] if sc.get("estado") in ("resuelta","archivada") else ""
                         st.markdown(
-                            f"**{sc['numero']}** — {sc.get('apellido_nombre','').split(',')[0]} &nbsp; "
-                            f"{_ic} {sc.get('carril','').capitalize()} &nbsp;|&nbsp; {_est}"
+                            f"{_ic} **{sc['numero']}** — {sc.get('apellido_nombre','').split(',')[0]} &nbsp; "
+                            f"| {_est} {('· Resuelto '+_resol) if _resol else ''}"
                         )
 
             st.markdown("---")
