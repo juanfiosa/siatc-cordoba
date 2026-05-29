@@ -152,6 +152,16 @@ def init_db():
 
         CREATE INDEX IF NOT EXISTS idx_aud_causa ON audiencias(causa_id);
         CREATE INDEX IF NOT EXISTS idx_aud_fecha ON audiencias(fecha);
+
+        CREATE TABLE IF NOT EXISTS infracciones_favoritas (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            unidad      TEXT    NOT NULL,
+            fiscal      TEXT    NOT NULL DEFAULT '',
+            tipo_key    TEXT    NOT NULL,
+            orden       INTEGER DEFAULT 0,
+            created_at  TEXT    DEFAULT (datetime('now','localtime')),
+            UNIQUE(unidad, fiscal, tipo_key)
+        );
         """)
         # Safe migrations — ALTER TABLE is idempotent via try/except
         try:
@@ -1232,6 +1242,63 @@ def stats_tiempo_por_estado() -> list[dict]:
         """).fetchall()
     result = [dict(r) for r in rows if r["avg_dias"] is not None]
     return sorted(result, key=lambda x: ESTADO_ORDER.get(x["estado"], 99))
+
+
+def get_favoritos(unidad: str, fiscal: str = "") -> list[str]:
+    """
+    Returns list of tipo_key marked as favorite for this unidad/fiscal.
+    Falls back to FAVORITOS_DEFAULT if no custom favorites exist yet.
+    """
+    from data_cordoba import FAVORITOS_DEFAULT
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT tipo_key FROM infracciones_favoritas WHERE unidad=? AND fiscal=? ORDER BY orden, tipo_key",
+            (unidad, fiscal)
+        ).fetchall()
+    if rows:
+        return [r["tipo_key"] for r in rows]
+    # First time: seed with defaults
+    seed_favoritos(unidad, fiscal)
+    return FAVORITOS_DEFAULT
+
+
+def seed_favoritos(unidad: str, fiscal: str = "") -> None:
+    """Seeds the default favorites for a unidad/fiscal combination."""
+    from data_cordoba import FAVORITOS_DEFAULT
+    with get_conn() as conn:
+        for i, tipo_key in enumerate(FAVORITOS_DEFAULT):
+            try:
+                conn.execute(
+                    "INSERT OR IGNORE INTO infracciones_favoritas (unidad, fiscal, tipo_key, orden) VALUES (?,?,?,?)",
+                    (unidad, fiscal, tipo_key, i)
+                )
+            except Exception:
+                pass
+
+
+def toggle_favorito(unidad: str, fiscal: str, tipo_key: str) -> bool:
+    """Adds or removes a tipo from favorites. Returns True if now favorite, False if removed."""
+    with get_conn() as conn:
+        exists = conn.execute(
+            "SELECT id FROM infracciones_favoritas WHERE unidad=? AND fiscal=? AND tipo_key=?",
+            (unidad, fiscal, tipo_key)
+        ).fetchone()
+        if exists:
+            conn.execute(
+                "DELETE FROM infracciones_favoritas WHERE unidad=? AND fiscal=? AND tipo_key=?",
+                (unidad, fiscal, tipo_key)
+            )
+            return False
+        else:
+            max_orden = conn.execute(
+                "SELECT COALESCE(MAX(orden),0)+1 FROM infracciones_favoritas WHERE unidad=? AND fiscal=?",
+                (unidad, fiscal)
+            ).fetchone()[0]
+            conn.execute(
+                "INSERT INTO infracciones_favoritas (unidad, fiscal, tipo_key, orden) VALUES (?,?,?,?)",
+                (unidad, fiscal, tipo_key, max_orden)
+            )
+            return True
 
 
 def stats_notas() -> dict:

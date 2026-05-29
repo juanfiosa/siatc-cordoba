@@ -35,7 +35,7 @@ from database import (
     stats_por_dia_semana, stats_categoria_por_estado, asignar_fiscal,
     causas_mas_antiguas_activas, stats_eficiencia_carriles, mediaciones_estancadas,
     actualizar_descripcion, stats_notas, stats_tiempo_por_estado,
-    stats_audiencias_por_dia,
+    stats_audiencias_por_dia, get_favoritos, toggle_favorito, seed_favoritos,
 )
 from seguimiento_tab import render_tab_seguimiento
 from agenda_tab import render_tab_agenda
@@ -473,33 +473,54 @@ with tab_nuevo:
             )
 
         st.markdown("#### Datos del hecho")
-        # Selector en dos niveles: categoría → tipo específico
-        _categorias_nc = sorted({v["categoria"] for v in TIPOS_INFRACCION.values()})
-        _cat_icons = {
-            "Tránsito": "🚗",
-            "Convivencia": "🏘️",
-            "Comercio": "🏪",
-            "Espacio Público": "🌳",
-            "Integridad": "⚠️",
+        # ── Selector con favoritos + catálogo completo ────────────────────
+        from database import get_favoritos, toggle_favorito
+        _favs_nc = get_favoritos(unidad_key, fiscal_nombre)
+        # Build options: favorites first (starred), then rest of catalog
+        _cat_icons_nc = {
+            "Tránsito": "🚗", "Convivencia": "🏘️", "Comercio": "🏪",
+            "Espacio Público": "🌳", "Integridad": "⚠️", "Animales": "🐾",
+            "Propiedad": "🏠", "Pirotecnia": "🎆", "Protección Menores": "👶",
         }
-        _col_cat, _col_tipo = st.columns([1, 2])
-        _cat_sel = _col_cat.selectbox(
-            "Categoría",
-            _categorias_nc,
-            format_func=lambda c: f"{_cat_icons.get(c,'📋')} {c}",
-            key="nc_categoria",
+        _modo_nc = st.radio(
+            "Mostrar infracciones",
+            ["⭐ Favoritas", "📋 Catálogo completo CCC"],
+            horizontal=True, label_visibility="collapsed", key="nc_modo_tipo"
         )
-        _tipos_en_cat = {
-            k: v["label"]
-            for k, v in TIPOS_INFRACCION.items()
-            if v["categoria"] == _cat_sel
-        }
-        tipo = _col_tipo.selectbox(
+        if _modo_nc == "⭐ Favoritas":
+            _tipo_opts_nc = {k: TIPOS_INFRACCION[k]["label"] for k in _favs_nc if k in TIPOS_INFRACCION}
+            if not _tipo_opts_nc:
+                st.caption("No hay favoritas aún — usá el catálogo completo o configuralas en el Panel.")
+                _tipo_opts_nc = {k: v["label"] for k, v in TIPOS_INFRACCION.items()}
+        else:
+            # Full catalog grouped by category via cascading selector
+            _categorias_nc = sorted({v["categoria"] for v in TIPOS_INFRACCION.values()})
+            _col_cat, _col_fav_btn = st.columns([5, 1])
+            _cat_sel_nc = _col_cat.selectbox(
+                "Categoría",
+                _categorias_nc,
+                format_func=lambda c: f"{_cat_icons_nc.get(c,'📋')} {c}",
+                key="nc_categoria",
+            )
+            _tipo_opts_nc = {
+                k: v["label"]
+                for k, v in TIPOS_INFRACCION.items()
+                if v["categoria"] == _cat_sel_nc
+            }
+        tipo = st.selectbox(
             "Tipo de infracción",
-            options=list(_tipos_en_cat.keys()),
-            format_func=lambda k: _tipos_en_cat[k],
+            options=list(_tipo_opts_nc.keys()),
+            format_func=lambda k: _tipo_opts_nc.get(k, k),
             key="nc_tipo",
         )
+        # Star button to toggle this tipo as favorite
+        _is_fav_nc = tipo in _favs_nc
+        if st.button(
+            "⭐ Quitar de favoritas" if _is_fav_nc else "☆ Agregar a favoritas",
+            key="nc_toggle_fav", type="secondary"
+        ):
+            toggle_favorito(unidad_key, fiscal_nombre, tipo)
+            st.rerun()
         # Info card para el tipo seleccionado
         _inf_sel = TIPOS_INFRACCION.get(tipo, {})
         if _inf_sel:
