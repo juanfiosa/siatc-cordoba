@@ -8,69 +8,29 @@ from __future__ import annotations
 import streamlit as st
 from datetime import datetime
 import database as db
+from config_nodos import get_oficinas_nodo, get_flujos_nodo, NODOS
 
-# ── Catálogo de oficinas ──────────────────────────────────────────────────────
-OFICINAS = {
-    # ── Internas MPF (activas) ───────────────────────────────────────────────
-    "policia_judicial": {
-        "label": "Policía Judicial",
-        "label_corto": "P. Judicial",
-        "icon": "🔎",
-        "tipo": "activa",
-        "descripcion": "Auxiliar del MPF — levanta actas y eleva actuaciones al fiscal",
-    },
-    "unidad_norte": {
-        "label": "Unidad Contravencional Norte",
-        "label_corto": "U. Norte",
-        "icon": "⚖️",
-        "tipo": "activa",
-        "descripcion": "Fiscalía contravencional — Zona Norte de Córdoba",
-    },
-    "unidad_sur": {
-        "label": "Unidad Contravencional Sur",
-        "label_corto": "U. Sur",
-        "icon": "⚖️",
-        "tipo": "activa",
-        "descripcion": "Fiscalía contravencional — Zona Sur / Centro",
-    },
-    "unidad_genero": {
-        "label": "Unidad Contravencional de Género",
-        "label_corto": "U. Género",
-        "icon": "⚖️",
-        "tipo": "activa",
-        "descripcion": "Fiscalía contravencional — Violencia de género",
-    },
-    "camara": {
-        "label": "Fiscalía de Cámara",
-        "label_corto": "Cámara",
-        "icon": "🏛️",
-        "tipo": "activa",
-        "descripcion": "Revisión de resoluciones y apelaciones (Art. 144-145 CCC)",
-    },
-    "mesa_entradas": {
-        "label": "Mesa de Entradas / Despacho",
-        "label_corto": "Mesa Ent.",
-        "icon": "📋",
-        "tipo": "activa",
-        "descripcion": "Recepción y registro de actuaciones",
-    },
+# ── OFICINAS: obtenidas dinámicamente desde el nodo activo ───────────────────
+# Las funciones a continuación reciben nodo_key y construyen la vista apropiada
 
-    # ── Externas / Fantasma (pendiente acuerdo institucional) ─────────────────
-    "mediacion": {
-        "label": "Centro Judicial de Mediación",
-        "label_corto": "Mediación",
-        "icon": "🤝",
-        "tipo": "fantasma",
-        "descripcion": "Poder Judicial — activo en sistema cuando haya acuerdo",
-    },
-    "juzgado_control": {
-        "label": "Juzgado de Control Contravencional",
-        "label_corto": "Juzgado",
-        "icon": "⚖️",
-        "tipo": "fantasma",
-        "descripcion": "Poder Judicial — pendiente acuerdo interinstitucional",
-    },
-}
+def get_oficinas(nodo_key: str) -> dict[str, dict]:
+    """Retorna el catálogo de oficinas del nodo, con formato compatible con mensajería."""
+    raw = get_oficinas_nodo(nodo_key)
+    result = {}
+    for key, o in raw.items():
+        result[key] = {
+            "label":       o["label"],
+            "label_corto": o["label"][:20],
+            "icon":        o["icon"],
+            "tipo":        o["tipo"],   # "activa" | "fantasma"
+            "descripcion": o.get("descripcion", ""),
+        }
+    return result
+
+
+# Para compatibilidad con código existente que usa OFICINAS directamente
+# se define como proxy del nodo por defecto
+OFICINAS = get_oficinas("cba_norte")
 
 # Tipos de mensaje con descripción
 TIPOS_MENSAJE = {
@@ -106,17 +66,9 @@ TIPOS_MENSAJE = {
     },
 }
 
-# Flujos permitidos entre oficinas (qué puede enviar a quién)
-FLUJOS_PERMITIDOS = {
-    "policia_judicial": ["unidad_norte", "unidad_sur", "unidad_genero", "mesa_entradas"],
-    "unidad_norte":     ["policia_judicial", "camara", "mesa_entradas", "mediacion", "juzgado_control"],
-    "unidad_sur":       ["policia_judicial", "camara", "mesa_entradas", "mediacion", "juzgado_control"],
-    "unidad_genero":    ["policia_judicial", "camara", "mesa_entradas", "mediacion", "juzgado_control"],
-    "camara":           ["unidad_norte", "unidad_sur", "unidad_genero"],
-    "mesa_entradas":    ["unidad_norte", "unidad_sur", "unidad_genero", "policia_judicial"],
-    "mediacion":        ["unidad_norte", "unidad_sur", "unidad_genero"],
-    "juzgado_control":  ["unidad_norte", "unidad_sur", "unidad_genero", "camara"],
-}
+# Flujos permitidos: ahora son dinámicos por nodo
+# FLUJOS_PERMITIDOS se usa como fallback estático; preferir get_flujos_nodo(nodo_key)
+FLUJOS_PERMITIDOS = get_flujos_nodo("cba_norte")
 
 # Plantillas de mensajes frecuentes por tipo de comunicación
 PLANTILLAS = {
@@ -350,9 +302,12 @@ def render_bandeja(oficina: str, fiscal_nombre: str):
 
 
 def render_nuevo_mensaje(causa_id: int | None, causa_numero: str,
-                          oficina_origen: str, fiscal_nombre: str):
+                          oficina_origen: str, fiscal_nombre: str,
+                          nodo_key: str = "cba_norte"):
     """Formulario para enviar un nuevo mensaje inter-oficina."""
-    destinos_posibles = FLUJOS_PERMITIDOS.get(oficina_origen, [])
+    _oficinas_nodo = get_oficinas(nodo_key)
+    _flujos_nodo   = get_flujos_nodo(nodo_key)
+    destinos_posibles = _flujos_nodo.get(oficina_origen, [])
     if not destinos_posibles:
         st.warning("Esta oficina no tiene destinos configurados.")
         return
@@ -362,11 +317,11 @@ def render_nuevo_mensaje(causa_id: int | None, causa_numero: str,
         dest_sel = st.selectbox(
             "Oficina destinataria",
             destinos_posibles,
-            format_func=lambda k: f"{OFICINAS.get(k,{}).get('icon','📋')} {OFICINAS.get(k,{}).get('label', k)}"
-                                   + (" 👻" if OFICINAS.get(k,{}).get("tipo") == "fantasma" else ""),
+            format_func=lambda k: f"{_oficinas_nodo.get(k,{}).get('icon','📋')} {_oficinas_nodo.get(k,{}).get('label', k)}"
+                                   + (" 👻" if _oficinas_nodo.get(k,{}).get("tipo") == "fantasma" else ""),
             key=f"msg_dest_{causa_id}",
         )
-        if OFICINAS.get(dest_sel, {}).get("tipo") == "fantasma":
+        if _oficinas_nodo.get(dest_sel, {}).get("tipo") == "fantasma":
             st.warning("⚠️ Oficina externa: el mensaje generará un documento PDF para envío físico.")
     with col2:
         tipo_sel = st.selectbox(

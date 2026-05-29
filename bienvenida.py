@@ -5,14 +5,7 @@ Muestra login (demo), luego el flujo del expediente + dashboard de causas activa
 """
 
 import streamlit as st
-
-# ── Usuarios demo ──────────────────────────────────────────────────────────────
-USUARIOS_DEMO = {
-    "aperez":    {"nombre": "Dra. Ana Pérez",    "unidad": "norte",  "pass": "mpf2024"},
-    "cmedina":   {"nombre": "Dr. Carlos Medina", "unidad": "sur",    "pass": "mpf2024"},
-    "lsuarez":   {"nombre": "Dra. Laura Suárez", "unidad": "genero", "pass": "mpf2024"},
-    "demo":      {"nombre": "Usuario Demo",      "unidad": "norte",  "pass": "demo"},
-}
+from config_nodos import USUARIOS_DEMO, NODOS, get_oficinas_nodo
 
 # ── Etapas del expediente contravencional ─────────────────────────────────────
 ETAPAS = [
@@ -52,17 +45,32 @@ def _render_login():
         if st.button("→ Ingresar", type="primary", use_container_width=True):
             u = USUARIOS_DEMO.get(usuario.strip().lower())
             if u and u["pass"] == password:
+                nodo_cfg = NODOS.get(u["nodo"], {})
+                oficinas_nodo = get_oficinas_nodo(u["nodo"])
+                oficina_cfg   = oficinas_nodo.get(u["oficina"], {})
                 st.session_state["usuario_logueado"]  = True
                 st.session_state["fiscal_nombre"]     = u["nombre"]
-                st.session_state["unidad_key"]        = u["unidad"]
+                st.session_state["nodo_key"]          = u["nodo"]
+                st.session_state["oficina_key"]       = u["oficina"]
+                st.session_state["oficina_label"]     = oficina_cfg.get("label", u["oficina"])
+                st.session_state["circunscripcion"]   = nodo_cfg.get("circunscripcion", "")
+                # Legacy compatibility: map nodo to unidad_key for sidebar
+                st.session_state["unidad_key"] = (
+                    "norte"  if "norte"  in u["oficina"] else
+                    "sur"    if "sur"    in u["oficina"] else
+                    "genero" if "genero" in u["oficina"] else
+                    "norte"
+                )
                 st.rerun()
             else:
                 st.error("Usuario o contraseña incorrectos.")
 
         st.caption(
             "**Modo demo** — usuarios disponibles:  \n"
-            "``aperez`` · ``cmedina`` · ``lsuarez`` · ``demo``  \n"
-            "Contraseña: ``mpf2024`` (o ``demo`` para el usuario demo)"
+            "**Córdoba Capital:** ``aperez`` · ``cmedina`` · ``lsuarez`` · ``pjudicial``  \n"
+            "**Río Cuarto:** ``mrodriguez`` · ``sgomez`` · ``policiarc``  \n"
+            "**Demo genérico:** ``demo``  \n"
+            "Contraseña: ``mpf2024`` (o ``demo``)"
         )
 
     with col_info:
@@ -87,16 +95,20 @@ def _render_dashboard():
     import database as db
     from data_cordoba import UNIDADES
 
-    nombre   = st.session_state.get("fiscal_nombre", "")
-    unidad_k = st.session_state.get("unidad_key", "norte")
-    unidad_s = {"norte": "Norte", "sur": "Sur", "genero": "Género"}.get(unidad_k, unidad_k)
+    nombre        = st.session_state.get("fiscal_nombre", "")
+    nodo_key      = st.session_state.get("nodo_key", "cba_norte")
+    nodo_cfg      = NODOS.get(nodo_key, {})
+    oficina_label = st.session_state.get("oficina_label", "")
+    circunsc      = st.session_state.get("circunscripcion", "")
 
     # ── Header compacto ────────────────────────────────────────────────────────
     col_hdr, col_sal = st.columns([4, 1])
     col_hdr.markdown(
         f"<div style='background:linear-gradient(90deg,#1a2f5e,#2e5090);border-radius:8px;"
         f"padding:0.8rem 1.2rem;color:white'>"
-        f"<strong>⚖️ SIATC</strong> · Unidad {unidad_s} &nbsp;|&nbsp; {nombre}"
+        f"<strong>⚖️ SIATC</strong> · {nodo_cfg.get('nombre', '')} &nbsp;|&nbsp; "
+        f"{oficina_label} &nbsp;|&nbsp; {nombre}"
+        f"<br><span style='opacity:0.7;font-size:0.8rem'>{circunsc}</span>"
         f"</div>", unsafe_allow_html=True
     )
     if col_sal.button("🚪 Salir", use_container_width=True):
