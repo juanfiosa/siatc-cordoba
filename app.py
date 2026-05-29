@@ -901,6 +901,19 @@ with tab_causas:
                                     unsafe_allow_html=True
                                 )
 
+                    # Próxima audiencia badge
+                    _prox_aud_gc = _prox_auds.get(c["id"])
+                    if _prox_aud_gc:
+                        from agenda_tab import TIPO_LABEL as _tl_gc
+                        st.markdown(
+                            f"<div style='border-left:3px solid #007bff;padding:3px 10px;"
+                            f"margin:2px 0;background:#e7f3ff;border-radius:0 4px 4px 0;font-size:0.82rem'>"
+                            f"📅 <strong>Próxima audiencia:</strong> {_prox_aud_gc['fecha']} {_prox_aud_gc['hora']} — "
+                            f"{_tl_gc.get(_prox_aud_gc.get('tipo',''), _prox_aud_gc.get('tipo',''))}"
+                            f"</div>",
+                            unsafe_allow_html=True
+                        )
+
                     # Documentos previos
                     docs = listar_documentos(c["id"])
                     if docs:
