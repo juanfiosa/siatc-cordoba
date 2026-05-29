@@ -603,10 +603,12 @@ with tab_nuevo:
                 c_saved  = get_causa(causa_id)
                 numero_guardado = c_saved["numero"] if c_saved else f"ID#{causa_id}"
                 st.success(
-                    f"✅ Causa **{numero_guardado}** guardada — "
-                    f"Carril {clf['carril'].upper()} | Ir a **📂 Gestión de Causas** para ver el expediente."
+                    f"✅ Causa **{numero_guardado}** guardada — Carril {clf['carril'].upper()}"
                 )
                 st.balloons()
+                # Set session state so Gestión pre-selects this causa
+                st.session_state["gc_busqueda"] = numero_guardado
+                st.session_state["causa_sel_id"] = causa_id
                 st.rerun()
 
             if gen_doc or st.session_state.get("doc_generado_nuevo"):
