@@ -836,13 +836,16 @@ with tab_causas:
             _n_amarillo_gc = sum(1 for c in causas if c.get("carril") == "amarillo")
             _n_rojo_gc     = sum(1 for c in causas if c.get("carril") == "rojo")
             _personas_gc   = {c["persona_id"] for c in causas if c.get("persona_id")}
-            _sm1, _sm2, _sm3, _sm4, _sm5, _sm6 = st.columns(6)
+            _n_personas_gc = len(_personas_gc)
+            _sm1, _sm2, _sm3, _sm4, _sm5, _sm6, _sm7 = st.columns(7)
             _sm1.metric("Total causas", _n_total_gc)
-            _sm2.metric("Activas", _n_activos_gc)
-            _sm3.metric("Resueltas", _n_resueltos_gc)
-            _sm4.metric("🟢 Verde", _n_verde_gc)
-            _sm5.metric("🟡 Amarillo", _n_amarillo_gc)
-            _sm6.metric("🔴 Rojo", _n_rojo_gc)
+            _sm2.metric("👤 Personas", _n_personas_gc,
+                        help="Personas únicas en la vista actual")
+            _sm3.metric("Activas", _n_activos_gc)
+            _sm4.metric("Resueltas", _n_resueltos_gc)
+            _sm5.metric("🟢 Verde", _n_verde_gc)
+            _sm6.metric("🟡 Amarillo", _n_amarillo_gc)
+            _sm7.metric("🔴 Rojo", _n_rojo_gc)
         else:
             st.info("No se encontraron causas con los filtros actuales.")
 
