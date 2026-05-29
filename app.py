@@ -2498,16 +2498,17 @@ with tab_panel:
                     st.success("Datos restablecidos correctamente.")
                     st.rerun()
             with col_r2:
-                st.info("💡 **Guía de demostración (v1.2)**\n\n"
-                        "1. **📋 Nuevo Caso** → DNI `38.421.667` (auto-completa, valida formato)\n"
-                        "   → triaje automático → descargá PDF → guardá la causa.\n"
-                        "2. **📂 Gestión** → filtrá por carril Rojo → nota rápida → agendá audiencia\n"
-                        "   → cambiá estado a 'Realizada' (se registra nota automática en timeline).\n"
-                        "3. **📅 Agenda** → vista Tabla → audiencias con tel./domicilio.\n"
-                        "   Marcá una como 'Ausente' → revisá el historial de la causa (nota automática).\n"
-                        "4. **🔍 Seguimiento** → expandí seguimiento activo → descargá Informe PDF\n"
-                        "   → si todas condiciones cumplidas → cerrá con un clic.\n"
-                        "5. **👤 Perfil** → buscá `García` → mostrá 2 causas + línea de tiempo visual\n"
-                        "   → expandí 'Causas similares' → editá tel. → descargá ficha PDF.\n"
-                        "6. **📊 Panel** → Resumen ejecutivo → demografía (edades) → carriles\n"
-                        "   → KPIs → exportá Excel (incluye hoja Estadísticas) / Reporte del día.")
+                st.info("💡 **Guía de demostración (v1.3)**\n\n"
+                        "1. **📋 Nuevo Caso** → DNI `38.421.667` → auto-completa nombre + muestra causas previas\n"
+                        "   → triaje → pasos a seguir → fiscal sugerido → PDF + guardá con obs. inicial.\n"
+                        "2. **📂 Gestión** → filtrá por '🚨 Urgencia' → badge ⚠️ Rein. → siguiente paso\n"
+                        "   → nota rápida → ⭐ marcá prioritaria → agendá audiencia desde el expander\n"
+                        "   → 'Ver perfil' → descargá **Expediente completo PDF**.\n"
+                        "3. **📅 Agenda** → programá audiencia (detección de conflictos + slots libres)\n"
+                        "   → exportá semana como PDF + .ics para Google Calendar.\n"
+                        "4. **🔍 Seguimiento** → expandí activo → registrá avance → agendá próximo control\n"
+                        "   → si todas condiciones ✅ → cerrá (Acta de Compromiso se genera automáticamente).\n"
+                        "5. **👤 Perfil** → buscá `García` → nivel de riesgo → Gantt + audiencias en header\n"
+                        "   → editá contacto → expandí 'Causas similares'.\n"
+                        "6. **📊 Panel** → semáforo de salud → tendencia ingresadas vs. cerradas\n"
+                        "   → pipeline por categoría → 8 KPIs → exportá 6 formatos + informe mensual.")
