@@ -304,8 +304,17 @@ def _form_nueva_audiencia(fiscal):
             + ", ".join(f"{c['numero']} ({c['apellido_nombre'].split(',')[0]})"
                        for c in _conflictos)
         )
+        # Suggest available slots
+        _auds_dia = db.listar_audiencias(desde=fecha.isoformat(), hasta=fecha.isoformat())
+        _horas_ocupadas = {a["hora"] for a in _auds_dia if a.get("estado") == "programada"}
+        _horarios_std = [f"{h:02d}:{m:02d}" for h in range(8, 17) for m in (0, 30)]
+        _libres = [h for h in _horarios_std if h not in _horas_ocupadas][:4]
+        if _libres:
+            st.caption(f"💡 Horarios disponibles ese día: " + " | ".join(_libres))
     elif fecha.isoformat() == date.today().isoformat():
         st.info("📋 La audiencia está programada para **hoy**. Verificá disponibilidad.")
+    elif fecha.weekday() >= 5:
+        st.warning("⚠️ La fecha seleccionada es un fin de semana. Confirmá que es correcto.")
 
     if st.button("📅 Agendar audiencia", type="primary", key="btn_nueva_aud"):
         db.crear_audiencia(
