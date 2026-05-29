@@ -912,6 +912,7 @@ with tab_causas:
                     "Carril":        _ic,
                     "Expediente":    c["numero"],
                     "Imputado/a":    (c.get("apellido_nombre","") or "").split(",")[0],
+                    "Edad":          c.get("persona_edad","") or "",
                     "DNI":           c.get("persona_dni",""),
                     "Infracción":    TIPOS_INFRACCION.get(c.get("tipo_infraccion",""),{}).get("label","")[:30],
                     "Estado":        ESTADOS_LABEL.get(c["estado"], c["estado"]),
