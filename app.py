@@ -763,7 +763,7 @@ with tab_causas:
         )
         _orden = _ord_col.selectbox(
             "Ordenar por",
-            ["Recientes", "Más antiguas", "Carril", "Estado", "🚨 Urgencia"],
+            ["Recientes", "Más antiguas", "Carril", "Estado", "🚨 Urgencia", "Fiscal"],
             label_visibility="collapsed", key="causas_orden"
         )
         _vista_gc = _vista_col.radio(
@@ -807,6 +807,8 @@ with tab_causas:
             _pids_urg = list({c["persona_id"] for c in causas if c.get("persona_id")})
             _pers_cnt_gc = causas_count_por_persona(_pids_urg) if _pids_urg else {}
             causas = sorted(causas, key=_urgencia_score)
+        elif _orden == "Fiscal":
+            causas = sorted(causas, key=lambda x: (x.get("fiscal_asignado","") or ""))
 
         # ── Resumen rápido del filtro actual ──────────────────────────────
         if causas:
