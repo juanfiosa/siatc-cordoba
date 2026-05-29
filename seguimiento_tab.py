@@ -271,11 +271,28 @@ def _panel_seguimientos(fiscal):
         # Fetch condiciones early so they are available for PDF generation below
         condiciones = db.get_condiciones(seg["id"])
 
+        # Próximo control badge for expander header
+        _pc_header = ""
+        if seg.get("proximo_control") and seg.get("estado") == "activo":
+            try:
+                _pc_d = date.fromisoformat(seg["proximo_control"])
+                _pc_diff = (_pc_d - date.today()).days
+                if _pc_diff < 0:
+                    _pc_header = f"  |  🔴 Control vencido {abs(_pc_diff)}d"
+                elif _pc_diff == 0:
+                    _pc_header = "  |  🔴 Control HOY"
+                elif _pc_diff <= 3:
+                    _pc_header = f"  |  🟠 Control en {_pc_diff}d"
+                elif _pc_diff <= 7:
+                    _pc_header = f"  |  🟡 Control en {_pc_diff}d"
+            except Exception:
+                pass
+
         with st.expander(
             f"{SEG_ESTADO_COLOR.get(seg['estado'], seg['estado'])} | "
             f"**{seg['apellido_nombre']}** — {seg['numero']} | "
             f"{TIPO_RES_LABEL.get(seg['tipo_resolucion'], seg['tipo_resolucion'])} | "
-            f"{badge_dias(dias)}"
+            f"{badge_dias(dias)}{_pc_header}"
         ):
             col_info, col_prog = st.columns([3, 2])
             with col_info:
