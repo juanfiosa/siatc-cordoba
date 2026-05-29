@@ -39,7 +39,9 @@ TIPO_LABEL = {
 
 def _metricas():
     s = db.stats_audiencias()
-    c1, c2, c3, c4, c5 = st.columns(5)
+    _cerradas = s["realizadas"] + s["ausentes"]
+    _pct_comp = round(s["realizadas"] * 100 / _cerradas) if _cerradas else None
+    c1, c2, c3, c4, c5, c6 = st.columns(6)
     c1.metric("Total agendadas",  s["total"])
     c2.metric("Hoy",              s["hoy"],      delta="HOY" if s["hoy"] else None)
     c3.metric("Próximos 7 días",  s["proximas"])
@@ -47,6 +49,13 @@ def _metricas():
     c5.metric("Ausencias",        s["ausentes"],
               delta=f"⚠️ {s['ausentes']}" if s["ausentes"] else None,
               delta_color="inverse")
+    if _pct_comp is not None:
+        c6.metric("Comparecencia", f"{_pct_comp}%",
+                  delta=f"{s['realizadas']}/{_cerradas}",
+                  delta_color="normal",
+                  help="Audiencias realizadas / (realizadas + ausencias)")
+    else:
+        c6.metric("Comparecencia", "—", help="Sin audiencias finalizadas aún")
 
 
 # ── Vista semana ──────────────────────────────────────────────────────────────
@@ -239,6 +248,23 @@ def _form_nueva_audiencia(fiscal):
     )
     obs = st.text_area("Observaciones (opcional)", height=60, key="aud_nueva_obs")
 
+    # ── Conflicto de horario ───────────────────────────────────────────────────
+    _hora_str = hora.strftime("%H:%M")
+    _conflictos = [
+        a for a in db.listar_audiencias(desde=fecha.isoformat(), hasta=fecha.isoformat())
+        if a.get("hora") == _hora_str and a.get("estado") == "programada"
+        and a.get("causa_id") != causa["id"]
+    ]
+    if _conflictos:
+        st.warning(
+            f"⚠️ **Conflicto de horario**: ya existe(n) **{len(_conflictos)} audiencia(s)** "
+            f"programada(s) el {fecha.strftime('%d/%m/%Y')} a las {_hora_str}: "
+            + ", ".join(f"{c['numero']} ({c['apellido_nombre'].split(',')[0]})"
+                       for c in _conflictos)
+        )
+    elif fecha.isoformat() == date.today().isoformat():
+        st.info("📋 La audiencia está programada para **hoy**. Verificá disponibilidad.")
+
     if st.button("📅 Agendar audiencia", type="primary", key="btn_nueva_aud"):
         db.crear_audiencia(
             causa_id=causa["id"],
@@ -248,6 +274,7 @@ def _form_nueva_audiencia(fiscal):
             lugar=lugar,
             observaciones=obs
         )
+        st.cache_data.clear() if hasattr(st, "cache_data") else None
         st.success(f"Audiencia programada para el {fecha.strftime('%d/%m/%Y')} a las {hora.strftime('%H:%M')}.")
         st.rerun()
 
