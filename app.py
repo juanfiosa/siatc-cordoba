@@ -2151,7 +2151,7 @@ with tab_panel:
         # ── Bloque seguimiento ─────────────────────────────────────────────
         st.markdown("---")
         st.subheader("🔍 Seguimientos post-resolución")
-        seg_s = stats_seguimiento()
+        seg_s = _c_stats_seguimiento()
         if seg_s["total"] == 0:
             st.info("No hay seguimientos registrados aún.")
         else:
@@ -2261,7 +2261,7 @@ with tab_panel:
         # ── Bloque audiencias ──────────────────────────────────────────────
         st.markdown("---")
         st.subheader("📅 Audiencias")
-        aud_s = stats_audiencias()
+        aud_s = _c_stats_audiencias()
         if aud_s["total"] == 0:
             st.info("No hay audiencias registradas aún.")
         else:
