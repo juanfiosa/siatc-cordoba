@@ -99,7 +99,7 @@ Requires OAuth in browser — cannot be done headlessly.
 | `stats_seguimiento()` | total, activos, cumplidos, incumplidos, vencidos |
 | `stats_audiencias()` | total, proximas, hoy, realizadas, ausentes |
 | `perfil_persona(id)` | {persona, causas, seguimientos, audiencias, antecedentes, total_causas} |
-| `listar_causas(estado, carril, unidad, busqueda, tipo_infraccion, fecha_desde, fecha_hasta, limit)` | rows include persona_edad, domicilio, telefono |
+| `listar_causas(estado, carril, unidad, busqueda, tipo_infraccion, fecha_desde, fecha_hasta, fiscal, limit)` | rows include persona_edad, domicilio, telefono |
 | `causas_similares(tipo_infraccion, exclude_persona_id, limit)` | causas of same type excluding a given persona |
 | `causas_sin_audiencia_programada(estados)` | causas in active states with no upcoming programada audiencia |
 | `causas_count_por_persona(persona_ids)` | bulk dict {persona_id: total_causas} — single query for reincidente badge |
@@ -113,6 +113,17 @@ Requires OAuth in browser — cannot be done headlessly.
 | `stats_edad()` | {bucket: count} for 5 age groups (16-25, 26-35, 36-45, 46-55, 56+) |
 | `stats_edad_por_carril()` | cross-tab: {bucket: {verde, amarillo, rojo}} counts of causas |
 | `stats_por_fiscal()` | list of {fiscal_asignado, total, resueltas, pct_resolucion, pct_no_punitivo, dias_promedio, no_punitivas} |
+| `stats_por_unidad()` | list of {unidad, total, cerradas, verde, amarillo, rojo, pct_resolucion, dias_promedio} |
+| `stats_tendencia_mensual(meses)` | list of {mes, ingresadas, cerradas} last N months |
+| `stats_tiempo_por_tipo()` | list of {tipo_infraccion, label, categoria, n, dias_promedio} ordered by days DESC |
+| `stats_por_dia_semana()` | list of {dia_num, dia, n} — causa count by ISO weekday |
+| `stats_categoria_por_estado()` | {categoria: {estado: count}} — for stacked pipeline chart |
+| `causas_count_por_persona(persona_ids)` | dict {persona_id: total_causas} — bulk reincidente lookup |
+| `causas_mas_antiguas_activas(limit)` | oldest causas in active states by created_at |
+| `causas_sin_seguimiento(estados)` | causas resuelta/en_mediacion without any seguimiento |
+| `proximas_audiencias_por_causa()` | {causa_id: {fecha, hora, tipo}} — earliest upcoming programada |
+| `set_proximo_control(seg_id, fecha)` | updates seguimientos.proximo_control |
+| `asignar_fiscal(causa_id, fiscal)` | updates causas.fiscal_asignado + touches updated_at |
 
 ## PDF functions (pdf_gen.py)
 
@@ -127,6 +138,10 @@ Requires OAuth in browser — cannot be done headlessly.
 | `pdf_reporte_diario(stats, auds_hoy, causas_pend, fiscal, unidad)` | Reporte ejecutivo diario |
 | `pdf_perfil_persona(perfil, fiscal, unidad)` | Ficha institucional del imputado/a |
 | `pdf_requerimiento_apertura(caso, clf, fiscal, unidad)` | Requerimiento Fiscal de Apertura del Proceso |
+| `pdf_agenda_semanal(audiencias, desde, hasta, fiscal, unidad)` | Weekly hearing schedule PDF |
+| `pdf_lista_causas_activas(causas, fiscal, unidad)` | Active cases list PDF grouped by fiscal |
+| `pdf_informe_mensual(mes, stats, ...)` | Monthly executive management report PDF |
+| `pdf_expediente_causa(causa, timeline, auds, segs, cond_map, fiscal)` | Full case dossier PDF |
 | `generar_pdf(tipo_doc, caso, clf, fiscal, unidad)` | Dispatcher — matches tipo_doc substrings |
 
 ## document_gen.py functions
