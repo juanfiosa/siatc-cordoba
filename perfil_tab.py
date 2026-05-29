@@ -58,11 +58,34 @@ def render_perfil(persona_id: int):
 </div>
 """, unsafe_allow_html=True)
 
+    # Compute a simple risk score (0-10)
+    _riesgo_pts = 0
+    _riesgo_pts += min(antec * 2, 4)          # up to 4 pts for antecedentes
+    _n_rojo = sum(1 for c in causas if c.get("carril") == "rojo")
+    _riesgo_pts += min(_n_rojo, 3)             # up to 3 pts for rojo carriles
+    _n_ausente = sum(1 for a in auds if a.get("estado") == "ausente")
+    _riesgo_pts += min(_n_ausente, 2)          # up to 2 pts for incomparecencias
+    _n_inc = sum(1 for s in segs if s.get("estado") == "incumplido")
+    _riesgo_pts += min(_n_inc, 1)              # 1 pt for seguimiento incumplido
+    _riesgo_nivel = (
+        ("🔴 Alto", "#f8d7da") if _riesgo_pts >= 5 else
+        ("🟡 Medio", "#fff3cd") if _riesgo_pts >= 2 else
+        ("🟢 Bajo", "#d4edda")
+    )
+    _r_lbl, _r_bg = _riesgo_nivel
+
     col_m1, col_m2, col_m3, col_m4, col_m5 = st.columns(5)
     col_m1.metric("Causas totales", perfil["total_causas"])
     col_m2.metric("Antecedentes",   antec)
     col_m3.metric("Seguimientos",   len(segs))
     col_m4.metric("Audiencias",     len(auds))
+    col_m5.markdown(
+        f"<div style='background:{_r_bg};border-radius:8px;padding:8px;text-align:center'>"
+        f"<strong>Nivel de riesgo</strong><br>"
+        f"<span style='font-size:1.2rem'>{_r_lbl}</span><br>"
+        f"<small>Score: {_riesgo_pts}/10</small></div>",
+        unsafe_allow_html=True
+    )
 
     st.markdown(_badge_antecedentes(antec), unsafe_allow_html=True)
 
