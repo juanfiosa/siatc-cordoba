@@ -2190,6 +2190,34 @@ with tab_panel:
                 })
             st.dataframe(pd.DataFrame(_rows_ss), use_container_width=True, hide_index=True)
 
+        # ── Mediaciones estancadas ────────────────────────────────────────
+        _med_est_panel = mediaciones_estancadas(dias=30)
+        if _med_est_panel:
+            st.markdown("---")
+            st.subheader("🤝 Mediaciones estancadas (>30 días sin actualización)")
+            st.warning(
+                f"**{len(_med_est_panel)} causa(s) en mediación** sin actualización en más de 30 días. "
+                "Revisá el estado y considerá avanzar o reprogramar."
+            )
+            _rows_me = []
+            for _cm in _med_est_panel:
+                try:
+                    _dias_me = (datetime.now() - datetime.strptime(_cm.get("updated_at","")[:16], "%Y-%m-%d %H:%M")).days
+                except Exception:
+                    _dias_me = "?"
+                _rows_me.append({
+                    "Expediente":  _cm["numero"],
+                    "Imputado/a":  (_cm.get("apellido_nombre","") or "").split(",")[0],
+                    "Días estancada": _dias_me,
+                    "Fiscal":      _cm.get("fiscal_asignado",""),
+                    "Ingresada":   _cm.get("created_at","")[:10],
+                })
+            st.dataframe(
+                pd.DataFrame(_rows_me).sort_values("Días estancada", ascending=False),
+                use_container_width=True, hide_index=True,
+                column_config={"Días estancada": st.column_config.NumberColumn("Días sin mov.", format="%d días")},
+            )
+
         # ── Bloque audiencias ──────────────────────────────────────────────
         st.markdown("---")
         st.subheader("📅 Audiencias")
