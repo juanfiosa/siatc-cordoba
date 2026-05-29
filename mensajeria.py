@@ -3,8 +3,8 @@
 Módulo de mensajería inter-oficina — SIATC MPF Córdoba
 Gestiona pases de expediente y notificaciones entre oficinas del MPF.
 """
+from __future__ import annotations  # Python 3.9 compat: defer type annotation evaluation
 
-from __future__ import annotations
 import streamlit as st
 from datetime import datetime
 import database as db
