@@ -1685,6 +1685,18 @@ with tab_panel:
 
             _ts_res = f"_{datetime.now().strftime('%d/%m/%Y %H:%M')} — generado automáticamente por SIATC_"
             st.caption(_ts_res)
+            # Plain text version for copy-paste
+            with st.expander("📋 Versión de texto (para copiar)", expanded=False):
+                _plain_partes = [p.replace("**","").replace("🟢","(Verde)").replace("🟡","(Amarillo)").replace("🔴","(Rojo)").replace("⚡","").replace("⚠️","").replace("❌","").replace("📋","").replace("🔄","").replace("🔍","") for p in _partes]
+                _plain_recs = [r.replace("**","") for r in _recomendaciones] if _recomendaciones else []
+                _plain_text = (
+                    f"RESUMEN EJECUTIVO SIATC — MPF Córdoba\n"
+                    f"Generado: {datetime.now().strftime('%d/%m/%Y %H:%M')}\n"
+                    f"{'='*60}\n\n"
+                    + "\n\n".join(_plain_partes)
+                    + ("\n\nRECOMENDACIONES:\n" + "\n".join(f"• {r}" for r in _plain_recs) if _plain_recs else "")
+                )
+                st.code(_plain_text, language=None)
 
         st.markdown("---")
         col_g1, col_g2 = st.columns(2)
