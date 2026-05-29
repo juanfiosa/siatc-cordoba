@@ -1271,6 +1271,20 @@ with tab_causas:
                             language=None
                         )
                         st.caption("Seleccioná el texto y copialo con Ctrl+C / Cmd+C")
+                        # Draft email text
+                        _estado_label_email = ESTADOS_LABEL.get(c["estado"], c["estado"])
+                        _email_draft = (
+                            f"Estimado/a {c['apellido_nombre'].split(',')[0]}:\n\n"
+                            f"Por medio de la presente, el Ministerio Público Fiscal de Córdoba le notifica "
+                            f"que se ha registrado en el sistema el expediente "
+                            f"N° {c['numero']}, en relación a la infracción prevista en {_art_disp or 'el Código de Convivencia Ciudadana'}.\n\n"
+                            f"El estado actual de su causa es: {_estado_label_email}.\n\n"
+                            f"Para mayor información comuníquese con la {UNIDADES.get(c.get('unidad','norte'), 'Unidad Contravencional')} "
+                            f"o con el fiscal {c.get('fiscal_asignado','')}\n\n"
+                            f"Ministerio Público Fiscal — Provincia de Córdoba"
+                        )
+                        with st.expander("✉️ Borrador de notificación"):
+                            st.code(_email_draft, language=None)
 
                     st.markdown("**Programar audiencia:**")
                     with st.popover("📅 Nueva audiencia para esta causa", use_container_width=True):
