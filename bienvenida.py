@@ -1,211 +1,227 @@
 # -*- coding: utf-8 -*-
 """
-Pantalla de bienvenida / introducción — SIATC
-Se muestra una sola vez por sesión.
+Pantalla de ingreso al sistema SIATC.
+Muestra login (demo), luego el flujo del expediente + dashboard de causas activas.
 """
 
 import streamlit as st
 
-INTRO_HTML = """
-<style>
-.intro-card {
-    background: linear-gradient(135deg, #1a2f5e 0%, #2e5090 60%, #3a6bc4 100%);
-    border-radius: 12px; padding: 2.2rem 2.5rem; color: white; margin-bottom: 1rem;
+# ── Usuarios demo ──────────────────────────────────────────────────────────────
+USUARIOS_DEMO = {
+    "aperez":    {"nombre": "Dra. Ana Pérez",    "unidad": "norte",  "pass": "mpf2024"},
+    "cmedina":   {"nombre": "Dr. Carlos Medina", "unidad": "sur",    "pass": "mpf2024"},
+    "lsuarez":   {"nombre": "Dra. Laura Suárez", "unidad": "genero", "pass": "mpf2024"},
+    "demo":      {"nombre": "Usuario Demo",      "unidad": "norte",  "pass": "demo"},
 }
-.intro-card h1 { margin: 0 0 0.3rem 0; font-size: 1.8rem; }
-.intro-card p  { margin: 0; opacity: 0.88; font-size: 1rem; }
-.lane-card {
-    border-radius: 8px; padding: 1rem 1.2rem; height: 100%;
-}
-.lane-verde    { background: #d4edda; border-left: 5px solid #28a745; }
-.lane-amarillo { background: #fff3cd; border-left: 5px solid #ffc107; }
-.lane-rojo     { background: #f8d7da; border-left: 5px solid #dc3545; }
-.lane-card h4  { margin: 0 0 0.4rem 0; }
-.lane-card p   { margin: 0; font-size: 0.87rem; }
-.tab-card {
-    background: #f8f9fa; border: 1px solid #dee2e6;
-    border-radius: 8px; padding: 0.9rem 1.1rem; margin-bottom: 0.5rem;
-}
-.tab-card strong { color: #1a2f5e; }
-.stat-box {
-    background: white; border: 1px solid #dee2e6; border-radius: 8px;
-    padding: 0.8rem; text-align: center;
-}
-.stat-box .num { font-size: 2rem; font-weight: bold; color: #2e5090; }
-.stat-box .lbl { font-size: 0.8rem; color: #666; }
-</style>
-<div class="intro-card">
-  <h1>⚖️ SIATC — Sistema Inteligente de Apoyo al Trabajo Contravencional</h1>
-  <p>Ministerio Público Fiscal · Provincia de Córdoba &nbsp;|&nbsp;
-     Código de Convivencia Ciudadana — Ley N° 10.326</p>
+
+# ── Etapas del expediente contravencional ─────────────────────────────────────
+ETAPAS = [
+    ("📥", "Ingreso",      "El agente registra el hecho contravencional con los datos del parte policial."),
+    ("🔍", "Triaje",       "El sistema clasifica automáticamente la causa en Carril Verde, Amarillo o Rojo."),
+    ("📬", "Notificación", "Se genera y envía la cédula de citación al imputado/a."),
+    ("📅", "Audiencia",    "Se programa y realiza la audiencia de mediación, suspensión o proceso pleno."),
+    ("✍️", "Resolución",   "El fiscal suscribe el acuerdo, dictamen o requerimiento de apertura."),
+    ("🔍", "Seguimiento",  "Se monitorea el cumplimiento de condiciones durante el período acordado."),
+    ("✅", "Cierre",       "Verificado el cumplimiento, la causa se archiva. Fin del expediente."),
+]
+
+
+def _render_login():
+    """Pantalla de ingreso al sistema."""
+    st.markdown("""
+<div style='background:linear-gradient(135deg,#1a2f5e 0%,#2e5090 60%,#3a6bc4 100%);
+            border-radius:12px;padding:2rem 2.5rem 1.5rem;color:white;
+            margin-bottom:1.5rem;text-align:center'>
+  <h2 style='margin:0 0 0.3rem 0'>⚖️ SIATC</h2>
+  <p style='margin:0;opacity:0.85;font-size:1.05rem'>
+    Sistema Inteligente de Apoyo al Trabajo Contravencional
+  </p>
+  <p style='margin:0.4rem 0 0 0;opacity:0.65;font-size:0.85rem'>
+    Ministerio Público Fiscal · Provincia de Córdoba · Ley N° 10.326
+  </p>
 </div>
-"""
+""", unsafe_allow_html=True)
 
-CONTEXTO_HTML = """
-<div style="background:#f0f4ff;border-left:4px solid #2e5090;padding:0.9rem 1.2rem;
-            border-radius:0 6px 6px 0;margin-bottom:1rem">
-<strong>¿Qué es SIATC?</strong><br>
-Un prototipo de sistema de gestión contravencional que automatiza el triaje de causas,
-genera documentos institucionales, registra el ciclo de vida de cada expediente y
-hace seguimiento del cumplimiento de condiciones post-resolución.
-</div>
-"""
+    col_form, col_info = st.columns([1, 1], gap="large")
 
+    with col_form:
+        st.markdown("#### Ingresá al sistema")
+        usuario  = st.text_input("Usuario", placeholder="Ej: aperez", key="login_user")
+        password = st.password_input("Contraseña", key="login_pass")
 
-def _render_lanes():
-    # Try to compute real percentages from DB
-    _verde_pct  = "~60%"
-    _amar_pct   = "~30%"
-    _rojo_pct   = "~10%"
-    try:
-        import database as _db
-        _s = _db.stats_generales()
-        _tot = _s.get("total", 0)
-        if _tot > 0:
-            _pc = _s.get("por_carril", {})
-            _verde_pct  = f"{_pc.get('verde', 0) * 100 // _tot}% del sistema"
-            _amar_pct   = f"{_pc.get('amarillo', 0) * 100 // _tot}% del sistema"
-            _rojo_pct   = f"{_pc.get('rojo', 0) * 100 // _tot}% del sistema"
-    except Exception:
-        pass
+        if st.button("→ Ingresar", type="primary", use_container_width=True):
+            u = USUARIOS_DEMO.get(usuario.strip().lower())
+            if u and u["pass"] == password:
+                st.session_state["usuario_logueado"]  = True
+                st.session_state["fiscal_nombre"]     = u["nombre"]
+                st.session_state["unidad_key"]        = u["unidad"]
+                st.rerun()
+            else:
+                st.error("Usuario o contraseña incorrectos.")
 
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        st.markdown(f"""<div class="lane-card lane-verde">
-<h4>🟢 Carril Verde</h4>
-<p><strong>Mediación</strong><br>
-Conflictos de mínima gravedad sin antecedentes.<br>
-Derivación al Centro Judicial de Mediación.<br>
-<em>{_verde_pct}</em></p>
-</div>""", unsafe_allow_html=True)
-    with c2:
-        st.markdown(f"""<div class="lane-card lane-amarillo">
-<h4>🟡 Carril Amarillo</h4>
-<p><strong>Suspensión del proceso a prueba</strong><br>
-Gravedad media o antecedentes leves.<br>
-Condiciones de cumplimiento monitoreadas.<br>
-<em>{_amar_pct}</em></p>
-</div>""", unsafe_allow_html=True)
-    with c3:
-        st.markdown(f"""<div class="lane-card lane-rojo">
-<h4>🔴 Carril Rojo</h4>
-<p><strong>Proceso contravencional pleno</strong><br>
-Alta gravedad, lesiones o reincidencia.<br>
-Tramitación completa ante el Tribunal.<br>
-<em>{_rojo_pct}</em></p>
-</div>""", unsafe_allow_html=True)
+        st.caption(
+            "**Modo demo** — usuarios disponibles:  \n"
+            "``aperez`` · ``cmedina`` · ``lsuarez`` · ``demo``  \n"
+            "Contraseña: ``mpf2024`` (o ``demo`` para el usuario demo)"
+        )
+
+    with col_info:
+        st.markdown("#### Flujo del expediente")
+        for i, (icon, etapa, desc) in enumerate(ETAPAS):
+            st.markdown(
+                f"<div style='display:flex;gap:10px;margin-bottom:6px;align-items:flex-start'>"
+                f"<span style='font-size:1.1rem;min-width:28px;text-align:center'>{icon}</span>"
+                f"<div><strong>{etapa}</strong><br>"
+                f"<span style='font-size:0.78rem;color:#555'>{desc}</span></div></div>",
+                unsafe_allow_html=True
+            )
+            if i < len(ETAPAS) - 1:
+                st.markdown(
+                    "<div style='margin-left:14px;color:#2e5090;font-size:0.8rem'>│</div>",
+                    unsafe_allow_html=True
+                )
 
 
-def _render_tabs():
-    tabs_info = [
-        ("📋 Nuevo Caso",        "Ingresá DNI para autocompletar datos del imputado/a. Triaje automático determina carril y muestra pasos a seguir. Generá PDFs al instante y agregá observación inicial."),
-        ("📂 Gestión de Causas", "Filtrá por estado, carril, unidad, fiscal y tipo de infracción. Ordená por urgencia. Vista detalle con siguiente paso sugerido y badge de reincidente, o tabla compacta con indicadores de inactividad."),
-        ("🗂️ Casos Demo",       "15 casos representativos de una semana real. Cargá todos de una vez o individualmente. Explorá el flujo completo sin afectar datos reales."),
-        ("🔍 Seguimiento",       "Registrá condiciones post-resolución con acreditación parcial. Agendá próximos controles. El Acta de Compromiso se genera automáticamente al guardar."),
-        ("📅 Agenda",            "Vista semanal con detección de conflictos de horario. Lista filtrable con exportación a PDF, Excel (.xlsx) y calendario (.ics). KPI de comparecencia en tiempo real."),
-        ("👤 Perfil",            "Historial completo con timeline visual Gantt. Causas similares en el sistema. Editá domicilio y teléfono. Próxima audiencia visible directamente en el historial."),
-        ("📊 Panel de Control",  "Dashboard ejecutivo: tendencia mensual, pipeline por categoría, KPIs (8 métricas), rendimiento por fiscal y unidad, demografía, reincidentes, alertas y 6 formatos de exportación."),
-    ]
-    for emoji_nombre, desc in tabs_info:
-        st.markdown(f"""<div class="tab-card">
-<strong>{emoji_nombre}</strong><br>
-<span style="font-size:0.88rem">{desc}</span>
-</div>""", unsafe_allow_html=True)
+def _render_dashboard():
+    """Dashboard post-login: ingreso de caso + causas activas."""
+    import database as db
+    from data_cordoba import UNIDADES
 
+    nombre   = st.session_state.get("fiscal_nombre", "")
+    unidad_k = st.session_state.get("unidad_key", "norte")
+    unidad_s = {"norte": "Norte", "sur": "Sur", "genero": "Género"}.get(unidad_k, unidad_k)
 
-def _render_stats():
-    try:
-        import database as db
-        s = db.stats_generales()
-        sa = db.stats_audiencias()
-        ss = db.stats_seguimiento()
-        stats_items = [
-            (str(s.get("total", 0)),       "causas en el sistema"),
-            (str(s.get("personas", 0)),    "personas registradas"),
-            (str(sa.get("total", 0)),      "audiencias agendadas"),
-            (str(ss.get("activos", 0)),    "seguimientos activos"),
-        ]
-    except Exception:
-        stats_items = [
-            ("23.256", "causas/año en Córdoba"),
-            ("27",     "unidades contravencionales"),
-            ("76%",    "reduccion tiempo (Prometea CABA)"),
-            ("3",      "unidades piloto MPF"),
-        ]
-    cols = st.columns(4)
-    for col, (num, lbl) in zip(cols, stats_items):
-        col.markdown(f"""<div class="stat-box">
-<div class="num">{num}</div>
-<div class="lbl">{lbl}</div>
-</div>""", unsafe_allow_html=True)
+    # ── Header compacto ────────────────────────────────────────────────────────
+    col_hdr, col_sal = st.columns([4, 1])
+    col_hdr.markdown(
+        f"<div style='background:linear-gradient(90deg,#1a2f5e,#2e5090);border-radius:8px;"
+        f"padding:0.8rem 1.2rem;color:white'>"
+        f"<strong>⚖️ SIATC</strong> · Unidad {unidad_s} &nbsp;|&nbsp; {nombre}"
+        f"</div>", unsafe_allow_html=True
+    )
+    if col_sal.button("🚪 Salir", use_container_width=True):
+        for k in ("usuario_logueado", "fiscal_nombre", "unidad_key", "intro_vista"):
+            st.session_state.pop(k, None)
+        st.rerun()
+
+    st.markdown("")
+
+    # ── Línea de tiempo del expediente ────────────────────────────────────────
+    st.markdown("### Flujo del expediente contravencional — Ley N° 10.326")
+    _cols_et = st.columns(len(ETAPAS))
+    for col, (icon, etapa, _) in zip(_cols_et, ETAPAS):
+        col.markdown(
+            f"<div style='text-align:center;background:#f0f4ff;border-radius:8px;"
+            f"padding:10px 4px;border-top:3px solid #2e5090'>"
+            f"<span style='font-size:1.4rem'>{icon}</span><br>"
+            f"<span style='font-size:0.8rem;font-weight:bold;color:#1a2f5e'>{etapa}</span>"
+            f"</div>",
+            unsafe_allow_html=True
+        )
+
+    st.markdown("")
+
+    # ── Acción principal: Nuevo Caso ──────────────────────────────────────────
+    col_nc, col_stats = st.columns([2, 3], gap="large")
+
+    with col_nc:
+        st.markdown("### ➕ Registrar nueva causa")
+        st.info(
+            "Ingresá el DNI del imputado/a para autocompletar sus datos. "
+            "El sistema clasifica la causa automáticamente y genera los documentos correspondientes."
+        )
+        if st.button("📋 Ir a Nuevo Caso", type="primary", use_container_width=True):
+            st.session_state["intro_vista"] = True
+            st.rerun()
+
+        # Stats rápidas
+        try:
+            s = db.stats_generales()
+            s_seg = db.stats_seguimiento()
+            s_aud = db.stats_audiencias()
+            st.markdown("---")
+            st.markdown("**Estado del sistema:**")
+            _sc1, _sc2, _sc3 = st.columns(3)
+            _sc1.metric("Causas", s.get("total", 0))
+            _sc2.metric("Seguimientos activos", s_seg.get("activos", 0))
+            _sc3.metric("Audiencias hoy", s_aud.get("hoy", 0))
+        except Exception:
+            pass
+
+    # ── Causas activas ─────────────────────────────────────────────────────────
+    with col_stats:
+        st.markdown("### 📂 Causas en trámite")
+        try:
+            from database import listar_causas, ESTADOS_LABEL
+            from data_cordoba import TIPOS_INFRACCION as _TI
+            from datetime import datetime
+
+            causas_activas = listar_causas(
+                unidad=unidad_k, limit=200
+            )
+            causas_activas = [c for c in causas_activas
+                              if c.get("estado") in
+                              ("ingresada", "clasificada", "notificada", "en_mediacion")]
+
+            if not causas_activas:
+                st.info("No hay causas activas para esta unidad.")
+            else:
+                # Organizar por estado (columnas Kanban compacto)
+                _est_order = [
+                    ("ingresada",   "📥 Ingresadas"),
+                    ("clasificada", "🔍 Clasificadas"),
+                    ("notificada",  "📬 Notificadas"),
+                    ("en_mediacion","✍️ En mediación"),
+                ]
+                _kk_cols = st.columns(4)
+                _carril_color = {"verde":"#2ECC71", "amarillo":"#F39C12", "rojo":"#E74C3C"}
+                for _kcol, (_est, _lbl) in zip(_kk_cols, _est_order):
+                    _c_est = [c for c in causas_activas if c.get("estado") == _est]
+                    _kcol.markdown(
+                        f"<div style='text-align:center;background:#f0f4ff;"
+                        f"border-radius:6px;padding:4px;margin-bottom:6px'>"
+                        f"<strong style='font-size:0.85rem'>{_lbl}</strong><br>"
+                        f"<span style='font-size:1.4rem;font-weight:bold;color:#2e5090'>"
+                        f"{len(_c_est)}</span></div>",
+                        unsafe_allow_html=True
+                    )
+                    for _c in _c_est[:5]:
+                        _clr = _carril_color.get(_c.get("carril",""), "#aaa")
+                        _nom = (_c.get("apellido_nombre","") or "").split(",")[0][:16]
+                        try:
+                            _dias = (datetime.now() - datetime.strptime(
+                                _c["updated_at"][:10], "%Y-%m-%d")).days
+                            _dias_str = f"{_dias}d" if _dias > 0 else "hoy"
+                        except Exception:
+                            _dias_str = ""
+                        _kcol.markdown(
+                            f"<div style='border-left:3px solid {_clr};padding:3px 6px;"
+                            f"margin:2px 0;background:white;border-radius:0 4px 4px 0;"
+                            f"font-size:0.75rem'>"
+                            f"<strong>{_c['numero'][-6:]}</strong> {_nom}<br>"
+                            f"<span style='color:#888'>{_dias_str}</span>"
+                            f"</div>",
+                            unsafe_allow_html=True
+                        )
+                    if len(_c_est) > 5:
+                        _kcol.caption(f"+ {len(_c_est)-5} más")
+        except Exception as _e:
+            st.info(f"Sin causas disponibles: {_e}")
 
 
 def mostrar_si_primera_vez():
-    """Muestra la introducción y retorna True si el usuario eligió continuar."""
-    if st.session_state.get("intro_vista"):
-        return True   # ya la vio, seguir normalmente
+    """
+    Controla el flujo de ingreso:
+    - Si no logueado → pantalla de login
+    - Si logueado pero no pasó el home → dashboard
+    - Si intro_vista == True → ir a la app
+    """
+    if not st.session_state.get("usuario_logueado"):
+        _render_login()
+        return False   # detener app
 
-    st.markdown(INTRO_HTML, unsafe_allow_html=True)
-    st.markdown(CONTEXTO_HTML, unsafe_allow_html=True)
+    if not st.session_state.get("intro_vista"):
+        _render_dashboard()
+        return False   # detener app
 
-    col_lanes, col_tabs = st.columns([3, 2])
-    with col_lanes:
-        st.markdown("#### Sistema de triaje automático — 3 carriles")
-        _render_lanes()
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown("#### El sistema en números")
-        _render_stats()
-
-    with col_tabs:
-        st.markdown("#### ¿Qué puede hacer?")
-        _render_tabs()
-
-    st.markdown("---")
-
-    with st.expander("📣 Novedades v1.3", expanded=False):
-        st.markdown("""
-**Gestión de Causas**
-- 🚨 Urgencia sort · ⚠️ reincidente badge · 📋 siguiente paso sugerido
-- ⭐ Causas prioritarias (bookmarks de sesión) · 📅 fecha estimada resolución
-- 🗂️ Vista Kanban (pipeline por estado) · Filtro por fiscal + tipo + fechas + reincidentes
-- 📍 Links Google Maps + tel: en domicilio/teléfono · Templates de notas rápidas
-- ⬇️ Expediente completo PDF (dossier con timeline, audiencias, seguimientos)
-- Motivo de cierre al archivar · Análisis de causas existentes al buscar por DNI
-
-**Panel de Control**
-- 📈 Tendencia ingresadas vs. cerradas · 🗂️ Pipeline por categoría × estado
-- ⏳ Top 5 causas más antiguas · 🏛️ Rendimiento por unidad · 📊 8 KPIs
-- 📅 Distribución por día de semana · ⏱️ Tiempo por tipo de infracción
-- 💡 Recomendaciones automáticas · 🔴/🟡/✅ Semáforo de salud del sistema
-- Exportación: 6 Excel sheets · Lista activas PDF · Informe mensual · Agenda semanal
-
-**Seguimiento**
-- 📅 Próximo control con badge de urgencia en el expander
-- ⬇️ Acta de Compromiso automática al registrar
-- ⬇️ Informe de incumplimiento para condiciones vencidas
-- Filtro por tipo de resolución · Duración exacta o por meses
-
-**Agenda**
-- 📅 Exportar a iCal (.ics) · PDF agenda semanal
-- Sugerencia de horarios libres cuando hay conflictos
-- Seguimientos que vencen esta semana en vista semanal
-
-**Perfil**
-- 🔴/🟡/🟢 Nivel de riesgo (score 0-10) · Resumen de actividad últimos 30d
-- Timeline distingue notas/estados · Próxima audiencia en historial
-
-**Búsqueda y navegación**
-- DNI en sidebar → perfil directo · Expediente UCN-XXXXX → pre-selección
-- Fiscal sugerido según carga de trabajo en triage
-""")
-
-    col_btn, col_txt = st.columns([1, 3])
-    with col_btn:
-        if st.button("🚀 Ingresar al sistema", type="primary", use_container_width=True):
-            st.session_state.intro_vista = True
-            st.rerun()
-    with col_txt:
-        st.caption("Los datos cargados son de demostración. "
-                   "El sistema no está conectado a SAC ni a redes del MPF.")
-
-    return False   # todavía no ingresó
+    return True   # usuario autenticado y listo para usar la app

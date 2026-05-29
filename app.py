@@ -117,10 +117,14 @@ div[data-testid="stExpander"] > div:first-child:hover {background:#f0f4ff !impor
 # ── Sidebar ────────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("### ⚖️ SIATC")
-    fiscal_nombre = st.text_input("Fiscal / Ayudante", value="Dra. Ana Pérez")
+    # Pre-fill from login session if available
+    _default_fiscal = st.session_state.get("fiscal_nombre", "Dra. Ana Pérez")
+    _default_unidad = st.session_state.get("unidad_key", "norte")
+    fiscal_nombre = st.text_input("Fiscal / Ayudante", value=_default_fiscal)
     unidad_key = st.selectbox(
         "Unidad Contravencional",
         options=list(UNIDADES.keys()),
+        index=list(UNIDADES.keys()).index(_default_unidad) if _default_unidad in UNIDADES else 0,
         format_func=lambda k: {"norte":"Norte","sur":"Sur","genero":"Género"}[k],
     )
     st.markdown("---")
