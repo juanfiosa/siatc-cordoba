@@ -31,7 +31,7 @@ from database import (
     actividad_reciente, stats_edad, stats_edad_por_carril,
     causas_mes_actual_vs_anterior, stats_por_fiscal, causas_sin_seguimiento,
     proximas_audiencias_por_causa, causas_count_por_persona,
-    stats_tendencia_mensual, stats_por_unidad,
+    stats_tendencia_mensual, stats_por_unidad, stats_tiempo_por_tipo,
 )
 from seguimiento_tab import render_tab_seguimiento
 from agenda_tab import render_tab_agenda
@@ -1472,6 +1472,47 @@ with tab_panel:
                     f"{_total_causas_resueltas} causas ya resueltas "
                     f"({round(_total_dias_ahorrados / max(_total_causas_resueltas, 1))} días promedio por causa)."
                 )
+
+        # ── Tiempo de resolución por tipo de infracción ───────────────────
+        _ttipo = stats_tiempo_por_tipo()
+        if _ttipo:
+            st.markdown("---")
+            st.subheader("📊 Tiempo de resolución por tipo de infracción")
+            _ttipo_rows = []
+            for t in _ttipo:
+                _ttipo_rows.append({
+                    "Categoría":   t.get("categoria", ""),
+                    "Infracción":  t.get("label", t["tipo_infraccion"])[:45],
+                    "N causas":    t["n"],
+                    "Días prom.":  t["dias_promedio"] if t["dias_promedio"] else "—",
+                })
+            _df_ttipo = pd.DataFrame(_ttipo_rows)
+            st.dataframe(
+                _df_ttipo,
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "N causas":   st.column_config.NumberColumn("N causas", format="%d"),
+                    "Días prom.": st.column_config.NumberColumn("Días promedio", format="%.1f"),
+                },
+            )
+            # Horizontal bar chart of top 10
+            _top10 = _ttipo[:10]
+            if _top10:
+                _fig_ttp = go.Figure(go.Bar(
+                    x=[t["dias_promedio"] or 0 for t in reversed(_top10)],
+                    y=[t.get("label","")[:30] for t in reversed(_top10)],
+                    orientation="h",
+                    marker_color="#2e5090",
+                    text=[f"{t['dias_promedio']:.0f}d ({t['n']})" for t in reversed(_top10)],
+                    textposition="outside",
+                ))
+                _fig_ttp.update_layout(
+                    height=max(200, len(_top10) * 28),
+                    margin=dict(l=0, r=60, t=10, b=10),
+                    xaxis_title="Días promedio hasta resolución",
+                )
+                st.plotly_chart(_fig_ttp, use_container_width=True)
 
         if stats["personas"]:
             st.markdown("---")

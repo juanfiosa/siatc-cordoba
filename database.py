@@ -1149,6 +1149,37 @@ def causas_count_por_persona(persona_ids: list) -> dict:
     return {r["persona_id"]: r["n"] for r in rows}
 
 
+def stats_tiempo_por_tipo() -> list[dict]:
+    """
+    Avg resolution days and count per tipo_infraccion (only resolved/archived causas).
+    Returns list of {tipo_infraccion, label, n, dias_promedio} sorted by dias_promedio DESC.
+    """
+    with get_conn() as conn:
+        rows = conn.execute("""
+            SELECT tipo_infraccion,
+                   COUNT(*) as n,
+                   ROUND(AVG(
+                       CAST((julianday(updated_at) - julianday(created_at)) AS REAL)
+                   ), 1) AS dias_promedio
+            FROM causas
+            WHERE estado IN ('resuelta', 'archivada')
+              AND tipo_infraccion IS NOT NULL AND tipo_infraccion != ''
+            GROUP BY tipo_infraccion
+            HAVING n >= 1
+            ORDER BY dias_promedio DESC
+        """).fetchall()
+    # Enrich with human-readable label from TIPOS_INFRACCION
+    from data_cordoba import TIPOS_INFRACCION as _TI
+    result = []
+    for r in rows:
+        d = dict(r)
+        _inf = _TI.get(d["tipo_infraccion"], {})
+        d["label"] = _inf.get("label", d["tipo_infraccion"])
+        d["categoria"] = _inf.get("categoria", "")
+        result.append(d)
+    return result
+
+
 def stats_por_unidad() -> list[dict]:
     """
     Performance metrics per unidad contravencional:
