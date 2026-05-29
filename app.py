@@ -1335,6 +1335,23 @@ with tab_panel:
             for _p in _partes:
                 st.markdown(f"• {_p}")
 
+            # Automated recommendations
+            _recomendaciones = []
+            if _seg_s["vencidos"] > 0:
+                _recomendaciones.append("Cerrar los seguimientos vencidos o registrar la prórroga si corresponde.")
+            if _sin_a and len(_sin_a) > 2:
+                _recomendaciones.append(f"Programar audiencias para las {len(_sin_a)} causas sin audiencia pendiente.")
+            if _seg_s["incumplidos"] > 0:
+                _recomendaciones.append("Evaluar revocación de la suspensión para los seguimientos incumplidos.")
+            if _mom.get("delta", 0) > 0 and _mom["delta"] > 2:
+                _recomendaciones.append("El ingreso de causas supera al mes anterior — considerar redistribución de carga entre fiscales.")
+            if _sin_seg_exec and len(_sin_seg_exec) > 3:
+                _recomendaciones.append(f"Registrar el seguimiento de condiciones para las {len(_sin_seg_exec)} causas resueltas sin registro.")
+            if _recomendaciones:
+                st.markdown("**💡 Recomendaciones automáticas:**")
+                for _r in _recomendaciones:
+                    st.markdown(f"→ {_r}")
+
             _ts_res = f"_{datetime.now().strftime('%d/%m/%Y %H:%M')} — generado automáticamente por SIATC_"
             st.caption(_ts_res)
 
