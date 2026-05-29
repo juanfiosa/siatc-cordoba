@@ -944,10 +944,11 @@ with tab_causas:
                 if len(_kcausas) > 8:
                     _kcol.caption(f"+ {len(_kcausas)-8} más…")
 
+        # Pre-fetch próximas audiencias ONCE for all views (Tabla + Detalle both use it)
+        _prox_auds = proximas_audiencias_por_causa()
+
         # ── Vista tabla compacta ───────────────────────────────────────────
         if _vista_gc == "📊 Tabla":
-            # Pre-fetch next hearing per causa for the table display
-            _prox_auds = proximas_audiencias_por_causa()
             _rows_gc = []
             _activos_gc = {"ingresada", "clasificada", "notificada", "en_mediacion"}
             for c in causas:
