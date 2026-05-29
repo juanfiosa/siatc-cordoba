@@ -783,7 +783,7 @@ with tab_causas:
             label_visibility="collapsed", key="causas_orden"
         )
         _vista_gc = _vista_col.radio(
-            "Vista", ["📋 Detalle", "📊 Tabla"],
+            "Vista", ["📋 Detalle", "📊 Tabla", "🗂️ Kanban"],
             horizontal=True, label_visibility="collapsed", key="causas_vista"
         )
         if _orden == "Más antiguas":
@@ -848,6 +848,30 @@ with tab_causas:
             _sm7.metric("🔴 Rojo", _n_rojo_gc)
         else:
             st.info("No se encontraron causas con los filtros actuales.")
+
+        # ── Vista Kanban (pipeline por estado) ────────────────────────────
+        if _vista_gc == "🗂️ Kanban":
+            _kanban_estados = ["ingresada","clasificada","notificada","en_mediacion","resuelta","archivada"]
+            _kanban_labels  = ["📥 Ingresada","🔍 Clasificada","📬 Notificada","🤝 Mediación","✅ Resuelta","🗄️ Archivada"]
+            _kanban_cols = st.columns(len(_kanban_estados))
+            for _kcol, _kest, _klbl in zip(_kanban_cols, _kanban_estados, _kanban_labels):
+                _kcausas = [c for c in causas if c.get("estado") == _kest]
+                _kcol.markdown(f"**{_klbl}** ({len(_kcausas)})")
+                _kcol.markdown("---")
+                for _kc in _kcausas[:8]:  # limit 8 per column for readability
+                    _kic = {"verde":"🟢","amarillo":"🟡","rojo":"🔴"}.get(_kc.get("carril",""),"⚪")
+                    _knom = (_kc.get("apellido_nombre","") or "").split(",")[0]
+                    _kcol.markdown(
+                        f"<div style='background:#f8f9fa;border-left:3px solid "
+                        f"{'#28a745' if _kc.get('carril')=='verde' else '#ffc107' if _kc.get('carril')=='amarillo' else '#dc3545'}"
+                        f";padding:5px 8px;margin:3px 0;border-radius:0 4px 4px 0;font-size:0.78rem'>"
+                        f"{_kic} <strong>{_kc['numero'][:12]}</strong><br>"
+                        f"<span style='color:#555'>{_knom[:18]}</span>"
+                        f"</div>",
+                        unsafe_allow_html=True
+                    )
+                if len(_kcausas) > 8:
+                    _kcol.caption(f"+ {len(_kcausas)-8} más…")
 
         # ── Vista tabla compacta ───────────────────────────────────────────
         if _vista_gc == "📊 Tabla":
@@ -939,8 +963,8 @@ with tab_causas:
         _pers_cnt_gc = causas_count_por_persona(_pids_gc) if _pids_gc else {}
 
         for c in causas:
-            if _vista_gc == "📊 Tabla":
-                continue   # tabla ya renderizada arriba
+            if _vista_gc in ("📊 Tabla", "🗂️ Kanban"):
+                continue   # ya renderizados arriba
             carril_icon = {"verde":"🟢","amarillo":"🟡","rojo":"🔴"}.get(c.get("carril",""),"⚪")
             estado_label = ESTADOS_LABEL.get(c["estado"], c["estado"])
             infraccion_label = TIPOS_INFRACCION.get(c["tipo_infraccion"],{}).get("label", c["tipo_infraccion"])
