@@ -222,6 +222,13 @@ with st.sidebar:
                          use_container_width=True, type="secondary"):
                 st.session_state["perfil_busqueda"] = _q_rapid
                 st.session_state["goto_perfil"] = True
+        # Expediente pattern (UCN-NNNNN) — auto-select if exact match
+        elif _q_rapid.upper().startswith("UCN-"):
+            _match_causas = listar_causas(busqueda=_q_rapid, limit=5)
+            if len(_match_causas) == 1:
+                st.session_state["causa_sel_id"] = _match_causas[0]["id"]
+                _ic_m = {"verde":"🟢","amarillo":"🟡","rojo":"🔴"}.get(_match_causas[0].get("carril",""),"⚪")
+                st.caption(f"{_ic_m} {_match_causas[0]['numero']} — {ESTADOS_LABEL.get(_match_causas[0]['estado'], _match_causas[0]['estado'])}")
 
     # Últimas causas modificadas
     _ultimas = listar_causas(limit=4)
