@@ -924,7 +924,12 @@ with tab_causas:
                     if _col_pfil.button("👤 Ver perfil", key=f"pfil_{c['id']}", use_container_width=True):
                         st.session_state["perfil_busqueda"] = c["persona_dni"]
                         st.session_state["goto_perfil"] = True
-                    _tel = c.get("persona_telefono") or "—"
+                    _tel_raw = c.get("persona_telefono") or ""
+                    if _tel_raw:
+                        _tel_digits = "".join(ch for ch in _tel_raw if ch.isdigit())
+                        _tel = f"[{_tel_raw}](tel:{_tel_digits})" if _tel_digits else _tel_raw
+                    else:
+                        _tel = "—"
                     _dom = c.get("persona_domicilio") or "—"
                     # Build Google Maps link for the domicilio
                     if _dom and _dom != "—":
