@@ -97,8 +97,18 @@ def _form_nuevo_seguimiento(fiscal):
         fecha_inicio = st.date_input("Fecha de inicio", value=date.today(),
                                      max_value=date.today())
     with col2:
-        meses = st.selectbox("Duración (meses)", [3, 6, 9, 12], index=1)
-        fecha_fin = fecha_inicio + timedelta(days=meses * 30)
+        _duracion_tipo = st.radio("Duración", ["Por meses", "Fecha exacta"], horizontal=True,
+                                  key="seg_duracion_tipo")
+        if _duracion_tipo == "Por meses":
+            meses = st.selectbox("Duración (meses)", [3, 6, 9, 12], index=1)
+            fecha_fin = fecha_inicio + timedelta(days=meses * 30)
+        else:
+            fecha_fin = st.date_input(
+                "Fecha de vencimiento",
+                value=fecha_inicio + timedelta(days=180),
+                min_value=fecha_inicio + timedelta(days=1),
+                key="seg_fecha_fin_custom",
+            )
         _dias_total = (fecha_fin - date.today()).days
         _estado_seg_form = (
             "🟢 Período válido" if fecha_fin > date.today()
