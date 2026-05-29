@@ -2332,34 +2332,41 @@ with tab_panel:
         if not _actividad:
             st.info("No hay actividad registrada aún.")
         else:
-            for _act in _actividad:
+            for _i_act, _act in enumerate(_actividad):
                 _es_nota = _act.get("estado_anterior") == _act.get("estado_nuevo") and _act.get("estado_anterior")
                 _nombre_a = (_act.get("apellido_nombre","") or "").split(",")[0]
                 _num_a    = _act.get("numero","")
                 _ts       = _act.get("created_at","")[:16]
                 _usr      = _act.get("usuario","")
                 _obs      = _act.get("observaciones","")
-                if _es_nota:
-                    st.markdown(
-                        f"<div style='border-left:3px solid #6c757d;padding:3px 10px;"
-                        f"margin:2px 0;background:#f8f9fa;border-radius:0 4px 4px 0;font-size:0.82rem'>"
-                        f"📝 <strong>{_ts}</strong> — {_num_a} ({_nombre_a}): "
-                        f"<em>{_obs[:80]}{'…' if len(_obs)>80 else ''}</em>"
-                        f"</div>",
-                        unsafe_allow_html=True
-                    )
-                else:
-                    _ant = ESTADOS_LABEL.get(_act.get("estado_anterior",""),"—") if _act.get("estado_anterior") else "Ingreso"
-                    _nvo = ESTADOS_LABEL.get(_act.get("estado_nuevo",""), _act.get("estado_nuevo",""))
-                    _obs_txt = f" — {_obs[:50]}" if _obs else ""
-                    st.markdown(
-                        f"<div style='border-left:3px solid #2e5090;padding:3px 10px;"
-                        f"margin:2px 0;background:#f8f9fa;border-radius:0 4px 4px 0;font-size:0.82rem'>"
-                        f"🔄 <strong>{_ts}</strong> — {_num_a} ({_nombre_a}): "
-                        f"{_ant} ➜ <strong>{_nvo}</strong>{_obs_txt}"
-                        f"</div>",
-                        unsafe_allow_html=True
-                    )
+                _col_feed, _col_nav = st.columns([10, 1])
+                with _col_feed:
+                    if _es_nota:
+                        st.markdown(
+                            f"<div style='border-left:3px solid #6c757d;padding:3px 10px;"
+                            f"margin:2px 0;background:#f8f9fa;border-radius:0 4px 4px 0;font-size:0.82rem'>"
+                            f"📝 <strong>{_ts}</strong> — {_num_a} ({_nombre_a}): "
+                            f"<em>{_obs[:80]}{'…' if len(_obs)>80 else ''}</em>"
+                            f"</div>",
+                            unsafe_allow_html=True
+                        )
+                    else:
+                        _ant = ESTADOS_LABEL.get(_act.get("estado_anterior",""),"—") if _act.get("estado_anterior") else "Ingreso"
+                        _nvo = ESTADOS_LABEL.get(_act.get("estado_nuevo",""), _act.get("estado_nuevo",""))
+                        _obs_txt = f" — {_obs[:50]}" if _obs else ""
+                        st.markdown(
+                            f"<div style='border-left:3px solid #2e5090;padding:3px 10px;"
+                            f"margin:2px 0;background:#f8f9fa;border-radius:0 4px 4px 0;font-size:0.82rem'>"
+                            f"🔄 <strong>{_ts}</strong> — {_num_a} ({_nombre_a}): "
+                            f"{_ant} ➜ <strong>{_nvo}</strong>{_obs_txt}"
+                            f"</div>",
+                            unsafe_allow_html=True
+                        )
+                with _col_nav:
+                    if st.button("↗", key=f"feed_nav_{_i_act}", help=f"Ir a {_num_a} en Gestión",
+                                 use_container_width=True):
+                        st.session_state["gc_busqueda"] = _num_a
+                        st.session_state["causa_sel_id"] = _act.get("causa_id")
 
         # ── Opciones de demostración ───────────────────────────────────────
         st.markdown("---")
