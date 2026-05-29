@@ -541,6 +541,34 @@ def causas_por_mes(meses: int = 12) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+def stats_tendencia_mensual(meses: int = 12) -> list[dict]:
+    """
+    Retorna por mes: ingresadas, resueltas/archivadas, y activas acumuladas.
+    Used for the management trend chart in Panel de Control.
+    Returns list of {mes, ingresadas, cerradas} ordered ASC.
+    """
+    with get_conn() as conn:
+        # Ingresadas por mes
+        ing = conn.execute(
+            """SELECT strftime('%Y-%m', created_at) as mes, COUNT(*) as n
+               FROM causas
+               GROUP BY mes ORDER BY mes ASC""",
+        ).fetchall()
+        # Cerradas (resuelta o archivada) por mes — use updated_at as proxy for close date
+        cer = conn.execute(
+            """SELECT strftime('%Y-%m', updated_at) as mes, COUNT(*) as n
+               FROM causas
+               WHERE estado IN ('resuelta', 'archivada')
+               GROUP BY mes ORDER BY mes ASC""",
+        ).fetchall()
+    ing_d = {r["mes"]: r["n"] for r in ing}
+    cer_d = {r["mes"]: r["n"] for r in cer}
+    all_meses = sorted(set(ing_d) | set(cer_d))
+    if meses:
+        all_meses = all_meses[-meses:]
+    return [{"mes": m, "ingresadas": ing_d.get(m, 0), "cerradas": cer_d.get(m, 0)} for m in all_meses]
+
+
 def stats_tiempos_resolucion() -> dict:
     """
     Calcula tiempos promedio de resolución (días entre ingresada → resuelta)

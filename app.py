@@ -31,6 +31,7 @@ from database import (
     actividad_reciente, stats_edad, stats_edad_por_carril,
     causas_mes_actual_vs_anterior, stats_por_fiscal, causas_sin_seguimiento,
     proximas_audiencias_por_causa, causas_count_por_persona,
+    stats_tendencia_mensual,
 )
 from seguimiento_tab import render_tab_seguimiento
 from agenda_tab import render_tab_agenda
@@ -1271,6 +1272,38 @@ with tab_panel:
                 st.plotly_chart(fig6, use_container_width=True)
             else:
                 st.caption("Sin datos de fiscales.")
+
+        # ── Tendencia: ingresadas vs. cerradas ────────────────────────────
+        _tend_data = stats_tendencia_mensual(12)
+        if len(_tend_data) >= 2:
+            st.markdown("---")
+            st.subheader("📈 Tendencia: ingresadas vs. cerradas por mes")
+            _df_tend = pd.DataFrame(_tend_data)
+            _fig_tend = go.Figure()
+            _fig_tend.add_trace(go.Scatter(
+                x=_df_tend["mes"], y=_df_tend["ingresadas"],
+                mode="lines+markers", name="Ingresadas",
+                line=dict(color="#2e5090", width=2), marker=dict(size=7),
+                fill="tozeroy", fillcolor="rgba(46,80,144,0.07)"
+            ))
+            _fig_tend.add_trace(go.Scatter(
+                x=_df_tend["mes"], y=_df_tend["cerradas"],
+                mode="lines+markers", name="Cerradas (resueltas+archivadas)",
+                line=dict(color="#28a745", width=2, dash="dash"), marker=dict(size=7),
+            ))
+            _fig_tend.update_layout(
+                height=280, legend=dict(orientation="h", y=1.1),
+                xaxis_title="", yaxis_title="Causas",
+                hovermode="x unified",
+            )
+            st.plotly_chart(_fig_tend, use_container_width=True)
+            # Show whether backlog is growing or shrinking
+            _tot_ing = sum(r["ingresadas"] for r in _tend_data)
+            _tot_cer = sum(r["cerradas"] for r in _tend_data)
+            if _tot_cer >= _tot_ing:
+                st.success(f"✅ En los últimos {len(_tend_data)} meses: {_tot_ing} ingresadas, {_tot_cer} cerradas — el pendiente se está **reduciendo**.")
+            else:
+                st.warning(f"⚠️ En los últimos {len(_tend_data)} meses: {_tot_ing} ingresadas, {_tot_cer} cerradas — el pendiente está **creciendo** (+{_tot_ing - _tot_cer}).")
 
         # ── Estadísticas detalladas por fiscal ────────────────────────────
         _sfiscal = _c_stats_por_fiscal()
