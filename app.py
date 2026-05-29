@@ -1201,6 +1201,24 @@ with tab_causas:
                                 st.warning("Ingresá el texto de la nota.")
 
                     st.markdown("---")
+                    with st.popover("📋 Datos para citar/referir", use_container_width=True):
+                        _tel_disp = c.get("persona_telefono") or "No registrado"
+                        _dom_disp = c.get("persona_domicilio") or "No registrado"
+                        _inf_disp = TIPOS_INFRACCION.get(c.get("tipo_infraccion",""),{}).get("label","")
+                        _art_disp = TIPOS_INFRACCION.get(c.get("tipo_infraccion",""),{}).get("articulo","")
+                        st.code(
+                            f"Expediente: {c['numero']}\n"
+                            f"Imputado/a: {c['apellido_nombre']}\n"
+                            f"DNI: {c['persona_dni']}\n"
+                            f"Tel.: {_tel_disp}\n"
+                            f"Dom.: {_dom_disp}\n"
+                            f"Infracción: {_inf_disp} ({_art_disp})\n"
+                            f"Fiscal: {c.get('fiscal_asignado','')}\n"
+                            f"Estado: {ESTADOS_LABEL.get(c['estado'], c['estado'])}",
+                            language=None
+                        )
+                        st.caption("Seleccioná el texto y copialo con Ctrl+C / Cmd+C")
+
                     st.markdown("**Programar audiencia:**")
                     with st.popover("📅 Nueva audiencia para esta causa", use_container_width=True):
                         from datetime import date as _dq, timedelta as _tq
