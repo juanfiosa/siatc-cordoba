@@ -9,7 +9,7 @@ from io import BytesIO
 from datetime import date, datetime
 import database as db
 from data_cordoba import TIPOS_INFRACCION, UNIDADES
-from database import stats_edad, stats_edad_por_carril, stats_por_fiscal
+from database import stats_edad, stats_edad_por_carril, stats_por_fiscal, stats_por_unidad, stats_tendencia_mensual
 
 CARRIL_LABEL = {"verde": "Mediación", "amarillo": "Suspensión", "rojo": "Proceso pleno"}
 TIPO_RES_LABEL = {"suspension": "Suspensión del Proceso a Prueba",
@@ -207,16 +207,45 @@ def causas_a_excel() -> bytes:
         columns=["Fiscal","Total causas","Resueltas/Archiv.","% Resolución",
                  "No punitivas","% No punitivas","Prom. días resol."])
 
+    # ── Hoja 5: Por Unidad ────────────────────────────────────────────────────
+    _ulab = {"norte": "Norte", "sur": "Sur", "genero": "Género"}
+    _su_data = stats_por_unidad()
+    _rows_su = []
+    for su in _su_data:
+        _rows_su.append({
+            "Unidad":           _ulab.get(su.get("unidad",""), su.get("unidad","")),
+            "Total causas":     su["total"],
+            "Cerradas":         su.get("cerradas", 0),
+            "% Resolución":     f"{su['pct_resolucion']}%",
+            "Verde (med.)":     su.get("verde", 0),
+            "Amarillo (susp.)": su.get("amarillo", 0),
+            "Rojo (proceso)":   su.get("rojo", 0),
+            "Prom. días resol.":su["dias_promedio"] if su.get("dias_promedio") else "—",
+        })
+    df_su = pd.DataFrame(_rows_su) if _rows_su else pd.DataFrame(
+        columns=["Unidad","Total causas","Cerradas","% Resolución",
+                 "Verde (med.)","Amarillo (susp.)","Rojo (proceso)","Prom. días resol."])
+
+    # ── Hoja 6: Tendencia mensual ─────────────────────────────────────────────
+    _tend_data = stats_tendencia_mensual(12)
+    _rows_tend = [{"Mes": r["mes"], "Ingresadas": r["ingresadas"], "Cerradas": r["cerradas"],
+                   "Balance": r["cerradas"] - r["ingresadas"]} for r in _tend_data]
+    df_tend = pd.DataFrame(_rows_tend) if _rows_tend else pd.DataFrame(
+        columns=["Mes","Ingresadas","Cerradas","Balance"])
+
     buf = BytesIO()
     with pd.ExcelWriter(buf, engine="openpyxl") as writer:
-        df_causas.to_excel(writer, sheet_name="Causas",      index=False, startrow=3)
-        df_personas.to_excel(writer, sheet_name="Personas",  index=False, startrow=3)
-        df_stats.to_excel(writer, sheet_name="Estadísticas", index=False, startrow=3)
-        df_sfis.to_excel(writer,   sheet_name="Por Fiscal",  index=False, startrow=3)
+        df_causas.to_excel(writer, sheet_name="Causas",          index=False, startrow=3)
+        df_personas.to_excel(writer, sheet_name="Personas",      index=False, startrow=3)
+        df_stats.to_excel(writer, sheet_name="Estadísticas",     index=False, startrow=3)
+        df_sfis.to_excel(writer,   sheet_name="Por Fiscal",      index=False, startrow=3)
+        df_su.to_excel(writer,     sheet_name="Por Unidad",      index=False, startrow=3)
+        df_tend.to_excel(writer,   sheet_name="Tendencia mensual",index=False, startrow=3)
 
         # Formato columnas
         for sheet, df in [("Causas", df_causas), ("Personas", df_personas),
-                          ("Estadísticas", df_stats), ("Por Fiscal", df_sfis)]:
+                          ("Estadísticas", df_stats), ("Por Fiscal", df_sfis),
+                          ("Por Unidad", df_su), ("Tendencia mensual", df_tend)]:
             ws = writer.sheets[sheet]
             from openpyxl.styles import PatternFill, Font, Alignment
             # Encabezado de columnas (fila 4)
@@ -270,10 +299,12 @@ def causas_a_excel() -> bytes:
                 row[1].fill = PatternFill("solid", fgColor="E8EDF7")
                 row[2].fill = PatternFill("solid", fgColor="E8EDF7")
 
-        _xl_header(writer, "Causas",        "Registro de Causas Contravencionales")
-        _xl_header(writer, "Personas",      "Registro de Personas Imputadas")
-        _xl_header(writer, "Estadísticas",  "Resumen Estadístico - SIATC")
-        _xl_header(writer, "Por Fiscal",    "Rendimiento por Fiscal Asignado")
+        _xl_header(writer, "Causas",           "Registro de Causas Contravencionales")
+        _xl_header(writer, "Personas",         "Registro de Personas Imputadas")
+        _xl_header(writer, "Estadísticas",     "Resumen Estadístico - SIATC")
+        _xl_header(writer, "Por Fiscal",       "Rendimiento por Fiscal Asignado")
+        _xl_header(writer, "Por Unidad",       "Rendimiento por Unidad Contravencional")
+        _xl_header(writer, "Tendencia mensual","Evolución Mensual: Ingresadas vs. Cerradas")
 
     return buf.getvalue()
 
