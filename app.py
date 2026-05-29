@@ -993,9 +993,12 @@ with tab_causas:
 
                 with col_info:
                     _col_dni, _col_pfil = st.columns([3, 1])
-                    _art_gc = TIPOS_INFRACCION.get(c.get("tipo_infraccion",""),{}).get("articulo","")
+                    _inf_gc = TIPOS_INFRACCION.get(c.get("tipo_infraccion",""), {})
+                    _art_gc = _inf_gc.get("articulo","")
+                    _cat_gc = _inf_gc.get("categoria","")
                     _art_str = f"  |  **Art.:** {_art_gc}" if _art_gc else ""
-                    _col_dni.markdown(f"**DNI:** {c['persona_dni']}  |  **Unidad:** {unidad_label}  |  **Fiscal:** {c.get('fiscal_asignado','—')}{_art_str}")
+                    _cat_str = f"  |  [{_cat_gc}]" if _cat_gc else ""
+                    _col_dni.markdown(f"**DNI:** {c['persona_dni']}  |  **Unidad:** {unidad_label}  |  **Fiscal:** {c.get('fiscal_asignado','—')}{_art_str}{_cat_str}")
                     if _col_pfil.button("👤 Ver perfil", key=f"pfil_{c['id']}", use_container_width=True):
                         st.session_state["perfil_busqueda"] = c["persona_dni"]
                         st.session_state["goto_perfil"] = True
