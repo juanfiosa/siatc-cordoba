@@ -8,7 +8,7 @@ import streamlit as st
 from datetime import datetime, date, timedelta
 import database as db
 from data_cordoba import TIPOS_INFRACCION, CONDICIONES_SUSPENSION
-from pdf_gen import pdf_informe_seguimiento
+from pdf_gen import pdf_informe_seguimiento, pdf_acta_compromiso
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -191,10 +191,38 @@ def _form_nuevo_seguimiento(fiscal):
                 fecha_limite=cond["fecha_limite"]
             )
         n_conds = len(st.session_state.condiciones_temp)
-        st.session_state.condiciones_temp = []
         st.success(f"✅ Seguimiento #{seg_id} registrado con {n_conds} condición(es).")
         st.balloons()
-        st.rerun()
+        # Offer immediate Acta de Compromiso download without waiting for rerun
+        try:
+            _caso_acta = {
+                "numero": causa["numero"], "tipo": causa.get("tipo_infraccion",""),
+                "imputado": causa.get("apellido_nombre",""), "dni": causa.get("persona_dni",""),
+                "edad": causa.get("persona_edad", 0), "descripcion": causa.get("descripcion",""),
+                "unidad": causa.get("unidad","norte"),
+            }
+            _clf_acta = {
+                "carril": causa.get("carril","amarillo"), "accion": "", "score": 2,
+                "fundamento": [], "icono": "", "descripcion": "", "color": "",
+                "categoria": TIPOS_INFRACCION.get(causa.get("tipo_infraccion",""),{}).get("categoria",""),
+            }
+            _conds_acta = [c["descripcion"] for c in st.session_state.condiciones_temp] or \
+                          [c["descripcion"] for c in db.get_condiciones(seg_id)]
+            _pdf_acta = pdf_acta_compromiso(_caso_acta, _conds_acta, fiscal, _caso_acta["unidad"])
+            st.download_button(
+                "⬇️ Descargar Acta de Compromiso (PDF)",
+                data=_pdf_acta,
+                file_name=f"acta_compromiso_{causa['numero']}.pdf",
+                mime="application/pdf",
+                key="dl_acta_nueva",
+                type="primary",
+                use_container_width=True,
+            )
+        except Exception:
+            pass
+        st.session_state.condiciones_temp = []
+        if st.button("Continuar", key="seg_continuar"):
+            st.rerun()
 
 
 # ── Panel principal de seguimientos ──────────────────────────────────────────
