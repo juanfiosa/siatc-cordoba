@@ -194,6 +194,20 @@ with st.sidebar:
         st.markdown("---")
         st.error(f"📋 {len(_sin_aud_sb)} sin audiencia")
 
+    # Esta semana — quick activity snapshot
+    st.markdown("---")
+    try:
+        from datetime import date as _dsb
+        _lunes_sb = (_dsb.today() - timedelta(days=_dsb.today().weekday())).isoformat()
+        _nuevas_sem = len(listar_causas(fecha_desde=_lunes_sb, limit=200))
+        _auds_sem   = len(listar_audiencias(desde=_lunes_sb))
+        st.markdown("**📊 Esta semana**")
+        _cs1, _cs2 = st.columns(2)
+        _cs1.metric("Nuevas causas", _nuevas_sem)
+        _cs2.metric("Audiencias", _auds_sem)
+    except Exception:
+        pass
+
     # Búsqueda rápida
     st.markdown("---")
     st.markdown("**🔎 Búsqueda rápida**")
