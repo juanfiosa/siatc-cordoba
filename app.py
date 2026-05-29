@@ -1307,6 +1307,11 @@ with tab_panel:
                 _partes.append(f"📋 **{len(_sin_a)} causa(s) activa(s)** sin audiencia programada.")
             if stats["reincidentes"] > 0:
                 _partes.append(f"🔄 **{stats['reincidentes']} persona(s) reincidente(s)** en el padrón.")
+            _sin_seg_exec = _c_sin_seguimiento()
+            if _sin_seg_exec:
+                _partes.append(f"🔍 **{len(_sin_seg_exec)} causa(s) resuelta(s)** sin seguimiento registrado — revisión recomendada.")
+            if _seg_s["activos"] > 0:
+                _partes.append(f"📋 **{_seg_s['activos']} seguimiento(s) activo(s)** en curso ({_seg_s['cumplidos']} ya cumplidos).")
             if _mom["pct_cambio"] is not None:
                 _tend = "en aumento" if _mom["delta"] > 0 else ("en baja" if _mom["delta"] < 0 else "estable")
                 _partes.append(
