@@ -728,16 +728,24 @@ with tab_causas:
     if col_f5.button("✕ Todo", key="gc_clear_all", use_container_width=True,
                      help="Limpiar todos los filtros"):
         for _fk in ("gc_busqueda","gc_filtro_tipo","gc_fecha_desde","gc_fecha_hasta",
-                    "gc_solo_rein","gc_filtro_fiscal","gc_min_dias"):
+                    "gc_solo_rein","gc_filtro_fiscal","gc_min_dias","gc_filtro_categoria"):
             if _fk in st.session_state:
                 del st.session_state[_fk]
         st.rerun()
 
-    # Filtros — fila 2: tipo infracción + rango de fechas + fiscal (colapsable)
-    with st.expander("🔍 Filtros adicionales: tipo, fechas, fiscal y reincidencia", expanded=False):
+    # Filtros — fila 2: categoría + tipo + rango de fechas + fiscal (colapsable)
+    with st.expander("🔍 Filtros adicionales: categoría, tipo, fechas, fiscal y reincidencia", expanded=False):
         from datetime import date as _dt_gc
+        _categorias_gc = sorted({v.get("categoria","") for v in TIPOS_INFRACCION.values() if v.get("categoria")})
+        _filtro_categoria = st.selectbox(
+            "Categoría de infracción",
+            ["Todas"] + _categorias_gc,
+            key="gc_filtro_categoria",
+            help="Filtra por categoría amplia: Tránsito, Convivencia, Comercio, etc."
+        )
         _tipo_opciones_gc = {"": "Todos los tipos"} | {
             k: f"{v['categoria']} — {v['label'][:40]}" for k, v in TIPOS_INFRACCION.items()
+            if (_filtro_categoria == "Todas" or v.get("categoria") == _filtro_categoria)
         }
         _col_tipo_gc, _col_fd_gc, _col_fh_gc, _col_fc_gc = st.columns([2, 1, 1, 1])
         _filtro_tipo = _col_tipo_gc.selectbox(
@@ -772,7 +780,7 @@ with tab_causas:
         )
         if _col_fc_gc.button("🗑️ Limpiar", key="gc_clear_ext"):
             for _k in ("gc_filtro_tipo", "gc_fecha_desde", "gc_fecha_hasta",
-                       "gc_solo_rein", "gc_filtro_fiscal", "gc_min_dias"):
+                       "gc_solo_rein", "gc_filtro_fiscal", "gc_min_dias", "gc_filtro_categoria"):
                 if _k in st.session_state:
                     del st.session_state[_k]
             st.rerun()
@@ -790,6 +798,11 @@ with tab_causas:
         fiscal          = _fiscal_filtro,
         fecha_hasta     = _fecha_hasta_str,
     )
+
+    # Apply category filter in-memory (broader than tipo_infraccion)
+    if _filtro_categoria and _filtro_categoria != "Todas" and causas and not _filtro_tipo:
+        causas = [c for c in causas
+                  if TIPOS_INFRACCION.get(c.get("tipo_infraccion",""),{}).get("categoria","") == _filtro_categoria]
 
     # Apply minimum age filter in-memory
     if _gc_min_dias and _gc_min_dias > 0 and causas:
