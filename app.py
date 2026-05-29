@@ -473,54 +473,91 @@ with tab_nuevo:
             )
 
         st.markdown("#### Datos del hecho")
-        # ── Selector con favoritos + catálogo completo ────────────────────
-        from database import get_favoritos, toggle_favorito
-        _favs_nc = get_favoritos(unidad_key, fiscal_nombre)
-        # Build options: favorites first (starred), then rest of catalog
+        # ── Acordeón de títulos del CCC ────────────────────────────────────
         _cat_icons_nc = {
             "Tránsito": "🚗", "Convivencia": "🏘️", "Comercio": "🏪",
             "Espacio Público": "🌳", "Integridad": "⚠️", "Animales": "🐾",
             "Propiedad": "🏠", "Pirotecnia": "🎆", "Protección Menores": "👶",
         }
-        _modo_nc = st.radio(
-            "Mostrar infracciones",
-            ["⭐ Favoritas", "📋 Catálogo completo CCC"],
-            horizontal=True, label_visibility="collapsed", key="nc_modo_tipo"
+        # Determine current selection (persisted in session_state)
+        _tipo_default = list(TIPOS_INFRACCION.keys())[0]
+        if "nc_tipo_sel" not in st.session_state:
+            st.session_state["nc_tipo_sel"] = _tipo_default
+        tipo = st.session_state["nc_tipo_sel"]
+        if tipo not in TIPOS_INFRACCION:
+            tipo = _tipo_default
+
+        # Load favorites for star toggle
+        _favs_nc = get_favoritos(unidad_key, fiscal_nombre)
+
+        # ── Infracción seleccionada actualmente ─────────────────────────
+        _sel_info = TIPOS_INFRACCION.get(tipo, {})
+        _sel_icon = _cat_icons_nc.get(_sel_info.get("categoria",""), "📋")
+        _fav_lbl  = "⭐ Quitar de favoritas" if tipo in _favs_nc else "☆ Agregar a favoritas"
+        _col_sel, _col_fav = st.columns([5, 2])
+        _col_sel.success(
+            f"**Infracción seleccionada:** {_sel_icon} {_sel_info.get('label','—')}  \n"
+            f"*{_sel_info.get('articulo','')} · {_sel_info.get('categoria','')}*"
         )
-        if _modo_nc == "⭐ Favoritas":
-            _tipo_opts_nc = {k: TIPOS_INFRACCION[k]["label"] for k in _favs_nc if k in TIPOS_INFRACCION}
-            if not _tipo_opts_nc:
-                st.caption("No hay favoritas aún — usá el catálogo completo o configuralas en el Panel.")
-                _tipo_opts_nc = {k: v["label"] for k, v in TIPOS_INFRACCION.items()}
-        else:
-            # Full catalog grouped by category via cascading selector
-            _categorias_nc = sorted({v["categoria"] for v in TIPOS_INFRACCION.values()})
-            _col_cat, _col_fav_btn = st.columns([5, 1])
-            _cat_sel_nc = _col_cat.selectbox(
-                "Categoría",
-                _categorias_nc,
-                format_func=lambda c: f"{_cat_icons_nc.get(c,'📋')} {c}",
-                key="nc_categoria",
-            )
-            _tipo_opts_nc = {
-                k: v["label"]
-                for k, v in TIPOS_INFRACCION.items()
-                if v["categoria"] == _cat_sel_nc
-            }
-        tipo = st.selectbox(
-            "Tipo de infracción",
-            options=list(_tipo_opts_nc.keys()),
-            format_func=lambda k: _tipo_opts_nc.get(k, k),
-            key="nc_tipo",
-        )
-        # Star button to toggle this tipo as favorite
-        _is_fav_nc = tipo in _favs_nc
-        if st.button(
-            "⭐ Quitar de favoritas" if _is_fav_nc else "☆ Agregar a favoritas",
-            key="nc_toggle_fav", type="secondary"
-        ):
+        if _col_fav.button(_fav_lbl, key="nc_toggle_fav", use_container_width=True):
             toggle_favorito(unidad_key, fiscal_nombre, tipo)
             st.rerun()
+
+        # ── Acordeón: un expander por título/categoría ─────────────────
+        # Group by category in display order
+        _display_order = ["Tránsito", "Convivencia", "Integridad", "Propiedad",
+                          "Animales", "Comercio", "Espacio Público",
+                          "Pirotecnia", "Protección Menores"]
+        _tipos_por_cat = {}
+        for _k, _v in TIPOS_INFRACCION.items():
+            _tipos_por_cat.setdefault(_v["categoria"], []).append(_k)
+
+        _grav_icon = {1:"🟢", 2:"🟡", 3:"🔴", 4:"🔴"}
+        _modo_nc   = st.radio(
+            "Mostrar",
+            ["⭐ Solo favoritas", "📋 Todos los títulos del CCC"],
+            horizontal=True, label_visibility="collapsed", key="nc_modo_tipo"
+        )
+
+        for _cat in _display_order:
+            _tipos_cat = _tipos_por_cat.get(_cat, [])
+            if not _tipos_cat:
+                continue
+            if _modo_nc == "⭐ Solo favoritas":
+                _tipos_cat = [k for k in _tipos_cat if k in _favs_nc]
+                if not _tipos_cat:
+                    continue
+
+            _icon       = _cat_icons_nc.get(_cat, "📋")
+            _n_fav_cat  = sum(1 for k in _tipos_cat if k in _favs_nc)
+            _fav_badge  = f" · {_n_fav_cat}⭐" if _n_fav_cat and _modo_nc != "⭐ Solo favoritas" else ""
+            _is_active  = _sel_info.get("categoria") == _cat  # expand active category
+            with st.expander(
+                f"{_icon} **{_cat}** — {len(_tipos_cat)} infracción(es){_fav_badge}",
+                expanded=_is_active
+            ):
+                for _tk in _tipos_cat:
+                    _tv = TIPOS_INFRACCION[_tk]
+                    _g  = _grav_icon.get(_tv.get("gravedad_base", 1), "⚪")
+                    _is_sel = (_tk == tipo)
+                    _col_txt, _col_btn = st.columns([6, 1])
+                    # Highlight selected row
+                    _txt_style = "**" if _is_sel else ""
+                    _col_txt.markdown(
+                        f"{'✅ ' if _is_sel else ''}{_txt_style}{_tv['articulo']} — {_tv['label']}{_txt_style}  \n"
+                        f"<span style='font-size:0.8rem;color:#666'>{_g} Gravedad {_tv.get('gravedad_base',1)}"
+                        f"{'  |  ⚠️ vecinal' if _tv.get('es_conflicto_vecinal') else ''}</span>",
+                        unsafe_allow_html=True
+                    )
+                    if _col_btn.button(
+                        "✓" if not _is_sel else "●",
+                        key=f"nc_sel_{_tk}",
+                        help=f"Seleccionar: {_tv['label']}",
+                        type="primary" if _is_sel else "secondary",
+                        use_container_width=True,
+                    ):
+                        st.session_state["nc_tipo_sel"] = _tk
+                        st.rerun()
         # Info card para el tipo seleccionado
         _inf_sel = TIPOS_INFRACCION.get(tipo, {})
         if _inf_sel:
