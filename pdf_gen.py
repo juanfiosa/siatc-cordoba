@@ -1098,6 +1098,119 @@ def pdf_informe_seguimiento(seg: dict, condiciones: list, prog: dict,
     return buf.getvalue()
 
 
+def pdf_expediente_causa(causa: dict, timeline: list, audiencias: list,
+                         seguimientos: list, condiciones_map: dict,
+                         fiscal_nombre: str) -> bytes:
+    """
+    PDF dossier completo de una causa: datos, timeline, audiencias, seguimientos.
+    causa: dict from get_causa().
+    timeline: list from get_timeline(causa_id).
+    audiencias: list from listar_audiencias(causa_id=...).
+    seguimientos: list of segs for this causa.
+    condiciones_map: {seg_id: [condiciones]} for each seguimiento.
+    """
+    from data_cordoba import TIPOS_INFRACCION as _TI, UNIDADES as _UN
+    unidad_key = causa.get("unidad", "norte")
+    ESTADO_ES = {
+        "ingresada":"Ingresada","clasificada":"Clasificada","notificada":"Notificada",
+        "en_mediacion":"En mediacion","resuelta":"Resuelta","archivada":"Archivada",
+    }
+    CARRIL_ES = {"verde":"Carril Verde (Mediacion)","amarillo":"Carril Amarillo (Suspension)",
+                 "rojo":"Carril Rojo (Proceso pleno)"}
+
+    pdf = PDFMPFBase(unidad_key)
+    pdf.alias_nb_pages()
+    pdf.add_page()
+
+    pdf.titulo_documento(f"Expediente — {_s(causa.get('numero',''))}")
+    pdf._sf("B", 9); pdf.set_text_color(*AZUL_CLARO)
+    pdf.cell(0, 6, _s(f"Generado: {datetime.now().strftime('%d/%m/%Y %H:%M hs')}"), ln=True)
+    pdf.set_text_color(*NEGRO); pdf.ln(4)
+
+    # Datos del imputado
+    pdf._sf("B", 10); pdf.set_text_color(*AZUL_MPF); pdf.set_fill_color(240, 244, 255)
+    pdf.cell(0, 7, "DATOS DEL IMPUTADO/A", fill=True, ln=True)
+    pdf.set_text_color(*NEGRO); pdf._sf("", 9); pdf.ln(2)
+    pdf.cell(95, 5, _s(f"Apellido y nombre: {causa.get('apellido_nombre','')}"), ln=False)
+    pdf.cell(95, 5, _s(f"DNI: {causa.get('persona_dni','')}"), ln=True)
+    pdf.cell(95, 5, _s(f"Edad: {causa.get('persona_edad','')} años"), ln=False)
+    pdf.cell(95, 5, _s(f"Tel.: {causa.get('persona_telefono','') or 'No registrado'}"), ln=True)
+    pdf.cell(0, 5, _s(f"Domicilio: {causa.get('persona_domicilio','') or 'No registrado'}"), ln=True)
+    pdf.ln(3)
+
+    # Datos de la causa
+    pdf._sf("B", 10); pdf.set_text_color(*AZUL_MPF); pdf.set_fill_color(240, 244, 255)
+    pdf.cell(0, 7, "DATOS DE LA CAUSA", fill=True, ln=True)
+    pdf.set_text_color(*NEGRO); pdf._sf("", 9); pdf.ln(2)
+    _inf = _TI.get(causa.get("tipo_infraccion",""), {})
+    pdf.cell(95, 5, _s(f"Expediente: {causa.get('numero','')}"), ln=False)
+    pdf.cell(95, 5, _s(f"Fiscal: {causa.get('fiscal_asignado','') or fiscal_nombre}"), ln=True)
+    pdf.cell(95, 5, _s(f"Infraccion: {_inf.get('label', causa.get('tipo_infraccion',''))}"), ln=False)
+    pdf.cell(95, 5, _s(f"Articulo: {_inf.get('articulo','')}"), ln=True)
+    pdf.cell(95, 5, _s(f"Estado: {ESTADO_ES.get(causa.get('estado',''), causa.get('estado',''))}"), ln=False)
+    pdf.cell(95, 5, _s(f"Carril: {CARRIL_ES.get(causa.get('carril',''), causa.get('carril',''))}"), ln=True)
+    pdf.cell(0, 5, _s(f"Descripcion: {causa.get('descripcion','') or ''}"), ln=True)
+    pdf.cell(95, 5, _s(f"Fecha del hecho: {causa.get('fecha_hecho','')[:10] if causa.get('fecha_hecho') else '-'}"), ln=False)
+    pdf.cell(95, 5, _s(f"Ingresada: {causa.get('created_at','')[:10]}"), ln=True)
+    pdf.ln(3)
+
+    # Timeline
+    if timeline:
+        pdf._sf("B", 10); pdf.set_text_color(*AZUL_MPF); pdf.set_fill_color(240, 244, 255)
+        pdf.cell(0, 7, f"HISTORIAL DE ESTADOS ({len(timeline)} registros)", fill=True, ln=True)
+        pdf.set_text_color(*NEGRO); pdf._sf("", 8); pdf.ln(2)
+        for t in timeline:
+            _ts = t.get("created_at","")[:16]
+            _ant = ESTADO_ES.get(t.get("estado_anterior",""), t.get("estado_anterior","") or "Inicio")
+            _nvo = ESTADO_ES.get(t.get("estado_nuevo",""), t.get("estado_nuevo",""))
+            _obs = t.get("observaciones","") or ""
+            _usr = t.get("usuario","") or ""
+            pdf.cell(35, 4, _s(_ts), ln=False)
+            pdf.cell(35, 4, _s(f"{_ant} -> {_nvo}"), ln=False)
+            pdf.cell(100, 4, _s(f"{_obs[:60]}"), ln=True)
+        pdf.ln(3)
+
+    # Audiencias
+    if audiencias:
+        pdf._sf("B", 10); pdf.set_text_color(*AZUL_MPF); pdf.set_fill_color(240, 244, 255)
+        pdf.cell(0, 7, f"AUDIENCIAS ({len(audiencias)})", fill=True, ln=True)
+        pdf.set_text_color(*NEGRO); pdf._sf("", 8); pdf.ln(2)
+        TIPO_L = {"audiencia":"Aud. contravenc.","mediacion":"Aud. mediacion",
+                  "acta_compromiso":"Acta compromiso","control_seg":"Control seg."}
+        EST_L = {"programada":"Prog.","realizada":"Realizada","ausente":"Ausente",
+                 "reprogramada":"Reprogram.","cancelada":"Cancelada"}
+        for a in sorted(audiencias, key=lambda x: x.get("fecha","")):
+            pdf.cell(30, 4, _s(f"{a.get('fecha','')} {a.get('hora','')}"), ln=False)
+            pdf.cell(45, 4, _s(TIPO_L.get(a.get("tipo",""), a.get("tipo",""))), ln=False)
+            pdf.cell(25, 4, _s(EST_L.get(a.get("estado",""), a.get("estado",""))), ln=False)
+            pdf.cell(90, 4, _s(a.get("observaciones","") or ""), ln=True)
+        pdf.ln(3)
+
+    # Seguimientos
+    if seguimientos:
+        pdf._sf("B", 10); pdf.set_text_color(*AZUL_MPF); pdf.set_fill_color(240, 244, 255)
+        pdf.cell(0, 7, f"SEGUIMIENTOS ({len(seguimientos)})", fill=True, ln=True)
+        pdf.set_text_color(*NEGRO); pdf._sf("", 8); pdf.ln(2)
+        for seg in seguimientos:
+            _t = {"suspension":"Suspension del proceso a prueba","mediacion":"Acuerdo de mediacion",
+                  "acuerdo":"Acuerdo conciliatorio"}.get(seg.get("tipo_resolucion",""), seg.get("tipo_resolucion",""))
+            pdf.cell(0, 4, _s(f"Tipo: {_t} | Periodo: {seg.get('fecha_inicio','')} -> {seg.get('fecha_fin','')} | Estado: {seg.get('estado','').capitalize()}"), ln=True)
+            conds = condiciones_map.get(seg.get("id"), [])
+            for cond in conds:
+                _est_c = {"pendiente":"Pendiente","en_curso":"En curso","cumplido":"Cumplido",
+                          "incumplido":"Incumplido"}.get(cond.get("estado",""), cond.get("estado",""))
+                pdf._sf("I", 7); pdf.set_x(25)
+                pdf.cell(0, 3, _s(f"• {cond.get('descripcion','')[:70]} ({_est_c})"), ln=True)
+            pdf._sf("", 8); pdf.ln(2)
+
+    pdf._sf("I", 7); pdf.set_text_color(*GRIS_TEXTO)
+    pdf.cell(0, 4, _s(f"Generado por SIATC - MPF Cordoba - {datetime.now().strftime('%d/%m/%Y %H:%M')}"),
+             ln=True, align="C")
+    buf = BytesIO()
+    pdf.output(buf)
+    return buf.getvalue()
+
+
 def pdf_informe_mensual(mes: str, stats_gen: dict, causas_ingresadas: int,
                         causas_resueltas: int, causas_archivadas: int,
                         auds_total: int, auds_realizadas: int, auds_ausentes: int,

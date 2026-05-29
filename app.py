@@ -1125,6 +1125,31 @@ with tab_causas:
                             st.rerun()
 
                     st.markdown("---")
+                    st.markdown("**📋 Expediente completo:**")
+                    try:
+                        from pdf_gen import pdf_expediente_causa as _pec
+                        _timeline_exp  = get_timeline(c["id"])
+                        _auds_exp      = listar_audiencias(causa_id=c["id"])
+                        _segs_exp      = listar_seguimientos()
+                        _segs_exp      = [s for s in _segs_exp if s.get("causa_id") == c["id"]]
+                        _cond_map_exp  = {s["id"]: get_condiciones(s["id"]) for s in _segs_exp}
+                        _causa_full    = get_causa(c["id"]) or c
+                        _pdf_exp = _pec(
+                            _causa_full, _timeline_exp, _auds_exp,
+                            _segs_exp, _cond_map_exp, fiscal_nombre
+                        )
+                        st.download_button(
+                            "⬇️ Expediente completo (PDF)",
+                            data=_pdf_exp,
+                            file_name=f"{c['numero']}_expediente.pdf",
+                            mime="application/pdf",
+                            key=f"dl_exp_{c['id']}",
+                            use_container_width=True,
+                        )
+                    except Exception as _e_exp:
+                        st.caption(f"PDF no disponible: {_e_exp}")
+
+                    st.markdown("---")
                     st.markdown("**👨‍⚖️ Fiscal asignado:**")
                     with st.popover("Reasignar fiscal", use_container_width=True):
                         _fiscal_actual = c.get("fiscal_asignado","")
