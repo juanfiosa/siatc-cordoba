@@ -541,7 +541,7 @@ with tab_causas:
                                       format_func=lambda x: {"Todas":"Todas","norte":"Norte","sur":"Sur","genero":"Género"}[x])
 
     # Filtros — fila 2: tipo infracción + rango de fechas (colapsable)
-    with st.expander("🔍 Filtros adicionales: tipo de infracción y fechas", expanded=False):
+    with st.expander("🔍 Filtros adicionales: tipo de infracción, fechas y reincidencia", expanded=False):
         from datetime import date as _dt_gc
         _tipo_opciones_gc = {"": "Todos los tipos"} | {
             k: f"{v['categoria']} — {v['label'][:40]}" for k, v in TIPOS_INFRACCION.items()
@@ -555,8 +555,12 @@ with tab_causas:
         )
         _gc_fecha_desde = _col_fd_gc.date_input("Desde", value=None, key="gc_fecha_desde")
         _gc_fecha_hasta = _col_fh_gc.date_input("Hasta", value=None, key="gc_fecha_hasta")
+        _gc_solo_rein = st.checkbox(
+            "⚠️ Solo reincidentes (personas con más de 1 causa)",
+            value=False, key="gc_solo_rein"
+        )
         if _col_fc_gc.button("🗑️ Limpiar", key="gc_clear_ext"):
-            for _k in ("gc_filtro_tipo", "gc_fecha_desde", "gc_fecha_hasta"):
+            for _k in ("gc_filtro_tipo", "gc_fecha_desde", "gc_fecha_hasta", "gc_solo_rein"):
                 if _k in st.session_state:
                     del st.session_state[_k]
             st.rerun()
@@ -572,6 +576,12 @@ with tab_causas:
         fecha_desde     = _fecha_desde_str,
         fecha_hasta     = _fecha_hasta_str,
     )
+
+    # Apply reincidente filter in-memory after bulk persona count
+    if _gc_solo_rein and causas:
+        _pids_rein = list({c["persona_id"] for c in causas if c.get("persona_id")})
+        _cnt_rein  = causas_count_por_persona(_pids_rein) if _pids_rein else {}
+        causas = [c for c in causas if _cnt_rein.get(c.get("persona_id"), 0) > 1]
 
     if not causas:
         st.info("No hay causas que coincidan con los filtros. Ingresá un caso nuevo en la pestaña 📋 o cargá los casos demo.")
