@@ -560,6 +560,16 @@ with tab_nuevo:
             st.markdown("##### Fundamentos")
             for f in clf["fundamento"]:
                 st.markdown(f"• {f}")
+            # Score breakdown
+            _score_val = clf.get("score", 2)
+            _score_max = 7  # practical max
+            st.markdown(
+                f"<div style='background:#f0f4ff;border-radius:4px;padding:6px 10px;font-size:0.82rem'>"
+                f"📊 <strong>Score de triaje:</strong> {_score_val:.1f} / {_score_max} &nbsp; "
+                f"{'🟢 ≤1.5 → Verde' if _score_val <= 1.5 else '🟡 1.5–3.0 → Amarillo' if _score_val <= 3 else '🔴 >3.0 → Rojo'}"
+                f"</div>",
+                unsafe_allow_html=True
+            )
 
             # Pasos a seguir — guía procesal por carril
             _pasos_nc = {
