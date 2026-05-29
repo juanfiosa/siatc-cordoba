@@ -926,7 +926,15 @@ with tab_causas:
                         st.session_state["goto_perfil"] = True
                     _tel = c.get("persona_telefono") or "—"
                     _dom = c.get("persona_domicilio") or "—"
-                    st.markdown(f"📞 **Tel.:** {_tel}  |  🏠 **Dom.:** {_dom}")
+                    # Build Google Maps link for the domicilio
+                    if _dom and _dom != "—":
+                        from urllib.parse import quote as _urlencode
+                        _maps_addr = _urlencode(f"{_dom}, Córdoba, Argentina")
+                        _maps_url = f"https://www.google.com/maps/search/?api=1&query={_maps_addr}"
+                        _dom_display = f"[{_dom}]({_maps_url})"
+                    else:
+                        _dom_display = "—"
+                    st.markdown(f"📞 **Tel.:** {_tel}  |  🏠 **Dom.:** {_dom_display}")
                     st.markdown(f"**Descripción:** {c.get('descripcion') or '—'}")
                     _fh = c.get("fecha_hecho","")
                     _fecha_hecho_str = _fh[:10] if _fh else "—"
