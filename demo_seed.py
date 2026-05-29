@@ -347,6 +347,13 @@ def _crear_seg_demo(causa_id, caso, persona):
         for cid in cond_ids.values():
             db.marcar_condicion(cid, "cumplido")
 
+    # Set próximo control for active seguimientos (within next 14 days)
+    if caso.get("seg_estado") not in ("cumplido", "incumplido", "revocado"):
+        import random as _rand
+        _ctrl_dias = _rand.randint(1, 14)
+        _pc_fecha = (date.today() + timedelta(days=_ctrl_dias)).isoformat()
+        db.set_proximo_control(seg_id, _pc_fecha)
+
     # Cerrar seguimiento si corresponde
     if caso.get("seg_estado") in ("cumplido", "incumplido", "revocado"):
         db.cerrar_seguimiento(seg_id, caso["seg_estado"])
