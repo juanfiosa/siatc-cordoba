@@ -796,7 +796,10 @@ with tab_causas:
                     "Unidad":        {"norte":"Norte","sur":"Sur","genero":"Género"}.get(c.get("unidad",""),""),
                     "Fiscal":        c.get("fiscal_asignado",""),
                     "Ingresada":     c.get("created_at","")[:10],
-                    "Sin mov. (d)":  _dias_inact_gc,
+                    "Sin mov. (d)":  (f"🔴 {_dias_inact_gc}d" if _dias_inact_gc and _dias_inact_gc > 30
+                                       else f"🟠 {_dias_inact_gc}d" if _dias_inact_gc and _dias_inact_gc > 14
+                                       else f"🟡 {_dias_inact_gc}d" if _dias_inact_gc and _dias_inact_gc > 7
+                                       else f"{_dias_inact_gc}d" if _dias_inact_gc is not None else ""),
                 })
             st.dataframe(
                 pd.DataFrame(_rows_gc),
@@ -808,9 +811,10 @@ with tab_causas:
                     "Próx. audiencia": st.column_config.TextColumn(
                         "Próx. audiencia", help="Próxima audiencia programada (fecha + hora)"
                     ),
-                    "Sin mov. (d)": st.column_config.NumberColumn(
-                        "Sin mov. (días)", help="Días desde la última actualización (solo causas activas)",
-                        format="%d d",
+                    "Sin mov. (d)": st.column_config.TextColumn(
+                        "Sin mov.",
+                        help="🔴>30d · 🟠>14d · 🟡>7d · verde=reciente (solo causas activas)",
+                        width="small",
                     ),
                 }
             )
