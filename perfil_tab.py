@@ -160,13 +160,26 @@ def render_perfil(persona_id: int):
     if not causas:
         st.info("Sin causas registradas.")
     else:
+        # Bulk-fetch upcoming audiencias for all causas of this persona
+        _c_ids_pf = [c["id"] for c in causas]
+        _prox_pf: dict = {}
+        if _c_ids_pf:
+            _today_pf = date.today().isoformat()
+            _all_auds_pf = db.listar_audiencias(desde=_today_pf)
+            for _a in _all_auds_pf:
+                _cid = _a.get("causa_id")
+                if _cid in _c_ids_pf and _cid not in _prox_pf and _a.get("estado") == "programada":
+                    _prox_pf[_cid] = _a
+
         for c in causas:
             inf = TIPOS_INFRACCION.get(c.get("tipo_infraccion", ""), {})
             ic, bg, border = CARRIL_CSS.get(c.get("carril", ""), ("⚪", "#f8f9fa", "#ccc"))
             est_icon = ESTADO_BADGE.get(c.get("estado", ""), "")
+            _pa = _prox_pf.get(c["id"])
+            _aud_badge = f"  📅 {_pa['fecha']} {_pa['hora']}" if _pa else ""
             with st.expander(
                 f"{ic} {c['numero']} — {inf.get('label', c.get('tipo_infraccion',''))} "
-                f"| {est_icon} {c.get('estado','').capitalize()}"
+                f"| {est_icon} {c.get('estado','').capitalize()}{_aud_badge}"
             ):
                 col_a, col_b = st.columns([3, 2])
                 with col_a:
@@ -184,22 +197,36 @@ def render_perfil(persona_id: int):
                     )
                     st.caption(f"Ingresada: {c.get('created_at','')[:10]}")
 
-                # Timeline de la causa
+                # Timeline de la causa — notas con estilo gris, transiciones en azul
                 timeline = db.get_timeline(c["id"])
                 if timeline:
                     st.markdown("**Línea de tiempo:**")
                     for t in timeline:
-                        st.markdown(
-                            f"<div style='border-left:3px solid #2e5090;padding:3px 10px;"
-                            f"margin:2px 0;background:#f8f9fa;border-radius:0 4px 4px 0;"
-                            f"font-size:0.82rem'>"
-                            f"<strong>{t['created_at'][:10]}</strong> — "
-                            f"{t.get('estado_anterior','') or 'inicio'} → "
-                            f"<strong>{t['estado_nuevo']}</strong>"
-                            f"{' | ' + t['observaciones'] if t.get('observaciones') else ''}"
-                            f"</div>",
-                            unsafe_allow_html=True
-                        )
+                        _es_nota_pf = (t.get("estado_anterior") == t.get("estado_nuevo")
+                                       and t.get("estado_anterior"))
+                        if _es_nota_pf:
+                            st.markdown(
+                                f"<div style='border-left:3px solid #6c757d;padding:3px 10px;"
+                                f"margin:2px 0;background:#f0f0f0;border-radius:0 4px 4px 0;"
+                                f"font-size:0.82rem'>"
+                                f"📝 <strong>{t['created_at'][:16]}</strong> — "
+                                f"{t.get('usuario','')}: <em>{t.get('observaciones','')}</em>"
+                                f"</div>",
+                                unsafe_allow_html=True
+                            )
+                        else:
+                            _ant_lbl = db.ESTADOS_LABEL.get(t.get("estado_anterior",""), t.get("estado_anterior","") or "inicio")
+                            _nvo_lbl = db.ESTADOS_LABEL.get(t.get("estado_nuevo",""), t.get("estado_nuevo",""))
+                            st.markdown(
+                                f"<div style='border-left:3px solid #2e5090;padding:3px 10px;"
+                                f"margin:2px 0;background:#f8f9fa;border-radius:0 4px 4px 0;"
+                                f"font-size:0.82rem'>"
+                                f"<strong>{t['created_at'][:16]}</strong> — "
+                                f"{_ant_lbl} → <strong>{_nvo_lbl}</strong>"
+                                f"{' | ' + t['observaciones'] if t.get('observaciones') else ''}"
+                                f"</div>",
+                                unsafe_allow_html=True
+                            )
 
     # ── Seguimientos ─────────────────────────────────────────────────────────
     if segs:
