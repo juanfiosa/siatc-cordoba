@@ -756,7 +756,13 @@ with tab_causas:
         causas = [c for c in causas if _cnt_rein.get(c.get("persona_id"), 0) > 1]
 
     if not causas:
-        st.info("No hay causas que coincidan con los filtros. Ingresá un caso nuevo en la pestaña 📋 o cargá los casos demo.")
+        _active_filters = [x for x in [busqueda, filtro_estado if filtro_estado != "Todos" else None,
+                           filtro_carril if filtro_carril != "Todos" else None,
+                           filtro_unidad if filtro_unidad != "Todas" else None] if x]
+        if _active_filters:
+            st.warning(f"🔍 No hay causas que coincidan con los filtros activos. Probá limpiarlos con el botón '✕ Todo'.")
+        else:
+            st.info("📂 No hay causas en el sistema todavía. Ingresá un caso nuevo en **📋 Nuevo Caso** o cargá los casos demo desde **🗂️ Casos Demo**.")
     else:
         from collections import Counter as _Cnt
         _cnt = _Cnt(c.get("carril","") for c in causas)
