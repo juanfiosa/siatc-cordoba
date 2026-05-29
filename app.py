@@ -591,7 +591,7 @@ with tab_causas:
         )
         _orden = _ord_col.selectbox(
             "Ordenar por",
-            ["Recientes", "Más antiguas", "Carril", "Estado"],
+            ["Recientes", "Más antiguas", "Carril", "Estado", "🚨 Urgencia"],
             label_visibility="collapsed", key="causas_orden"
         )
         _vista_gc = _vista_col.radio(
@@ -605,6 +605,36 @@ with tab_causas:
             causas = sorted(causas, key=lambda x: _carril_ord.get(x.get("carril",""), 3))
         elif _orden == "Estado":
             causas = sorted(causas, key=lambda x: ESTADOS.index(x["estado"]) if x["estado"] in ESTADOS else 99)
+        elif _orden == "🚨 Urgencia":
+            # Urgency score: days inactive + carril rojo bonus + reincidente bonus
+            def _urgencia_score(c):
+                score = 0
+                # Days without activity
+                if c["estado"] in {"ingresada","clasificada","notificada","en_mediacion"}:
+                    try:
+                        _upd_u = datetime.strptime(c["updated_at"][:16], "%Y-%m-%d %H:%M")
+                        _d_u = (datetime.now() - _upd_u).days
+                        if _d_u > 30:
+                            score += 3
+                        elif _d_u > 14:
+                            score += 2
+                        elif _d_u > 7:
+                            score += 1
+                    except Exception:
+                        pass
+                # Carril rojo = higher urgency
+                if c.get("carril") == "rojo":
+                    score += 2
+                elif c.get("carril") == "amarillo":
+                    score += 1
+                # Reincidente
+                if _pers_cnt_gc.get(c.get("persona_id"), 0) > 1:
+                    score += 1
+                return -score  # descending
+            # Need _pers_cnt_gc available — compute it now if not yet in scope
+            _pids_urg = list({c["persona_id"] for c in causas if c.get("persona_id")})
+            _pers_cnt_gc = causas_count_por_persona(_pids_urg) if _pids_urg else {}
+            causas = sorted(causas, key=_urgencia_score)
 
         # ── Resumen rápido del filtro actual ──────────────────────────────
         if causas:
