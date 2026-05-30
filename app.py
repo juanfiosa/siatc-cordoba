@@ -427,7 +427,23 @@ tab_nuevo = tab_causas = tab_demo = tab_seg = tab_agenda = tab_perfil = tab_pane
 # TAB 1 — NUEVO CASO
 # ══════════════════════════════════════════════════════════════════════════════
 if _seccion == "nueva_causa":
-    st.subheader("Ingreso de Caso Contravencional")
+    # ── Header con botón "Nueva causa" explícito ──────────────────────────────
+    _nc_hdr, _nc_nuevo = st.columns([5, 1])
+    _nc_hdr.subheader("Ingreso de Caso Contravencional")
+    if _nc_nuevo.button("🗑️ Nueva causa", key="nc_limpiar",
+                        use_container_width=True,
+                        help="Limpia el formulario para registrar un caso nuevo"):
+        # Borra SOLO las claves del formulario de Nuevo Caso
+        _nc_keys = [k for k in st.session_state if k.startswith(
+            ("dni_nuevo", "nc_", "nombre_nuevo", "edad_nuevo",
+             "domicilio_nuevo", "telefono_nuevo", "desc_nuevo",
+             "victima_nuevo", "lesiones_nuevo", "resist_nuevo",
+             "antec_nuevo", "nc_obs_inicial", "nuevo_busq",
+             "nuevo_sel_persona", "_nuevo_persona_override"))]
+        for _k in _nc_keys:
+            st.session_state.pop(_k, None)
+        st.rerun()
+
     col_izq, col_der = st.columns([1, 1], gap="large")
 
     with col_izq:
@@ -781,17 +797,35 @@ if _seccion == "nueva_causa":
                 # Save initial observation as first nota in timeline
                 if _obs_inicial and _obs_inicial.strip():
                     agregar_nota_causa(causa_id, _obs_inicial.strip(), fiscal_nombre)
-                st.cache_data.clear()   # invalidar cache tras mutación
-                c_saved  = get_causa(causa_id)
+                st.cache_data.clear()
+                c_saved        = get_causa(causa_id)
                 numero_guardado = c_saved["numero"] if c_saved else f"ID#{causa_id}"
-                st.success(
-                    f"✅ Causa **{numero_guardado}** guardada — Carril {clf['carril'].upper()}"
-                )
                 st.balloons()
-                # Set session state so Gestión pre-selects this causa
-                st.session_state["gc_busqueda"] = numero_guardado
-                st.session_state["causa_sel_id"] = causa_id
-                st.rerun()
+                # Confirmación con opciones — NO fuerza rerun automático
+                _carril_ico = {"verde":"🟢","amarillo":"🟡","rojo":"🔴"}.get(clf["carril"],"⚪")
+                st.success(
+                    f"✅ **{numero_guardado}** guardada "
+                    f"— Carril {_carril_ico} {clf['carril'].upper()}"
+                )
+                _post_c1, _post_c2, _post_c3 = st.columns(3)
+                if _post_c1.button("📂 Ver en Mis Causas", key="post_ver_causa",
+                                    use_container_width=True, type="primary"):
+                    st.session_state["gc_busqueda"]  = numero_guardado
+                    st.session_state["causa_sel_id"] = causa_id
+                    st.session_state["seccion_activa"] = "mis_causas"
+                    st.rerun()
+                if _post_c2.button("🗑️ Registrar otra causa", key="post_nueva_causa",
+                                    use_container_width=True):
+                    # Limpia el formulario para un caso nuevo
+                    _nc_keys2 = [k for k in st.session_state if k.startswith(
+                        ("dni_nuevo","nc_","nombre_nuevo","edad_nuevo",
+                         "domicilio_nuevo","telefono_nuevo","desc_nuevo",
+                         "victima_nuevo","lesiones_nuevo","resist_nuevo",
+                         "nc_obs_inicial"))]
+                    for _k2 in _nc_keys2:
+                        st.session_state.pop(_k2, None)
+                    st.rerun()
+                _post_c3.caption("El formulario conserva los datos si querés hacer cambios.")
 
             if gen_doc or st.session_state.get("doc_generado_nuevo"):
                 # Generamos el número provisional para el documento
