@@ -261,23 +261,67 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_msg_destino  ON mensajes_interoficina(oficina_destino);
         CREATE INDEX IF NOT EXISTS idx_msg_origen   ON mensajes_interoficina(oficina_origen);
         """)
-        # Safe migrations — ALTER TABLE is idempotent via try/except
-        try:
-            conn.execute("ALTER TABLE causas ADD COLUMN oficina_actual TEXT DEFAULT 'unidad'")
-        except Exception:
-            pass
-        # Seed node structure from config_nodos.py if tables are empty
-        try:
-            n = conn.execute("SELECT COUNT(*) as n FROM nodos").fetchone()["n"]
-            if n == 0:
-                # Will be seeded after init_db() returns (avoids circular import at module load)
-                pass
-        except Exception:
-            pass
-        try:
-            conn.execute("ALTER TABLE seguimientos ADD COLUMN proximo_control TEXT")
-        except Exception:
-            pass  # column already exists
+        # ── Safe migrations — idempotent, handle pre-existing DBs ────────────
+        _migrations = [
+            # Column additions
+            "ALTER TABLE causas ADD COLUMN oficina_actual TEXT DEFAULT 'unidad'",
+            "ALTER TABLE seguimientos ADD COLUMN proximo_control TEXT",
+            # New tables for older DBs that don't have them yet
+            """CREATE TABLE IF NOT EXISTS infracciones_favoritas (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                unidad TEXT NOT NULL, fiscal TEXT NOT NULL DEFAULT '',
+                tipo_key TEXT NOT NULL, orden INTEGER DEFAULT 0,
+                created_at TEXT DEFAULT (datetime('now','localtime')),
+                UNIQUE(unidad, fiscal, tipo_key))""",
+            """CREATE TABLE IF NOT EXISTS pases_expediente (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                causa_id INTEGER NOT NULL, oficina_origen TEXT NOT NULL,
+                usuario_origen TEXT NOT NULL DEFAULT '', oficina_destino TEXT NOT NULL,
+                motivo TEXT NOT NULL DEFAULT '', estado TEXT DEFAULT 'enviado',
+                observaciones TEXT DEFAULT '', created_at TEXT DEFAULT (datetime('now','localtime')),
+                recibido_at TEXT)""",
+            """CREATE TABLE IF NOT EXISTS mensajes_interoficina (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                causa_id INTEGER, tipo TEXT NOT NULL, asunto TEXT NOT NULL,
+                cuerpo TEXT DEFAULT '', oficina_origen TEXT NOT NULL,
+                usuario_origen TEXT NOT NULL DEFAULT '', oficina_destino TEXT NOT NULL,
+                estado TEXT DEFAULT 'enviado', referencia_id INTEGER,
+                adjunto_tipo TEXT DEFAULT '', prioridad TEXT DEFAULT 'normal',
+                created_at TEXT DEFAULT (datetime('now','localtime')), leido_at TEXT)""",
+            "CREATE INDEX IF NOT EXISTS idx_msg_causa ON mensajes_interoficina(causa_id)",
+            "CREATE INDEX IF NOT EXISTS idx_msg_destino ON mensajes_interoficina(oficina_destino)",
+            """CREATE TABLE IF NOT EXISTS nodos (
+                key TEXT PRIMARY KEY, nombre TEXT NOT NULL,
+                circunscripcion TEXT DEFAULT '', ciudad TEXT DEFAULT '',
+                tipo TEXT DEFAULT 'interior', tipo_policia TEXT DEFAULT 'provincial',
+                modulos TEXT DEFAULT 'contravencional', activo INTEGER DEFAULT 1,
+                created_at TEXT DEFAULT (datetime('now','localtime')),
+                updated_at TEXT DEFAULT (datetime('now','localtime')))""",
+            """CREATE TABLE IF NOT EXISTS nodos_oficinas (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nodo_key TEXT NOT NULL, oficina_key TEXT NOT NULL,
+                label TEXT NOT NULL, icon TEXT DEFAULT '⚖️',
+                tipo TEXT DEFAULT 'activa', orden INTEGER DEFAULT 0, activo INTEGER DEFAULT 1,
+                created_at TEXT DEFAULT (datetime('now','localtime')),
+                UNIQUE(nodo_key, oficina_key))""",
+            """CREATE TABLE IF NOT EXISTS nodos_flujos (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nodo_key TEXT NOT NULL, oficina_origen TEXT NOT NULL,
+                oficina_destino TEXT NOT NULL, activo INTEGER DEFAULT 1,
+                UNIQUE(nodo_key, oficina_origen, oficina_destino))""",
+            """CREATE TABLE IF NOT EXISTS oficinas_titulares (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nodo_key TEXT NOT NULL, oficina_key TEXT NOT NULL,
+                titular TEXT NOT NULL DEFAULT '', cargo TEXT DEFAULT '',
+                updated_at TEXT DEFAULT (datetime('now','localtime')),
+                updated_by TEXT DEFAULT '',
+                UNIQUE(nodo_key, oficina_key))""",
+        ]
+        for _sql in _migrations:
+            try:
+                conn.execute(_sql)
+            except Exception:
+                pass  # idempotent — ignore if already exists
 
 
 def reset_db():
