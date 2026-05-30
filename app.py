@@ -128,9 +128,14 @@ div[data-testid="stExpander"] > div:first-child:hover {background:#f0f4ff !impor
 </style>
 """, unsafe_allow_html=True)
 
-# ── Variables de sesión (antes venían del sidebar, ahora del perfil/login) ──────
+# ── Variables de sesión ────────────────────────────────────────────────────────
 fiscal_nombre = st.session_state.get("fiscal_nombre", "Usuario")
 unidad_key    = st.session_state.get("unidad_key", "norte")
+
+# ── LOGIN / PERFIL / HOME — debe ser lo PRIMERO que el usuario ve ───────────────
+# Se ejecuta antes del sidebar para que el login sea la pantalla limpia inicial.
+if not mostrar_si_primera_vez():
+    st.stop()
 
 # ── Sidebar — compacto: solo alertas + búsqueda ────────────────────────────────
 with st.sidebar:
@@ -288,19 +293,7 @@ with st.sidebar:
         "[MPF Córdoba](https://www.fiscales.gob.ar)"
     )
 
-# ── Bienvenida (primera vez por sesión) ────────────────────────────────────────
-if not mostrar_si_primera_vez():
-    st.stop()
-
-# ── Header ─────────────────────────────────────────────────────────────────────
-st.markdown("""
-<div class="main-header">
-<h2 style="margin:0">⚖️ SIATC — Sistema Inteligente de Apoyo al Trabajo Contravencional</h2>
-<p style="margin:0.3rem 0 0 0;opacity:0.85">
-Ministerio Público Fiscal · Provincia de Córdoba &nbsp;|&nbsp; Código de Convivencia Ciudadana — Ley N° 10.326
-</p>
-</div>
-""", unsafe_allow_html=True)
+# (login/perfil/home ya se ejecutaron arriba — aquí solo llega el usuario autenticado)
 
 # ── Auto-notas para seguimientos vencidos (una vez por sesión) ────────────────
 if not st.session_state.get("_autonota_vencidos_done"):
