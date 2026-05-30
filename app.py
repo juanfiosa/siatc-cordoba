@@ -64,9 +64,12 @@ if not ya_poblado():
     poblar()
 
 # Seed node structure into DB if not already there (idempotent — INSERT OR IGNORE)
-from database import seed_nodos_desde_config as _seed_nodos, listar_nodos as _ln
+from database import (seed_nodos_desde_config as _seed_nodos, listar_nodos as _ln,
+                      seed_usuarios_desde_config as _seed_users, listar_usuarios as _lu)
 if not _ln():
     _seed_nodos()
+if not _lu():
+    _seed_users()
 
 # ── Cached DB helpers (TTL=60s — evita re-queries en cada rerun) ───────────────
 @st.cache_data(ttl=60)
@@ -147,7 +150,6 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
     if st.button("← Inicio", key="sb_home", use_container_width=True, type="secondary"):
-        st.session_state.pop("intro_vista", None)
         st.session_state.pop("seccion_activa", None)
         st.rerun()
     st.markdown("---")
@@ -398,7 +400,6 @@ _sec_icon, _sec_label = _SECCION_LABELS.get(_seccion, ("📋", "SIATC"))
 
 _hcol1, _hcol2, _hcol3 = st.columns([1, 6, 1])
 if _hcol1.button("← Inicio", key="btn_volver_home", use_container_width=True):
-    st.session_state.pop("intro_vista", None)
     st.session_state.pop("seccion_activa", None)
     st.rerun()
 _hcol2.markdown(
@@ -3223,6 +3224,56 @@ if _seccion == "estadisticas":
                 st.session_state["act_feed_limit"] = _act_limit + 15
                 st.rerun()
 
+        # ── Gestión de usuarios ──────────────────────────────────────────────
+        st.markdown("---")
+        with st.expander("👥 Gestión de usuarios del sistema", expanded=False):
+            from database import (listar_usuarios as _lu_p, crear_usuario as _cu,
+                                  desactivar_usuario as _du, cambiar_password as _cp,
+                                  seed_usuarios_desde_config as _su)
+            from config_nodos import get_oficinas_nodo as _gon_p
+            _nodo_usu = st.selectbox("Ver usuarios del nodo",
+                                     [None] + list(NODOS.keys()),
+                                     format_func=lambda k: "Todos los nodos" if k is None else NODOS[k]["nombre"],
+                                     key="adm_usu_nodo")
+            _usuarios = _lu_p(nodo_key=_nodo_usu)
+            if _usuarios:
+                for _u in _usuarios:
+                    _uc1, _uc2, _uc3 = st.columns([4, 2, 1])
+                    _uc1.markdown(f"**`{_u['username']}`** — {_u['nombre']}  \n"
+                                   f"*{_u.get('cargo','')} · {NODOS.get(_u['nodo_key'],{}).get('ciudad',_u['nodo_key'])}*")
+                    _new_pw = _uc2.text_input("Nueva contraseña", key=f"upw_{_u['id']}",
+                                              type="password", placeholder="Dejar vacío = sin cambio")
+                    _ucols = _uc3
+                    if _new_pw and _uc2.button("Cambiar", key=f"ucpw_{_u['id']}"):
+                        _cp(_u["username"], _new_pw)
+                        st.success(f"Contraseña de {_u['username']} actualizada.")
+                        st.rerun()
+                    if _ucols.button("✕", key=f"udel_{_u['id']}", help="Desactivar"):
+                        _du(_u["username"])
+                        st.rerun()
+            st.markdown("---")
+            st.markdown("**Agregar usuario:**")
+            _ua1, _ua2, _ua3 = st.columns(3)
+            _new_uname  = _ua1.text_input("Usuario", placeholder="Ej: jgomez", key="adm_new_uname")
+            _new_unombre= _ua1.text_input("Nombre", placeholder="Ej: Dr. Juan Gomez", key="adm_new_unombre")
+            _new_ucargo = _ua2.selectbox("Cargo", ["Fiscal","Fiscal Adjunto/a","Ayudante Fiscal","Secretario/a","Otro"], key="adm_new_ucargo")
+            _new_unodo  = _ua2.selectbox("Nodo", list(NODOS.keys()),
+                                         format_func=lambda k: NODOS[k]["nombre"], key="adm_new_unodo")
+            _of_disp    = _gon_p(_new_unodo)
+            _new_uofic  = _ua3.selectbox("Oficina", [k for k,v in _of_disp.items() if v.get("activa",True)],
+                                          format_func=lambda k: _of_disp[k]["label"], key="adm_new_uofic")
+            _new_upw    = _ua3.text_input("Contraseña inicial", type="password", key="adm_new_upw")
+            if st.button("➕ Crear usuario", key="adm_create_user", type="primary"):
+                if _new_uname.strip() and _new_unombre.strip() and _new_upw:
+                    _cu(_new_uname.strip().lower(), _new_unombre.strip(),
+                        _new_ucargo, _new_unodo, _new_uofic, _new_upw)
+                    st.success(f"Usuario `{_new_uname}` creado.")
+                    st.rerun()
+                else:
+                    st.warning("Completá usuario, nombre y contraseña.")
+            if st.button("↺ Re-importar usuarios demo", key="adm_reimp_users"):
+                _su(); st.success("Usuarios demo importados."); st.rerun()
+
         # ── Administración del nodo — agregar oficinas ───────────────────────
         st.markdown("---")
         with st.expander("⚙️ Administración del nodo — oficinas y fiscalías", expanded=False):
@@ -3372,7 +3423,7 @@ if _seccion == "estadisticas":
                     init_db()
                     poblar()
                     st.cache_data.clear()
-                    st.session_state.intro_vista = True   # no mostrar bienvenida de nuevo
+                    st.session_state["seccion_activa"] = "estadisticas"  # stay in module after reset
                     st.success("Datos restablecidos correctamente.")
                     st.rerun()
             with col_r2:

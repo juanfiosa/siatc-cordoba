@@ -7,6 +7,28 @@ from __future__ import annotations
 import streamlit as st
 from config_nodos import USUARIOS_DEMO, NODOS, get_oficinas_nodo
 
+
+def _autenticar(username: str, password: str) -> dict | None:
+    """Autentica: DB primero, fallback al dict hardcodeado de config_nodos."""
+    try:
+        import database as _db
+        u_db = _db.get_usuario(username.strip().lower(), password)
+        if u_db:
+            return {
+                "nombre":  u_db["nombre"],
+                "cargo":   u_db.get("cargo", "Fiscal"),
+                "nodo":    u_db["nodo_key"],
+                "oficina": u_db["oficina_key"],
+                "pass":    password,
+            }
+    except Exception:
+        pass
+    # Fallback: config_nodos.py hardcoded dict
+    u = USUARIOS_DEMO.get(username.strip().lower())
+    if u and u["pass"] == password:
+        return u
+    return None
+
 ETAPAS = [
     ("Ingreso",      "Registro del hecho contravencional"),
     ("Triaje",       "Clasificacion automatica Verde/Amarillo/Rojo"),
@@ -54,8 +76,8 @@ def _render_login():
         password = st.text_input("Contrasena", key="login_pass", type="password")
 
         if st.button("Ingresar", type="primary", use_container_width=True):
-            u = USUARIOS_DEMO.get(usuario.strip().lower())
-            if u and u["pass"] == password:
+            u = _autenticar(usuario, password)
+            if u:
                 nodo_cfg      = NODOS.get(u["nodo"], {})
                 oficinas_nodo = get_oficinas_nodo(u["nodo"])
                 oficina_cfg   = oficinas_nodo.get(u["oficina"], {})
@@ -239,7 +261,6 @@ def _render_home():
                 if st.button(f"Abrir {titulo}", key=f"home_btn_{sec_key}",
                              use_container_width=True):
                     st.session_state["seccion_activa"] = sec_key
-                    st.session_state["intro_vista"]    = True
                     st.rerun()
 
     st.markdown("")
@@ -250,19 +271,31 @@ def _render_home():
 
 def mostrar_si_primera_vez():
     """
-    Retorna True solo cuando el usuario esta autenticado, perfil configurado
-    y ha elegido una seccion. Caso contrario muestra la pantalla correspondiente.
+    Controla el flujo: Login → Perfil → Home → Módulo.
+    Retorna True solo cuando el usuario eligió una sección en el Home.
+
+    Señales de estado en session_state:
+      usuario_logueado   : True tras login exitoso
+      perfil_configurado : True tras confirmar nombre/cargo/oficina
+      seccion_activa     : clave del módulo elegido (set when a card is clicked)
     """
+    # Paso 1 — Login
     if not st.session_state.get("usuario_logueado"):
+        st.session_state.pop("perfil_configurado", None)
+        st.session_state.pop("seccion_activa", None)
         _render_login()
         return False
 
+    # Paso 2 — Perfil (una vez por usuario/sesión)
     if not st.session_state.get("perfil_configurado"):
+        st.session_state.pop("seccion_activa", None)
         _render_perfil()
         return False
 
-    if not st.session_state.get("intro_vista"):
+    # Paso 3 — Home (hasta que el usuario elija una sección)
+    if not st.session_state.get("seccion_activa"):
         _render_home()
         return False
 
+    # Usuario autenticado + perfil + sección elegida → mostrar módulo
     return True

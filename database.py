@@ -205,6 +205,19 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_oficinas_nodo ON nodos_oficinas(nodo_key);
         CREATE INDEX IF NOT EXISTS idx_flujos_nodo   ON nodos_flujos(nodo_key);
 
+        -- ── Usuarios del sistema ────────────────────────────────────────
+        CREATE TABLE IF NOT EXISTS usuarios (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            username    TEXT    NOT NULL UNIQUE,
+            nombre      TEXT    NOT NULL,
+            cargo       TEXT    DEFAULT 'Fiscal',
+            nodo_key    TEXT    NOT NULL,
+            oficina_key TEXT    NOT NULL,
+            password    TEXT    NOT NULL,  -- plain text for demo; hash in production
+            activo      INTEGER DEFAULT 1,
+            created_at  TEXT    DEFAULT (datetime('now','localtime'))
+        );
+
         -- ── Tenencia del expediente ──────────────────────────────────────
         -- Registra los pases formales del file entre oficinas MPF
         CREATE TABLE IF NOT EXISTS pases_expediente (
@@ -1419,6 +1432,64 @@ def stats_tiempo_por_estado() -> list[dict]:
         """).fetchall()
     result = [dict(r) for r in rows if r["avg_dias"] is not None]
     return sorted(result, key=lambda x: ESTADO_ORDER.get(x["estado"], 99))
+
+
+def seed_usuarios_desde_config() -> int:
+    """Puebla la tabla usuarios desde USUARIOS_DEMO de config_nodos. Idempotente."""
+    from config_nodos import USUARIOS_DEMO
+    with get_conn() as conn:
+        for uname, u in USUARIOS_DEMO.items():
+            conn.execute(
+                """INSERT OR IGNORE INTO usuarios
+                   (username, nombre, cargo, nodo_key, oficina_key, password)
+                   VALUES (?,?,?,?,?,?)""",
+                (uname, u["nombre"], "Fiscal", u["nodo"], u["oficina"], u["pass"])
+            )
+    return len(USUARIOS_DEMO)
+
+
+def get_usuario(username: str, password: str) -> dict | None:
+    """Autentica un usuario. Retorna el dict del usuario o None."""
+    with get_conn() as conn:
+        r = conn.execute(
+            "SELECT * FROM usuarios WHERE username=? AND password=? AND activo=1",
+            (username, password)
+        ).fetchone()
+    return dict(r) if r else None
+
+
+def listar_usuarios(nodo_key: str = None) -> list[dict]:
+    """Lista usuarios, opcionalmente filtrados por nodo."""
+    sql = "SELECT * FROM usuarios WHERE activo=1"
+    params = []
+    if nodo_key:
+        sql += " AND nodo_key=?"
+        params.append(nodo_key)
+    sql += " ORDER BY nodo_key, username"
+    with get_conn() as conn:
+        rows = conn.execute(sql, params).fetchall()
+    return [dict(r) for r in rows]
+
+
+def crear_usuario(username: str, nombre: str, cargo: str,
+                  nodo_key: str, oficina_key: str, password: str) -> None:
+    with get_conn() as conn:
+        conn.execute(
+            """INSERT INTO usuarios (username, nombre, cargo, nodo_key, oficina_key, password)
+               VALUES (?,?,?,?,?,?)""",
+            (username, nombre, cargo, nodo_key, oficina_key, password)
+        )
+
+
+def desactivar_usuario(username: str) -> None:
+    with get_conn() as conn:
+        conn.execute("UPDATE usuarios SET activo=0 WHERE username=?", (username,))
+
+
+def cambiar_password(username: str, nueva_password: str) -> None:
+    with get_conn() as conn:
+        conn.execute("UPDATE usuarios SET password=? WHERE username=?",
+                     (nueva_password, username))
 
 
 def seed_nodos_desde_config() -> int:
