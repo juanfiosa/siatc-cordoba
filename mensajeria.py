@@ -215,13 +215,19 @@ def registrar_pase(
     oficina_destino: str,
     motivo: str,
     observaciones: str = "",
+    nodo_key: str = "cba_norte",
 ) -> int:
-    """Registra el pase formal del expediente entre oficinas.
-    Para oficinas fantasma genera una notificación de 'pase externo'.
-    Actualiza oficina_actual en causas.
     """
+    Registra el pase formal del expediente entre oficinas.
+    - Oficinas activas: actualiza oficina_actual en DB + nota de timeline.
+    - Oficinas fantasma (Juzgado, Mediación): registra el pase pero indica
+      que el envío es físico; genera_pdf_pase() puede generar el documento.
+    """
+    _ofs = get_oficinas(nodo_key)
+    _es_fantasma = _ofs.get(oficina_destino, {}).get("tipo") == "fantasma"
+    _destino_label = _ofs.get(oficina_destino, {}).get("label", oficina_destino)
+
     with db.get_conn() as conn:
-        # Update current office on the causa
         conn.execute(
             "UPDATE causas SET oficina_actual=?, updated_at=datetime('now','localtime') WHERE id=?",
             (oficina_destino, causa_id)
@@ -234,14 +240,81 @@ def registrar_pase(
         )
         pase_id = cur.lastrowid
 
-    # Auto-insert timeline note
-    db.agregar_nota_causa(
-        causa_id,
-        f"PASE A OFICINA: Expediente remitido a {OFICINAS.get(oficina_destino, {}).get('label', oficina_destino)}. "
-        f"Motivo: {motivo}.",
-        usuario_origen,
+    _nota = (
+        f"PASE EXTERNO (físico): Expediente remitido a {_destino_label}. "
+        f"Motivo: {motivo}. Pendiente acuerdo institucional — envío por mesa de entradas."
+        if _es_fantasma else
+        f"PASE A OFICINA: Expediente remitido a {_destino_label}. Motivo: {motivo}."
     )
+    db.agregar_nota_causa(causa_id, _nota, usuario_origen)
     return pase_id
+
+
+def generar_pdf_pase(causa: dict, oficina_destino: str, motivo: str,
+                     observaciones: str, fiscal_nombre: str,
+                     nodo_key: str = "cba_norte") -> bytes:
+    """
+    Genera un PDF de remisión para pases a oficinas externas (fantasma).
+    El fiscal lo imprime y lo presenta físicamente en la mesa de entradas
+    del Juzgado o del Centro de Mediación.
+    """
+    from pdf_gen import PDFMPFBase, _s, _fecha_formal, AZUL_MPF, AZUL_CLARO, NEGRO, GRIS_TEXTO
+    from io import BytesIO
+    from datetime import datetime
+
+    _ofs         = get_oficinas(nodo_key)
+    _dest_label  = _ofs.get(oficina_destino, {}).get("label", oficina_destino)
+    unidad_key   = "norte"  # fallback for PDF header
+
+    pdf = PDFMPFBase(unidad_key)
+    pdf.alias_nb_pages()
+    pdf.add_page()
+    pdf.titulo_documento("Oficio de Remision de Actuaciones")
+
+    pdf._sf("B", 9); pdf.set_text_color(*AZUL_CLARO)
+    pdf.cell(0, 6, _s(f"Fecha: {_fecha_formal()}  -  Generado: {datetime.now().strftime('%H:%M hs')}"), ln=True)
+    pdf.set_text_color(*NEGRO); pdf.ln(4)
+
+    pdf._sf("B", 10); pdf.set_text_color(*AZUL_MPF); pdf.set_fill_color(240, 244, 255)
+    pdf.cell(0, 7, "DATOS DE LA REMISION", fill=True, ln=True)
+    pdf.set_text_color(*NEGRO); pdf._sf("", 9); pdf.ln(2)
+
+    pdf.cell(60, 5, "Expediente N:", ln=False)
+    pdf.cell(130, 5, _s(causa.get("numero", "")), ln=True)
+    pdf.cell(60, 5, "Imputado/a:", ln=False)
+    pdf.cell(130, 5, _s(causa.get("apellido_nombre", "")), ln=True)
+    pdf.cell(60, 5, "DNI:", ln=False)
+    pdf.cell(130, 5, _s(causa.get("persona_dni", "")), ln=True)
+    pdf.cell(60, 5, "Destino:", ln=False)
+    pdf.cell(130, 5, _s(_dest_label), ln=True)
+    pdf.cell(60, 5, "Motivo:", ln=False)
+    pdf.cell(130, 5, _s(motivo), ln=True)
+    pdf.ln(4)
+
+    if observaciones:
+        pdf._sf("B", 10); pdf.set_text_color(*AZUL_MPF); pdf.set_fill_color(240, 244, 255)
+        pdf.cell(0, 7, "OBSERVACIONES", fill=True, ln=True)
+        pdf.set_text_color(*NEGRO); pdf._sf("", 9); pdf.ln(2)
+        pdf.multi_cell(0, 5, _s(observaciones))
+        pdf.ln(4)
+
+    pdf._sf("B", 9); pdf.set_text_color(*AZUL_MPF); pdf.set_fill_color(240, 244, 255)
+    pdf.cell(0, 7, "NOTA ACERCA DEL ENVIO", fill=True, ln=True)
+    pdf.set_text_color(*NEGRO); pdf._sf("I", 8); pdf.ln(2)
+    pdf.multi_cell(0, 5, _s(
+        "La oficina destinataria no se encuentra integrada al sistema SIATC. "
+        "Este oficio debe presentarse fisicamente en la Mesa de Entradas correspondiente. "
+        "El pase queda registrado en el historial del expediente."
+    ))
+    pdf.ln(4)
+    pdf.linea_firma(fiscal_nombre, "Fiscal / Ayudante Fiscal", "")
+    pdf._sf("I", 7); pdf.set_text_color(*GRIS_TEXTO)
+    pdf.cell(0, 4, _s(f"Generado por SIATC - MPF Cordoba - {datetime.now().strftime('%d/%m/%Y %H:%M')}"),
+             ln=True, align="C")
+
+    buf = BytesIO()
+    pdf.output(buf)
+    return buf.getvalue()
 
 
 def get_historial_pases(causa_id: int) -> list[dict]:

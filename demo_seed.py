@@ -13,6 +13,7 @@ import database as db
 # ---------------------------------------------------------------------------
 
 PERSONAS_DEMO = [
+    # ── Córdoba Capital (índices 0-13) ────────────────────────────────────────
     {"dni": "38421667", "apellido_nombre": "Garcia, Lucas Damian",    "edad": 24, "domicilio": "Av. Colon 1200, Córdoba", "telefono": "351-4521001"},
     {"dni": "30112445", "apellido_nombre": "Perez, Marcelo Ariel",    "edad": 41, "domicilio": "Rivadavia 456, Córdoba",  "telefono": "351-4522002"},
     {"dni": "33887021", "apellido_nombre": "Rodriguez, Sebastian Omar","edad": 29, "domicilio": "Figueroa Alcorta 890",   "telefono": "351-4523003"},
@@ -27,6 +28,13 @@ PERSONAS_DEMO = [
     {"dni": "28990011", "apellido_nombre": "Moreno, Claudia Ines",    "edad": 44, "domicilio": "Calle Obispo Trejo 890", "telefono": "351-4532012"},
     {"dni": "43221890", "apellido_nombre": "Villareal, Natalia Belen","edad": 28, "domicilio": "Av. Cabrera 340, Villa El Libertador", "telefono": "351-4533013"},
     {"dni": "31445677", "apellido_nombre": "Acuña, Roberto Carlos",   "edad": 52, "domicilio": "Calle Belgrano 1220, Bº Los Plátanos", "telefono": "351-4534014"},
+    # ── Río Cuarto (índices 14-19) ────────────────────────────────────────────
+    {"dni": "37661234", "apellido_nombre": "Bustos, Marcos Ezequiel",  "edad": 26, "domicilio": "Bv. Roca 560, Rio Cuarto",             "telefono": "358-4621001"},
+    {"dni": "32445566", "apellido_nombre": "Peralta, Graciela Noemi",  "edad": 49, "domicilio": "Calle Sobremonte 890, Rio Cuarto",      "telefono": "358-4621002"},
+    {"dni": "41229900", "apellido_nombre": "Cabral, Ignacio Ramon",    "edad": 23, "domicilio": "Av. Laprida 1200, Rio Cuarto",          "telefono": "358-4621003"},
+    {"dni": "28776655", "apellido_nombre": "Quintero, Sandra Patricia","edad": 38, "domicilio": "Calle San Martin 450, Rio Cuarto",      "telefono": "358-4621004"},
+    {"dni": "39887766", "apellido_nombre": "Ferreyra, Diego Ariel",    "edad": 31, "domicilio": "Bv. Sarmiento 2100, Rio Cuarto",        "telefono": "358-4621005"},
+    {"dni": "25669988", "apellido_nombre": "Molina, Ana Cecilia",      "edad": 57, "domicilio": "Calle Constitucion 780, Rio Cuarto",    "telefono": "358-4621006"},
 ]
 
 CASOS_SEED = [
@@ -119,6 +127,44 @@ CASOS_SEED = [
      "desc": "Control radar Av. Rafael Núñez al 3200 marcó 112 km/h en zona de 60 km/h. Reincidente en infracciones viales.",
      "antec": 1, "estado": "clasificada", "carril": "amarillo",
      "dias_atras": 4, "seg": False},
+
+    # ── Río Cuarto (índices 16-21, usa unidad="rio_cuarto") ───────────────────
+    # Fiscales manejan penal Y contravencional. Policía Provincial eleva las actas.
+    {"persona_idx": 14, "tipo": "transito_alcoholemia", "unidad": "rio_cuarto",
+     "desc": "Alcotest positivo 0.92 g/l en Bv. Roca al 800. Sin accidente, vehículo retenido.",
+     "antec": 0, "estado": "notificada", "carril": "amarillo",
+     "dias_atras": 12, "seg": False,
+     "fiscal": "Dr. Moine", "nodo": "rio_cuarto"},
+
+    {"persona_idx": 15, "tipo": "riña_desordenes_publicos", "unidad": "rio_cuarto",
+     "desc": "Pelea entre dos personas en Calle Sobremonte 890 a las 23:00hs. Testigos identificados. Ambos imputados.",
+     "antec": 1, "estado": "clasificada", "carril": "rojo",
+     "dias_atras": 5, "seg": False,
+     "fiscal": "Dra. Di Santo", "nodo": "rio_cuarto"},
+
+    {"persona_idx": 16, "tipo": "tenencia_animales_peligrosos", "unidad": "rio_cuarto",
+     "desc": "Pitbull sin bozal ni correa agredió a peatón en Av. Laprida 1200. Propietario identificado. Víctima con lesiones leves.",
+     "antec": 0, "estado": "resuelta", "carril": "amarillo",
+     "dias_atras": 45, "seg": True, "seg_estado": "activo", "seg_meses": 3,
+     "fiscal": "Dr. Moine", "nodo": "rio_cuarto"},
+
+    {"persona_idx": 17, "tipo": "negativa_identificarse", "unidad": "rio_cuarto",
+     "desc": "Persona detenida se negó a identificarse ante personal policial en control de rutina. Finalmente identificada.",
+     "antec": 0, "estado": "ingresada", "carril": "verde",
+     "dias_atras": 2, "seg": False,
+     "fiscal": "Dra. Di Santo", "nodo": "rio_cuarto"},
+
+    {"persona_idx": 18, "tipo": "daño_propiedad_publica", "unidad": "rio_cuarto",
+     "desc": "Grafitis en fachada del edificio municipal de Bv. Sarmiento. Daño valuado en $85.000. Imputado filmado por cámara.",
+     "antec": 0, "estado": "notificada", "carril": "amarillo",
+     "dias_atras": 20, "seg": False,
+     "fiscal": "Dr. Moine", "nodo": "rio_cuarto"},
+
+    {"persona_idx": 19, "tipo": "pirotecnia_uso_prohibido", "unidad": "rio_cuarto",
+     "desc": "Uso de pirotecnia de alto impacto en zona urbana durante festejo deportivo. Vecinos con mascotas afectadas.",
+     "antec": 1, "estado": "archivada", "carril": "verde",
+     "dias_atras": 90, "seg": True, "seg_estado": "cumplido", "seg_meses": 3,
+     "fiscal": "Dra. Di Santo", "nodo": "rio_cuarto"},
 ]
 
 # Condiciones pre-armadas por tipo de seguimiento
@@ -189,7 +235,11 @@ def poblar():
     if ya_poblado():
         return False
 
-    prefijos = {"norte": "UCN", "sur": "UCS", "genero": "UCG"}
+    prefijos = {"norte": "UCN", "sur": "UCS", "genero": "UCG",
+                "rio_cuarto": "RC", "bell_ville": "BV", "villa_maria": "VM",
+                "san_francisco": "SF", "villa_dolores": "VD",
+                "cruz_del_eje": "CE", "laboulaye": "LB",
+                "dean_funes": "DF", "rio_tercero": "RT"}
     numeros_causa = {}  # persona_idx -> causa_id
 
     for idx, caso in enumerate(CASOS_SEED):
@@ -230,8 +280,10 @@ def poblar():
                 numero, pid, caso["tipo"], caso["desc"],
                 caso["carril"], clf["accion"],
                 caso["unidad"],
-                {"norte": "Dra. Ana Perez", "sur": "Dr. Carlos Medina",
-                 "genero": "Dra. Laura Suarez"}.get(caso["unidad"], "Dra. Ana Perez"),
+                caso.get("fiscal") or {
+                    "norte": "Dra. Ana Perez", "sur": "Dr. Carlos Medina",
+                    "genero": "Dra. Laura Suarez"
+                }.get(caso["unidad"], "Dra. Ana Perez"),
                 caso["estado"], clf["score"],
                 _fecha(caso["dias_atras"] + 3),
                 _dt(caso["dias_atras"]),
@@ -241,8 +293,10 @@ def poblar():
             numeros_causa[caso["persona_idx"]] = causa_id
 
             # Timeline de estados
-            fiscal_caso = {"norte": "Dra. Ana Perez", "sur": "Dr. Carlos Medina",
-                           "genero": "Dra. Laura Suarez"}.get(caso["unidad"], "Dra. Ana Perez")
+            fiscal_caso = caso.get("fiscal") or {
+                "norte": "Dra. Ana Perez", "sur": "Dr. Carlos Medina",
+                "genero": "Dra. Laura Suarez"
+            }.get(caso["unidad"], "Dra. Ana Perez")
             _insertar_timeline(conn, causa_id, caso["estado"], caso["dias_atras"], fiscal_caso)
 
         # Seguimiento

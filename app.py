@@ -55,7 +55,7 @@ from mensajeria import (
     get_mensajes_causa, marcar_leido, marcar_procesado,
     count_no_leidos, registrar_pase, get_historial_pases,
     get_oficina_actual, render_bandeja, render_nuevo_mensaje,
-    render_badge_oficina, render_editor_titulares,
+    render_badge_oficina, render_editor_titulares, generar_pdf_pase,
 )
 
 # ── Init ───────────────────────────────────────────────────────────────────────
@@ -1666,13 +1666,35 @@ if _seccion == "mis_causas":
                             _obs_ges = st.text_input("Observaciones", key=f"pase_obs_{c['id']}")
                             if _ofs_ges.get(_dest_ges, {}).get("tipo") == "fantasma":
                                 st.warning("Oficina externa: se generara PDF para envio fisico.")
+                            _es_fantasma_ges = _ofs_ges.get(_dest_ges, {}).get("tipo") == "fantasma"
                             if st.button("📤 Confirmar pase", key=f"pase_btn_{c['id']}",
                                          type="primary", use_container_width=True):
                                 registrar_pase(c["id"], _of_ges, fiscal_nombre,
-                                               _dest_ges, _mot_ges, _obs_ges)
+                                               _dest_ges, _mot_ges, _obs_ges,
+                                               nodo_key=_nodo_ges)
                                 st.cache_data.clear()
-                                st.success(f"Expediente remitido a {_ofs_ges.get(_dest_ges,{}).get('label', _dest_ges)}")
-                                st.rerun()
+                                if _es_fantasma_ges:
+                                    # Generar PDF de remisión para envío físico
+                                    try:
+                                        from mensajeria import generar_pdf_pase as _gpdf
+                                        _causa_pase = get_causa(c["id"]) or c
+                                        _pdf_pase   = _gpdf(_causa_pase, _dest_ges,
+                                                            _mot_ges, _obs_ges,
+                                                            fiscal_nombre, _nodo_ges)
+                                        st.download_button(
+                                            "⬇️ Descargar Oficio de Remisión (PDF)",
+                                            data=_pdf_pase,
+                                            file_name=f"{c['numero']}_remision.pdf",
+                                            mime="application/pdf",
+                                            key=f"dl_pase_{c['id']}",
+                                            type="primary",
+                                        )
+                                        st.info("Presentá este oficio en la Mesa de Entradas de la oficina destinataria.")
+                                    except Exception as _ep:
+                                        st.success(f"Pase registrado. {_ep}")
+                                else:
+                                    st.success(f"Expediente remitido a {_ofs_ges.get(_dest_ges,{}).get('label', _dest_ges)}")
+                                    st.rerun()
                         else:
                             st.info("Esta oficina no tiene destinos configurados.")
                         # History of pases

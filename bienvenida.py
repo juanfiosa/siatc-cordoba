@@ -66,11 +66,12 @@ def _render_login():
                     "oficina_key":      u["oficina"],
                     "oficina_label":    oficina_cfg.get("label", u["oficina"]),
                     "circunscripcion":  nodo_cfg.get("circunscripcion", ""),
+                    # Córdoba capital → norte/sur/genero; interior → nodo_key
                     "unidad_key": (
-                        "norte"  if "norte"  in u["oficina"] else
-                        "sur"    if "sur"    in u["oficina"] else
-                        "genero" if "genero" in u["oficina"] else
-                        "norte"
+                        "norte"   if "norte"  in u["oficina"] else
+                        "sur"     if "sur"    in u["oficina"] else
+                        "genero"  if "genero" in u["oficina"] else
+                        u["nodo"]  # interior: rio_cuarto, villa_maria, etc.
                     ),
                 })
                 st.rerun()
