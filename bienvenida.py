@@ -40,7 +40,7 @@ def _render_login():
     with col_form:
         st.markdown("#### Ingresá al sistema")
         usuario  = st.text_input("Usuario", placeholder="Ej: aperez", key="login_user")
-        password = st.password_input("Contraseña", key="login_pass")
+        password = st.text_input("Contraseña", type="password", key="login_pass")
 
         if st.button("→ Ingresar", type="primary", use_container_width=True):
             u = USUARIOS_DEMO.get(usuario.strip().lower())
