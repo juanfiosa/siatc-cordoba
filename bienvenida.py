@@ -200,9 +200,14 @@ def _render_home():
         f"</div>",
         unsafe_allow_html=True,
     )
-    if col_sal.button("🚪 Salir", use_container_width=True):
+    col_perf, col_sal2 = col_sal.columns(2)
+    if col_perf.button("👤", help="Mi perfil / datos de trabajo", use_container_width=True):
+        st.session_state.pop("perfil_configurado", None)
+        st.rerun()
+    if col_sal2.button("🚪", help="Cerrar sesion", use_container_width=True):
         for k in ("usuario_logueado","fiscal_nombre","nodo_key","oficina_key",
-                  "oficina_label","circunscripcion","perfil_configurado","intro_vista"):
+                  "oficina_label","circunscripcion","perfil_configurado",
+                  "seccion_activa"):
             st.session_state.pop(k, None)
         st.rerun()
 
@@ -223,6 +228,22 @@ def _render_home():
         _c4.metric("Mensajes sin leer",     _nml,
                    delta="nueva(s)" if _nml else None,
                    delta_color="inverse" if _nml else "off")
+    except Exception:
+        pass
+
+    # Alertas criticas en el home
+    try:
+        _alerta_msgs = []
+        if _ss.get("vencidos", 0):
+            _alerta_msgs.append(f"⚠️ {_ss['vencidos']} seguimiento(s) vencido(s) sin cierre")
+        if _ss.get("incumplidos", 0):
+            _alerta_msgs.append(f"❌ {_ss['incumplidos']} seguimiento(s) incumplido(s)")
+        if _sa.get("hoy", 0):
+            _alerta_msgs.append(f"📅 {_sa['hoy']} audiencia(s) programada(s) para HOY")
+        if _nml:
+            _alerta_msgs.append(f"📨 {_nml} mensaje(s) sin leer en tu bandeja")
+        for _am in _alerta_msgs:
+            st.warning(_am)
     except Exception:
         pass
 
