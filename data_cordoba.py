@@ -43,7 +43,7 @@ TIPOS_INFRACCION = {
     # ═══════════════════════════════════════════════════════════════════════
     "molestias_sitios_publicos": {
         "label": "Molestias a personas en sitios públicos (gestos, palabras, gratificaciones)",
-        "titulo_ccc": "I", "capitulo_ccc": "I",
+        "titulo_ccc": "I", "categoria": "Integridad", "categoria": "Convivencia", "categoria": "Convivencia", "categoria": "Comercio", "categoria": "Comercio", "categoria": "Comercio", "categoria": "Comercio", "categoria": "Convivencia", "categoria": "Convivencia", "categoria": "Convivencia", "categoria": "Convivencia", "categoria": "Integridad", "categoria": "Convivencia", "categoria": "Convivencia", "capitulo_ccc": "I",
         "articulo": "Art. 51 CCC",
         "gravedad_base": 1, "es_conflicto_vecinal": True,
         "frecuencia": "media", "favorito": False,
@@ -155,7 +155,7 @@ TIPOS_INFRACCION = {
     # ═══════════════════════════════════════════════════════════════════════
     "agravio_personal_educacion_salud": {
         "label": "Agravio o intimidación al personal de centros educativos o de salud",
-        "titulo_ccc": "II", "capitulo_ccc": "Único",
+        "titulo_ccc": "II", "categoria": "Convivencia", "capitulo_ccc": "Único",
         "articulo": "Art. 67 CCC",
         "gravedad_base": 2, "es_conflicto_vecinal": False,
         "frecuencia": "baja", "favorito": False,
@@ -167,7 +167,7 @@ TIPOS_INFRACCION = {
     # ═══════════════════════════════════════════════════════════════════════
     "daño_propiedad_publica": {
         "label": "Daño a la propiedad pública (grafitis, roturas, vandalismo)",
-        "titulo_ccc": "III", "capitulo_ccc": "I",
+        "titulo_ccc": "III", "categoria": "Espacio Publico", "categoria": "Espacio Publico", "categoria": "Propiedad", "categoria": "Propiedad", "categoria": "Propiedad", "categoria": "Propiedad", "categoria": "Propiedad", "categoria": "Propiedad", "capitulo_ccc": "I",
         "articulo": "Art. 68 CCC",
         "gravedad_base": 2, "es_conflicto_vecinal": False,
         "frecuencia": "media", "favorito": True,
@@ -229,7 +229,7 @@ TIPOS_INFRACCION = {
     # ═══════════════════════════════════════════════════════════════════════
     "falsa_apariencia": {
         "label": "Falsa apariencia para obtener beneficios indebidos",
-        "titulo_ccc": "IV", "capitulo_ccc": "I",
+        "titulo_ccc": "IV", "categoria": "Comercio", "categoria": "Propiedad", "categoria": "Propiedad", "categoria": "Comercio", "categoria": "Convivencia", "categoria": "Propiedad", "capitulo_ccc": "I",
         "articulo": "Art. 74 CCC",
         "gravedad_base": 2, "es_conflicto_vecinal": False,
         "frecuencia": "baja", "favorito": False,
@@ -276,7 +276,7 @@ TIPOS_INFRACCION = {
     # ═══════════════════════════════════════════════════════════════════════
     "riña_desordenes_publicos": {
         "label": "Desórdenes públicos — riña o pelea en vía pública",
-        "titulo_ccc": "V", "capitulo_ccc": "I",
+        "titulo_ccc": "V", "categoria": "Convivencia", "categoria": "Convivencia", "categoria": "Comercio", "categoria": "Convivencia", "categoria": "Convivencia", "categoria": "Convivencia", "categoria": "Convivencia", "capitulo_ccc": "I",
         "articulo": "Art. 80 CCC",
         "gravedad_base": 2, "es_conflicto_vecinal": True,
         "frecuencia": "alta", "favorito": True,
@@ -332,7 +332,7 @@ TIPOS_INFRACCION = {
     # ═══════════════════════════════════════════════════════════════════════
     "falsa_denuncia_contravencion": {
         "label": "Falsa denuncia contravencional",
-        "titulo_ccc": "VI", "capitulo_ccc": "I",
+        "titulo_ccc": "VI", "categoria": "Integridad", "categoria": "Integridad", "categoria": "Propiedad", "categoria": "Pirotecnia", "categoria": "Pirotecnia", "categoria": "Pirotecnia", "categoria": "Pirotecnia", "categoria": "Propiedad", "categoria": "Animales", "categoria": "Animales", "categoria": "Propiedad", "categoria": "Espacio Publico", "categoria": "Animales", "categoria": "Propiedad", "categoria": "Propiedad", "categoria": "Propiedad", "capitulo_ccc": "I",
         "articulo": "Art. 86 CCC",
         "gravedad_base": 2, "es_conflicto_vecinal": False,
         "frecuencia": "baja", "favorito": False,
@@ -453,7 +453,7 @@ TIPOS_INFRACCION = {
     # ═══════════════════════════════════════════════════════════════════════
     "transito_conductor_menor_edad": {
         "label": "Conductor menor de edad sin habilitación",
-        "titulo_ccc": "VII", "capitulo_ccc": "Único",
+        "titulo_ccc": "VII", "categoria": "Transito", "categoria": "Transito", "categoria": "Transito", "categoria": "Transito", "categoria": "Transito", "categoria": "Transito", "categoria": "Transito", "capitulo_ccc": "Único",
         "articulo": "Art. 104 CCC",
         "gravedad_base": 2, "es_conflicto_vecinal": False,
         "frecuencia": "media", "favorito": True,
@@ -507,7 +507,7 @@ TIPOS_INFRACCION = {
     # ═══════════════════════════════════════════════════════════════════════
     "omision_listas_registros": {
         "label": "Omisión de enviar listas o llevar registros reglamentarios",
-        "titulo_ccc": "VIII", "capitulo_ccc": "I",
+        "titulo_ccc": "VIII", "categoria": "Animales", "categoria": "Animales", "categoria": "Transito", "categoria": "Transito", "categoria": "Transito", "capitulo_ccc": "I",
         "articulo": "Art. 112 CCC",
         "gravedad_base": 1, "es_conflicto_vecinal": False,
         "frecuencia": "baja", "favorito": False,
@@ -543,6 +543,74 @@ TIPOS_INFRACCION = {
         "frecuencia": "baja", "favorito": False,
     },
 }
+
+# ── Categoria funcional (compatibilidad con el resto de la app) ───────────────
+# Derivada del Título CCC + overrides específicos por clave.
+# Preserva las categorías que usa el clasificador, filtros y PDFs.
+_CAT_POR_TITULO = {
+    "I":    "Convivencia",
+    "II":   "Convivencia",
+    "III":  "Propiedad",
+    "IV":   "Propiedad",
+    "V":    "Convivencia",
+    "VI":   "Seguridad Publica",
+    "VII":  "Transito",
+    "VIII": "Transito",
+}
+_CAT_OVERRIDES = {
+    "tocamientos_indecorosos":          "Integridad",
+    "hostigamiento_maltrato_intimidacion":"Integridad",
+    "actos_discriminatorios":           "Convivencia",
+    "expresiones_discriminatorias":     "Convivencia",
+    "derecho_admision":                 "Comercio",
+    "ejercicio_abusivo_admision":       "Comercio",
+    "cuidado_vehiculos_sin_autorizacion":"Comercio",
+    "whiskerias_cabarets":              "Comercio",
+    "expendio_prohibido_bebidas":       "Comercio",
+    "reventa_entradas":                 "Comercio",
+    "irregularidades_subasta":          "Comercio",
+    "daño_monumentos_historicos":       "Espacio Publico",
+    "daño_bienes_arqueologicos":        "Espacio Publico",
+    "animales_sueltos":                 "Animales",
+    "animales_en_predios_ajenos":       "Animales",
+    "tenencia_animales_peligrosos":     "Animales",
+    "faenamiento_ilegal":               "Animales",
+    "comercializacion_animales_ilegal": "Animales",
+    "pirotecnia_fabricacion":           "Pirotecnia",
+    "pirotecnia_uso_prohibido":         "Pirotecnia",
+    "pirotecnia_venta_menores":         "Pirotecnia",
+    "pirotecnia_espectaculos":          "Pirotecnia",
+    "portacion_ilegal_armas":           "Integridad",
+    "disparo_armas_publico":            "Integridad",
+    "expendio_alcohol_menores":         "Convivencia",
+    "admision_menores_espectaculos":    "Convivencia",
+    "vehiculo_ninos_interior":          "Convivencia",
+    "suministro_objetos_peligrosos_menores": "Convivencia",
+    "exposicion_menores_incapaces":     "Convivencia",
+    "proteccion_nnya_alcohol":          "Convivencia",
+    "juegos_fiestas_populares":         "Espacio Publico",
+    "falsos_avisos_alarmas":            "Propiedad",
+    "uso_indebido_telefonos":           "Propiedad",
+    "negativa_identificarse":           "Propiedad",
+    "falsa_denuncia_contravencion":     "Propiedad",
+    "inobservancia_seguridad":          "Propiedad",
+    "construcciones_ruinosas":          "Propiedad",
+    "incumplimiento_normas_seguridad":  "Propiedad",
+    "peligro_incendio":                 "Propiedad",
+    "posesion_ganzuas":                 "Propiedad",
+    "conducta_sospechosa":              "Propiedad",
+    "merodeo_zona_rural":               "Propiedad",
+    "interrupcion_servicios_publicos":  "Propiedad",
+    "falsa_apariencia":                 "Propiedad",
+    "omision_listas_registros":         "Transito",
+    "omision_registro_pasajeros":       "Transito",
+    "omision_documentacion_carga":      "Transito",
+}
+# Apply to all entries (overrides duplicate keys from the script)
+for _k, _v in TIPOS_INFRACCION.items():
+    _v["categoria"] = _CAT_OVERRIDES.get(
+        _k, _CAT_POR_TITULO.get(_v.get("titulo_ccc", ""), "Convivencia")
+    )
 
 # ── Favoritos por defecto ─────────────────────────────────────────────────────
 FAVORITOS_DEFAULT = [k for k, v in TIPOS_INFRACCION.items() if v.get("favorito")]
