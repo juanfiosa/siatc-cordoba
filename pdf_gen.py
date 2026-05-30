@@ -8,7 +8,7 @@ from fpdf import FPDF
 from datetime import datetime, timedelta
 from io import BytesIO
 import os
-from data_cordoba import TIPOS_INFRACCION, UNIDADES, CONDICIONES_SUSPENSION
+from data_cordoba import TIPOS_INFRACCION, UNIDADES, CONDICIONES_SUSPENSION, get_condiciones_para
 
 # Fuente TTF desactivada: fonttools crash en Python 3.14
 _USE_TTF = False
@@ -38,19 +38,8 @@ def _fecha_formal(fecha=None):
     return f"{f.day} de {MESES[f.month-1]} de {f.year}"
 
 def _get_condiciones(tipo, categoria):
-    if tipo == "transito_alcoholemia":
-        return CONDICIONES_SUSPENSION["transito_alcoholemia"]
-    elif categoria == "Tránsito":
-        return CONDICIONES_SUSPENSION["transito"]
-    elif categoria == "Convivencia":
-        return CONDICIONES_SUSPENSION["convivencia"]
-    elif categoria == "Comercio":
-        return CONDICIONES_SUSPENSION["comercio"]
-    elif categoria == "Integridad":
-        return CONDICIONES_SUSPENSION["integridad"]
-    elif categoria == "Espacio Público":
-        return CONDICIONES_SUSPENSION["espacio_publico"]
-    return CONDICIONES_SUSPENSION["convivencia"]
+    """Wrapper para compatibilidad — usa get_condiciones_para() centralizado."""
+    return get_condiciones_para(tipo)
 
 
 # -- Clase base para documentos MPF -------------------------------------------

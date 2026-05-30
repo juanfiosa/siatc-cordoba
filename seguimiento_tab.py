@@ -7,7 +7,7 @@ Ministerio Público Fiscal de Córdoba
 import streamlit as st
 from datetime import datetime, date, timedelta
 import database as db
-from data_cordoba import TIPOS_INFRACCION, CONDICIONES_SUSPENSION
+from data_cordoba import TIPOS_INFRACCION, CONDICIONES_SUSPENSION, get_condiciones_para
 from pdf_gen import pdf_informe_seguimiento, pdf_acta_compromiso
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -125,25 +125,13 @@ def _form_nuevo_seguimiento(fiscal):
     if "condiciones_temp" not in st.session_state:
         st.session_state.condiciones_temp = []
 
-    # Precarga según tipo de infracción
+    # Precarga según tipo de infracción — usa get_condiciones_para() centralizado
     if st.button("📥 Pre-cargar condiciones estándar", key="preload_cond"):
         tipo_inf = causa.get("tipo_infraccion", "")
-        cat      = TIPOS_INFRACCION.get(tipo_inf, {}).get("categoria", "Convivencia")
-        if tipo_inf == "transito_alcoholemia":
-            key = "transito_alcoholemia"
-        elif cat == "Tránsito":
-            key = "transito"
-        elif cat == "Comercio":
-            key = "comercio"
-        elif cat == "Integridad":
-            key = "integridad"
-        elif cat == "Espacio Público":
-            key = "espacio_publico"
-        else:
-            key = "convivencia"
+        conds_lista = get_condiciones_para(tipo_inf)
         st.session_state.condiciones_temp = [
             {"tipo": "otro", "descripcion": c, "valor_objetivo": 0, "unidad": "", "fecha_limite": ""}
-            for c in CONDICIONES_SUSPENSION.get(key, [])
+            for c in conds_lista
         ]
         st.rerun()
 

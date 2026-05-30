@@ -5,7 +5,7 @@ Produce documentos en formato de la fiscalía cordobesa.
 
 from datetime import datetime, timedelta
 import random
-from data_cordoba import TIPOS_INFRACCION, CONDICIONES_SUSPENSION, UNIDADES
+from data_cordoba import TIPOS_INFRACCION, CONDICIONES_SUSPENSION, UNIDADES, get_condiciones_para
 
 
 def _fecha_formal(fecha: datetime = None) -> str:
@@ -19,20 +19,9 @@ def _numero_expediente(numero_caso: str) -> str:
     return numero_caso.replace("UC", "EXP-UC").replace("-", "/")
 
 
-def _get_condiciones(tipo_infraccion: str, categoria: str) -> list:
-    if tipo_infraccion == "transito_alcoholemia":
-        return CONDICIONES_SUSPENSION["transito_alcoholemia"]
-    elif categoria == "Tránsito":
-        return CONDICIONES_SUSPENSION["transito"]
-    elif categoria == "Convivencia":
-        return CONDICIONES_SUSPENSION["convivencia"]
-    elif categoria == "Comercio":
-        return CONDICIONES_SUSPENSION["comercio"]
-    elif categoria == "Integridad":
-        return CONDICIONES_SUSPENSION["integridad"]
-    elif categoria == "Espacio Público":
-        return CONDICIONES_SUSPENSION["espacio_publico"]
-    return CONDICIONES_SUSPENSION["convivencia"]
+def _get_condiciones(tipo_infraccion: str, categoria: str = "") -> list:
+    """Centralizado en data_cordoba.get_condiciones_para() — cubre las 64 infracciones."""
+    return get_condiciones_para(tipo_infraccion)
 
 
 def generar_dictamen_mediacion(caso: dict, clasificacion: dict, fiscal_nombre: str, unidad_key: str) -> str:

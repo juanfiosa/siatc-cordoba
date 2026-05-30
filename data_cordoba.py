@@ -616,23 +616,10 @@ for _k, _v in TIPOS_INFRACCION.items():
 FAVORITOS_DEFAULT = [k for k, v in TIPOS_INFRACCION.items() if v.get("favorito")]
 
 # ── Helper: condiciones de suspensión por tipo ────────────────────────────────
+# NOTA: esta función se redefine DESPUÉS de CONDICIONES_SUSPENSION (ver abajo)
 def get_condiciones_para(tipo_infraccion: str) -> list:
-    """Retorna las condiciones de suspensión apropiadas para el tipo dado."""
-    v = TIPOS_INFRACCION.get(tipo_infraccion, {})
-    titulo = v.get("titulo_ccc", "")
-    if tipo_infraccion == "transito_alcoholemia":
-        return CONDICIONES_SUSPENSION["transito_alcoholemia"]
-    elif titulo == "VII":
-        return CONDICIONES_SUSPENSION["transito"]
-    elif titulo in ("I", "V"):
-        return CONDICIONES_SUSPENSION["convivencia"]
-    elif titulo == "VI":
-        return CONDICIONES_SUSPENSION["integridad"] if v.get("gravedad_base", 1) >= 3 else CONDICIONES_SUSPENSION["espacio_publico"]
-    elif titulo == "VIII":
-        return CONDICIONES_SUSPENSION["comercio"]
-    elif titulo in ("III", "IV"):
-        return CONDICIONES_SUSPENSION["espacio_publico"]
-    return CONDICIONES_SUSPENSION["convivencia"]
+    """Stub — la implementación real está al final del archivo."""
+    return []
 
 # ── Condiciones de suspensión por categoría ───────────────────────────────────
 CONDICIONES_SUSPENSION = {
@@ -668,7 +655,63 @@ CONDICIONES_SUSPENSION = {
         "Prestar VEINTE (20) horas de trabajo comunitario en tareas de limpieza y mantenimiento de espacios públicos",
         "Abonar multa correspondiente por deterioro de bienes comunes según art. 94 CCC",
     ],
+    "animales": [
+        "No reincidir en infracciones vinculadas a la tenencia irresponsable de animales por el término de UN (1) año",
+        "Acreditar inscripción y vacunación del animal en el Registro Municipal correspondiente dentro de los TREINTA (30) días",
+        "Prestar VEINTE (20) horas de trabajo comunitario en organismo de protección animal a designar",
+        "En caso de animal potencialmente peligroso: colocar bozal y correa reglamentaria en espacio público",
+    ],
+    "pirotecnia": [
+        "Abstenerse de adquirir, portar o usar artículos pirotécnicos por el término de UN (1) año (art. 96 CCC)",
+        "No reincidir en infracciones similares bajo pena de duplicación de sanciones (art. 101 CCC)",
+        "Prestar TREINTA (30) horas de trabajo comunitario en organismo a designar",
+        "Abonar multa correspondiente según escala del art. 94 CCC",
+    ],
+    "propiedad": [
+        "No reincidir en conductas que afecten la propiedad pública o privada por el término de SEIS (6) meses",
+        "Reparar o restituir el daño causado dentro de los TREINTA (30) días de la resolución",
+        "Prestar VEINTE (20) horas de trabajo comunitario, preferentemente en tareas de restauración de bienes públicos",
+    ],
+    "proteccion_menores": [
+        "Abstenerse de suministrar bebidas alcohólicas o sustancias peligrosas a menores por el término de UN (1) año",
+        "No reincidir en conductas que afecten la integridad de niñas, niños o adolescentes",
+        "Prestar TREINTA (30) horas de trabajo comunitario en organismo de niñez a designar",
+        "Acreditar participación en taller de crianza responsable o protección de la infancia",
+    ],
 }
+
+# ── get_condiciones_para — implementación final (después de CONDICIONES_SUSPENSION)
+def get_condiciones_para(tipo_infraccion: str) -> list:
+    """
+    Retorna las condiciones de suspensión apropiadas para el tipo de infracción dado.
+    Usa el campo 'categoria' + 'titulo_ccc' para seleccionar el set correcto.
+    """
+    v    = TIPOS_INFRACCION.get(tipo_infraccion, {})
+    cat  = v.get("categoria", "")
+    tit  = v.get("titulo_ccc", "")
+    grav = v.get("gravedad_base", 1)
+
+    if tipo_infraccion == "transito_alcoholemia":
+        return CONDICIONES_SUSPENSION["transito_alcoholemia"]
+    if cat == "Transito" or tit == "VII":
+        return CONDICIONES_SUSPENSION["transito"]
+    if cat == "Animales":
+        return CONDICIONES_SUSPENSION["animales"]
+    if cat == "Pirotecnia":
+        return CONDICIONES_SUSPENSION["pirotecnia"]
+    if cat == "Propiedad":
+        return CONDICIONES_SUSPENSION["propiedad"]
+    if cat == "Integridad":
+        return CONDICIONES_SUSPENSION["integridad"]
+    if cat == "Comercio":
+        return CONDICIONES_SUSPENSION["comercio"]
+    if cat == "Espacio Publico":
+        return CONDICIONES_SUSPENSION["espacio_publico"]
+    if cat == "Proteccion Menores":
+        return CONDICIONES_SUSPENSION["proteccion_menores"]
+    # Convivencia y fallback
+    return CONDICIONES_SUSPENSION["convivencia"]
+
 
 UNIDADES = {
     "norte": "Unidad Contravencional Norte - Antonio del Viso 756, Barrio Alta Cordoba",
