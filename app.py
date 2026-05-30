@@ -127,19 +127,23 @@ div[data-testid="stExpander"] > div:first-child:hover {background:#f0f4ff !impor
 </style>
 """, unsafe_allow_html=True)
 
-# ── Sidebar ────────────────────────────────────────────────────────────────────
+# ── Variables de sesión (antes venían del sidebar, ahora del perfil/login) ──────
+fiscal_nombre = st.session_state.get("fiscal_nombre", "Usuario")
+unidad_key    = st.session_state.get("unidad_key", "norte")
+
+# ── Sidebar — compacto: solo alertas + búsqueda ────────────────────────────────
 with st.sidebar:
-    st.markdown("### ⚖️ SIATC")
-    # Pre-fill from login session if available
-    _default_fiscal = st.session_state.get("fiscal_nombre", "Dra. Ana Pérez")
-    _default_unidad = st.session_state.get("unidad_key", "norte")
-    fiscal_nombre = st.text_input("Fiscal / Ayudante", value=_default_fiscal)
-    unidad_key = st.selectbox(
-        "Unidad Contravencional",
-        options=list(UNIDADES.keys()),
-        index=list(UNIDADES.keys()).index(_default_unidad) if _default_unidad in UNIDADES else 0,
-        format_func=lambda k: {"norte":"Norte","sur":"Sur","genero":"Género"}[k],
+    st.markdown(
+        f"<div style='background:#1a2f5e;border-radius:6px;padding:6px 10px;"
+        f"color:white;font-size:0.82rem;margin-bottom:8px'>"
+        f"⚖️ <strong>SIATC</strong> &nbsp;·&nbsp; {fiscal_nombre}"
+        f"</div>",
+        unsafe_allow_html=True,
     )
+    if st.button("← Inicio", key="sb_home", use_container_width=True, type="secondary"):
+        st.session_state.pop("intro_vista", None)
+        st.session_state.pop("seccion_activa", None)
+        st.rerun()
     st.markdown("---")
     stats = _c_stats_generales()
     st.metric("Causas totales", stats["total"])
@@ -382,23 +386,52 @@ if _alertas:
         for alerta in _alertas:
             st.warning(alerta)
 
-# ── Badge de mensajes no leídos ────────────────────────────────────────────────
+# ── Navegación de módulo — header + botón Inicio ──────────────────────────────
+_seccion = st.session_state.get("seccion_activa", "nueva_causa")
 _oficina_usuario = st.session_state.get("oficina_key", "unidad_norte")
 _n_no_leidos = count_no_leidos(_oficina_usuario)
-_msg_tab_label = f"📨 Mensajería" + (f" ({_n_no_leidos})" if _n_no_leidos else "")
 
-# ── Tabs ───────────────────────────────────────────────────────────────────────
-tab_nuevo, tab_causas, tab_demo, tab_seg, tab_agenda, tab_perfil, tab_panel, tab_msgs = st.tabs([
-    "📋 Nuevo Caso", "📂 Gestión de Causas", "🗂️ Casos Demo",
-    "🔍 Seguimiento", "📅 Agenda", "👤 Perfil", "📊 Panel de Control",
-    _msg_tab_label
-])
+_SECCION_LABELS = {
+    "nueva_causa":  ("📋", "Nueva Causa"),
+    "mis_causas":   ("📂", "Mis Causas"),
+    "agenda":       ("📅", "Agenda"),
+    "seguimiento":  ("🔍", "Seguimiento"),
+    "mensajeria":   ("📨", "Mensajeria"),
+    "estadisticas": ("📊", "Estadisticas"),
+    "perfil":       ("👤", "Perfil"),
+}
+_sec_icon, _sec_label = _SECCION_LABELS.get(_seccion, ("📋", "SIATC"))
+
+_hcol1, _hcol2, _hcol3 = st.columns([1, 6, 1])
+if _hcol1.button("← Inicio", key="btn_volver_home", use_container_width=True):
+    st.session_state.pop("intro_vista", None)
+    st.session_state.pop("seccion_activa", None)
+    st.rerun()
+_hcol2.markdown(
+    f"<div style='background:linear-gradient(90deg,#1a2f5e,#2e5090);"
+    f"border-radius:8px;padding:0.5rem 1rem;color:white;text-align:center'>"
+    f"<strong>{_sec_icon} {_sec_label}</strong>"
+    + (f"&nbsp; 🔴&nbsp;<small>{_n_no_leidos} sin leer</small>" if _seccion == "mensajeria" and _n_no_leidos else "")
+    + "</div>",
+    unsafe_allow_html=True,
+)
+# Bell icon for messaging from any module
+if _seccion != "mensajeria" and _n_no_leidos:
+    if _hcol3.button(f"📨 {_n_no_leidos}", key="btn_bell_msg",
+                     help="Mensajes sin leer", use_container_width=True):
+        st.session_state["seccion_activa"] = "mensajeria"
+        st.rerun()
+st.markdown("")
+
+# ── Aliases para compatibilidad con el código existente ────────────────────────
+# (los 'with tab_X:' se convierten en 'if _seccion == "X":' abajo)
+tab_nuevo = tab_causas = tab_demo = tab_seg = tab_agenda = tab_perfil = tab_panel = tab_msgs = None
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # TAB 1 — NUEVO CASO
 # ══════════════════════════════════════════════════════════════════════════════
-with tab_nuevo:
+if _seccion == "nueva_causa":
     st.subheader("Ingreso de Caso Contravencional")
     col_izq, col_der = st.columns([1, 1], gap="large")
 
@@ -807,7 +840,7 @@ with tab_nuevo:
 # ══════════════════════════════════════════════════════════════════════════════
 # TAB 2 — GESTIÓN DE CAUSAS
 # ══════════════════════════════════════════════════════════════════════════════
-with tab_causas:
+if _seccion == "mis_causas":
     st.subheader("Gestión de Causas")
     if st.session_state.pop("goto_perfil", False):
         st.info("👤 El perfil del imputado/a se muestra en la pestaña **Perfil**.")
@@ -1732,7 +1765,7 @@ with tab_causas:
 # ══════════════════════════════════════════════════════════════════════════════
 # TAB 3 — CASOS DEMO
 # ══════════════════════════════════════════════════════════════════════════════
-with tab_demo:
+if _seccion == "mis_causas":  # casos demo dentro de Mis Causas
     st.subheader("🗂️ Casos de demostración")
     st.markdown("Casos representativos de una semana típica. Cargalos al sistema con un clic para explorar el flujo completo.")
 
@@ -1837,21 +1870,21 @@ with tab_demo:
 # ══════════════════════════════════════════════════════════════════════════════
 # TAB 4 — SEGUIMIENTO POST-RESOLUCIÓN
 # ══════════════════════════════════════════════════════════════════════════════
-with tab_seg:
+if _seccion == "seguimiento":
     render_tab_seguimiento(fiscal_nombre)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # TAB 5 — AGENDA
 # ══════════════════════════════════════════════════════════════════════════════
-with tab_agenda:
+if _seccion == "agenda":
     render_tab_agenda(fiscal_nombre)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # TAB 6 — PERFIL DEL IMPUTADO
 # ══════════════════════════════════════════════════════════════════════════════
-with tab_perfil:
+if _seccion == "perfil":
     st.header("👤 Perfil del Imputado/a")
     st.caption("Historial completo de causas, seguimientos y audiencias de una persona.")
     render_buscador_perfil()
@@ -1860,7 +1893,7 @@ with tab_perfil:
 # ══════════════════════════════════════════════════════════════════════════════
 # TAB 7 — PANEL DE CONTROL
 # ══════════════════════════════════════════════════════════════════════════════
-with tab_panel:
+if _seccion == "estadisticas":
     st.subheader("Panel de Control")
     stats = stats_generales()
     total = stats["total"]
@@ -3328,7 +3361,7 @@ with tab_panel:
 # ══════════════════════════════════════════════════════════════════════════════
 # TAB 8 — MENSAJERÍA INTER-OFICINA
 # ══════════════════════════════════════════════════════════════════════════════
-with tab_msgs:
+if _seccion == "mensajeria":
     st.header("📨 Mensajería Inter-Oficina — MPF Córdoba")
     st.caption(
         "Comunicaciones entre oficinas del Ministerio Público Fiscal. "
