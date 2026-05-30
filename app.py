@@ -36,6 +36,7 @@ from database import (
     causas_mas_antiguas_activas, stats_eficiencia_carriles, mediaciones_estancadas,
     actualizar_descripcion, stats_notas, stats_tiempo_por_estado,
     stats_audiencias_por_dia, get_favoritos, toggle_favorito, seed_favoritos,
+    reclasificar_causa,
 )
 from seguimiento_tab import render_tab_seguimiento
 from agenda_tab import render_tab_agenda
@@ -1432,6 +1433,45 @@ if _seccion == "mis_causas":
                                                        mime="text/plain", key=f"dl_doc_{d['id']}")
 
                 with col_acciones:
+                    # Reclasificación — el fiscal puede cambiar el carril
+                    with st.popover("🔄 Reclasificar causa", use_container_width=True):
+                        st.caption(
+                            f"Carril actual: **{c.get('carril','—').upper()}** "
+                            f"(Score: {c.get('score_clasificacion', '—')})  \n"
+                            "Ajustá los parámetros y el sistema recalcula el triaje."
+                        )
+                        _rc_vic = st.checkbox("Víctima identificada",
+                                              value=bool(c.get("victima_identificada")),
+                                              key=f"rc_vic_{c['id']}")
+                        _rc_les = st.checkbox("Lesiones físicas",
+                                              value=bool(c.get("hay_lesiones")),
+                                              key=f"rc_les_{c['id']}")
+                        _rc_res = st.checkbox("Resistencia a la autoridad",
+                                              value=bool(c.get("resistencia_autoridad")),
+                                              key=f"rc_res_{c['id']}")
+                        _rc_ant = st.number_input(
+                            "Antecedentes contravencionales",
+                            min_value=0, max_value=10,
+                            value=int(c.get("score_clasificacion", 2) > 2),
+                            key=f"rc_ant_{c['id']}"
+                        )
+                        if st.button("Recalcular y actualizar", key=f"rc_btn_{c['id']}",
+                                     type="primary", use_container_width=True):
+                            _rc_clf = clasificar_caso(
+                                c["tipo_infraccion"], _rc_ant,
+                                _rc_vic, _rc_les, _rc_res
+                            )
+                            reclasificar_causa(
+                                c["id"], _rc_clf["carril"],
+                                _rc_clf["score"], _rc_clf["accion"],
+                                _rc_clf["fundamento"], fiscal_nombre
+                            )
+                            st.cache_data.clear()
+                            _carril_nuevo = _rc_clf["carril"].upper()
+                            _ic_nuevo = {"VERDE":"🟢","AMARILLO":"🟡","ROJO":"🔴"}.get(_carril_nuevo,"⚪")
+                            st.success(f"Reclasificada: {_ic_nuevo} Carril {_carril_nuevo}")
+                            st.rerun()
+
                     # Prioritaria toggle
                     _is_prio = c["id"] in _prio_ids
                     _prio_lbl = "⭐ Prioritaria" if _is_prio else "☆ Marcar prioritaria"

@@ -995,6 +995,29 @@ def set_proximo_control(seguimiento_id: int, fecha: str) -> None:
                      (fecha, seguimiento_id))
 
 
+def reclasificar_causa(causa_id: int, carril: str, score: float,
+                       accion: str, fundamento: list, usuario: str) -> None:
+    """
+    Actualiza la clasificacion (carril/score/accion) de una causa existente.
+    Registra la reclasificacion como nota en el historial.
+    """
+    with get_conn() as conn:
+        conn.execute(
+            """UPDATE causas
+               SET carril=?, score_clasificacion=?, accion=?,
+                   updated_at=datetime('now','localtime')
+               WHERE id=?""",
+            (carril, score, accion, causa_id)
+        )
+    _fund_txt = "; ".join(fundamento[:3]) if fundamento else ""
+    agregar_nota_causa(
+        causa_id,
+        f"RECLASIFICACION: Carril actualizado a {carril.upper()}. "
+        f"Score: {score:.1f}. {_fund_txt}",
+        usuario,
+    )
+
+
 def asignar_fiscal(causa_id: int, fiscal: str) -> None:
     """Reasigna el fiscal a cargo de una causa."""
     with get_conn() as conn:
