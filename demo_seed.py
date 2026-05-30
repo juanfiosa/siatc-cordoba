@@ -252,7 +252,61 @@ def poblar():
     # Audiencias vinculadas a las causas
     _crear_audiencias_demo(numeros_causa)
 
+    # Mensajes demo inter-oficina (ilustra el sistema de mensajería)
+    _crear_mensajes_demo(numeros_causa)
+
     return True
+
+
+def _crear_mensajes_demo(causa_ids_por_idx: dict):
+    """Crea mensajes demo entre Policía Judicial y la Unidad para ilustrar la mensajería."""
+    try:
+        from database import get_conn
+        causa_id_1 = causa_ids_por_idx.get(0)  # Garcia - causa archivada
+        causa_id_2 = causa_ids_por_idx.get(4)  # Martinez - causa notificada
+        if causa_id_1:
+            with get_conn() as conn:
+                conn.execute("""INSERT OR IGNORE INTO mensajes_interoficina
+                    (causa_id, tipo, asunto, cuerpo, oficina_origen, usuario_origen,
+                     oficina_destino, estado, prioridad, created_at)
+                    VALUES (?,?,?,?,?,?,?,?,?,?)""", (
+                    causa_id_1, "notificacion",
+                    "Ingreso de actuacion contravencional",
+                    "Se eleva actuacion labrada por infraccion al Art. 111 CCC. "
+                    "Imputado identificado en control de rutina Av. Colon 1200.",
+                    "policia_judicial", "Of. Roberto Sosa",
+                    "fiscal_cba_norte", "recibido", "normal",
+                    _dt(5)
+                ))
+        if causa_id_2:
+            with get_conn() as conn:
+                conn.execute("""INSERT OR IGNORE INTO mensajes_interoficina
+                    (causa_id, tipo, asunto, cuerpo, oficina_origen, usuario_origen,
+                     oficina_destino, estado, prioridad, created_at)
+                    VALUES (?,?,?,?,?,?,?,?,?,?)""", (
+                    causa_id_2, "instruccion",
+                    "Citese al imputado",
+                    "Sintese citar al imputado Martinez, Jorge Alberto (DNI 25661003) "
+                    "a comparecer ante esta Unidad el dia proximo martes a las 10:00 hs. "
+                    "Adjunto cedula de notificacion.",
+                    "fiscal_cba_norte", "Dra. Ana Perez",
+                    "policia_judicial", "enviado", "normal",
+                    _dt(3)
+                ))
+                conn.execute("""INSERT OR IGNORE INTO mensajes_interoficina
+                    (causa_id, tipo, asunto, cuerpo, oficina_origen, usuario_origen,
+                     oficina_destino, estado, prioridad, created_at)
+                    VALUES (?,?,?,?,?,?,?,?,?,?)""", (
+                    causa_id_2, "notificacion",
+                    "Diligencia cumplida - imputado notificado",
+                    "Se informa que el imputado Martinez fue notificado exitosamente "
+                    "en su domicilio de Galeria Comercial Local 12. Firma en el acta.",
+                    "policia_judicial", "Of. Roberto Sosa",
+                    "fiscal_cba_norte", "enviado", "normal",
+                    _dt(1)
+                ))
+    except Exception:
+        pass  # mensajería es opcional en el seed
 
 
 def _accion(carril):

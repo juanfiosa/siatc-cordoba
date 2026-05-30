@@ -63,13 +63,17 @@ def _render_login():
             else:
                 st.error("Usuario o contrasena incorrectos.")
 
-        st.caption(
-            "Modo demo | "
-            "Cordoba: aperez · cmedina · lsuarez · pjudicial  "
-            "Rio Cuarto: mrodriguez · sgomez · policiarc  "
-            "Demo: demo  |  "
-            "Contrasena: mpf2024 (o demo)"
-        )
+        with st.expander("Usuarios disponibles (modo demo)", expanded=False):
+            st.markdown(
+                "**Cordoba Capital** (Policia Judicial + Unidades especializadas)  \n"
+                "`aperez` Unidad Norte · `cmedina` Unidad Sur · `lsuarez` Unidad Genero  \n"
+                "`pjudicial` Policia Judicial MPF  \n\n"
+                "**Rio Cuarto** (Policia Provincial + Fiscales de Instruccion)  \n"
+                "`mrodriguez` Fiscalia Instruccion N1 · `sgomez` Fiscalia Instruccion N2  \n"
+                "`policiarc` Policia de la Provincia  \n\n"
+                "**Demo generico:** `demo`  \n"
+                "**Contrasena:** `mpf2024` (o `demo` para usuario demo)"
+            )
 
     with col_info:
         st.markdown("#### Flujo del expediente")

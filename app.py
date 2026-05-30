@@ -1322,6 +1322,44 @@ with tab_causas:
                             unsafe_allow_html=True
                         )
 
+                    # Hilo de mensajes inter-oficina vinculados a esta causa
+                    _msgs_causa = get_mensajes_causa(c["id"])
+                    if _msgs_causa:
+                        with st.expander(f"📨 Mensajes de esta causa ({len(_msgs_causa)})", expanded=False):
+                            for _mc in _msgs_causa:
+                                _tmc  = TIPOS_MENSAJE.get(_mc["tipo"], TIPOS_MENSAJE["notificacion"])
+                                _leido= bool(_mc.get("leido_at"))
+                                _bg   = "#f8f9fa" if _leido else "white"
+                                _urg  = _mc.get("prioridad") == "urgente"
+                                _from = _mc.get("oficina_origen","")
+                                _to   = _mc.get("oficina_destino","")
+                                st.markdown(
+                                    f"<div style='border-left:3px solid {_tmc['color']};"
+                                    f"background:{_bg};padding:6px 10px;margin:3px 0;border-radius:0 4px 4px 0'>"
+                                    f"{'🔴 ' if _urg and not _leido else ''}"
+                                    f"{_tmc['icon']} **{_mc['asunto']}**  \n"
+                                    f"<small style='color:#888'>{_from} → {_to} · "
+                                    f"{_mc['created_at'][:16]} · {_mc.get('estado','')}</small>"
+                                    + (f"  \n{_mc['cuerpo'][:150]}" if _mc.get("cuerpo") else "")
+                                    + "</div>",
+                                    unsafe_allow_html=True
+                                )
+                                if not _leido:
+                                    if st.button("✓ Leído", key=f"gc_msg_rd_{_mc['id']}", use_container_width=True):
+                                        marcar_leido(_mc["id"])
+                                        st.rerun()
+                            # Quick reply
+                            st.markdown("---")
+                            _nodo_gm = st.session_state.get("nodo_key", "cba_norte")
+                            _of_gm   = st.session_state.get("oficina_key", "fiscal_cba_norte")
+                            render_nuevo_mensaje(
+                                causa_id=c["id"],
+                                causa_numero=c["numero"],
+                                oficina_origen=_of_gm,
+                                fiscal_nombre=fiscal_nombre,
+                                nodo_key=_nodo_gm,
+                            )
+
                     # Otras causas de este imputado/a (reincidente check)
                     if _pers_cnt_gc.get(c.get("persona_id"), 0) > 1:
                         _otras_causas = [
@@ -1525,6 +1563,59 @@ with tab_causas:
                         )
                     except Exception as _e_exp:
                         st.caption(f"PDF no disponible: {_e_exp}")
+
+                    st.markdown("---")
+                    st.markdown("**📤 Pase de expediente:**")
+                    with st.popover("Enviar a otra oficina", use_container_width=True):
+                        from mensajeria import get_oficinas as _get_ofs, render_badge_oficina as _rb
+                        _nodo_ges = st.session_state.get("nodo_key", "cba_norte")
+                        _of_ges   = st.session_state.get("oficina_key", "fiscal_cba_norte")
+                        _ofs_ges  = _get_ofs(_nodo_ges)
+                        _of_actual_ges = get_oficina_actual(c["id"])
+                        _of_actual_lbl = _ofs_ges.get(_of_actual_ges, {}).get("label", _of_actual_ges)
+                        st.caption(f"Tenencia actual: **{_of_actual_lbl}**")
+                        from config_nodos import get_flujos_nodo as _gfn
+                        _destinos_ges = _gfn(_nodo_ges).get(_of_ges, [])
+                        if _destinos_ges:
+                            _dest_ges = st.selectbox(
+                                "Oficina destinataria",
+                                _destinos_ges,
+                                format_func=lambda k: (
+                                    f"{_ofs_ges.get(k,{}).get('icon','📋')} "
+                                    f"{_ofs_ges.get(k,{}).get('label', k)}"
+                                    + (" 👻" if _ofs_ges.get(k,{}).get("tipo")=="fantasma" else "")
+                                ),
+                                key=f"pase_dest_{c['id']}",
+                            )
+                            _mot_ges = st.selectbox(
+                                "Motivo del pase",
+                                ["Elevacion de actuaciones",
+                                 "Para instruccion del fiscal",
+                                 "Para homologacion judicial",
+                                 "Derivacion a mediacion",
+                                 "Para revision de camara",
+                                 "Otro (ver observaciones)"],
+                                key=f"pase_mot_{c['id']}",
+                            )
+                            _obs_ges = st.text_input("Observaciones", key=f"pase_obs_{c['id']}")
+                            if _ofs_ges.get(_dest_ges, {}).get("tipo") == "fantasma":
+                                st.warning("Oficina externa: se generara PDF para envio fisico.")
+                            if st.button("📤 Confirmar pase", key=f"pase_btn_{c['id']}",
+                                         type="primary", use_container_width=True):
+                                registrar_pase(c["id"], _of_ges, fiscal_nombre,
+                                               _dest_ges, _mot_ges, _obs_ges)
+                                st.cache_data.clear()
+                                st.success(f"Expediente remitido a {_ofs_ges.get(_dest_ges,{}).get('label', _dest_ges)}")
+                                st.rerun()
+                        else:
+                            st.info("Esta oficina no tiene destinos configurados.")
+                        # History of pases
+                        _hist_p = get_historial_pases(c["id"])
+                        if _hist_p:
+                            st.markdown("**Historial de pases:**")
+                            for _p in _hist_p:
+                                _o_lbl = _ofs_ges.get(_p["oficina_destino"],{}).get("label", _p["oficina_destino"])
+                                st.caption(f"→ {_o_lbl} · {_p['created_at'][:16]} · {_p['motivo'][:40]}")
 
                     st.markdown("---")
                     st.markdown("**👨‍⚖️ Fiscal asignado:**")
