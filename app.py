@@ -64,12 +64,15 @@ if not ya_poblado():
     poblar()
 
 # Seed node structure into DB if not already there (idempotent — INSERT OR IGNORE)
-from database import (seed_nodos_desde_config as _seed_nodos, listar_nodos as _ln,
-                      seed_usuarios_desde_config as _seed_users, listar_usuarios as _lu)
+from database import seed_nodos_desde_config as _seed_nodos, listar_nodos as _ln
 if not _ln():
     _seed_nodos()
-if not _lu():
-    _seed_users()
+try:
+    from database import seed_usuarios_desde_config as _seed_users, listar_usuarios as _lu
+    if not _lu():
+        _seed_users()
+except ImportError:
+    pass  # older DB without usuarios table — migrations handle it at runtime
 
 # ── Cached DB helpers (TTL=60s — evita re-queries en cada rerun) ───────────────
 @st.cache_data(ttl=60)
