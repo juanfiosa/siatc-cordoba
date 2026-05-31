@@ -1886,8 +1886,8 @@ if _seccion == "mis_causas":
 # TAB 3 — CASOS DEMO
 # ══════════════════════════════════════════════════════════════════════════════
 if _seccion == "mis_causas":  # casos demo dentro de Mis Causas
-    st.subheader("🗂️ Casos de demostración")
-    st.markdown("Casos representativos de una semana típica. Cargalos al sistema con un clic para explorar el flujo completo.")
+    with st.expander("🗂️ Casos de demostración", expanded=False):
+     st.markdown("Casos representativos de una semana típica. Cargalos al sistema con un clic.")
 
     # Check which demo cases are already in the DB (by numero)
     _numeros_en_db = {c["numero"] for c in listar_causas(limit=500)}
