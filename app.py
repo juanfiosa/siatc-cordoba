@@ -270,13 +270,15 @@ with st.sidebar:
                 st.session_state["goto_perfil"] = True
                 st.session_state["seccion_activa"] = "perfil"
                 st.rerun()
-        # Expediente pattern (UCN-NNNNN) — auto-select if exact match
-        elif _q_rapid.upper().startswith("UCN-"):
+        # Expediente pattern — auto-select and navigate to Mis Causas
+        elif any(_q_rapid.upper().startswith(p) for p in ("UCN-","UCS-","UCG-","RC-","2025-")):
             _match_causas = listar_causas(busqueda=_q_rapid, limit=5)
             if len(_match_causas) == 1:
-                st.session_state["causa_sel_id"] = _match_causas[0]["id"]
+                st.session_state["causa_sel_id"]   = _match_causas[0]["id"]
+                st.session_state["gc_busqueda"]    = _match_causas[0]["numero"]
+                st.session_state["seccion_activa"] = "mis_causas"
                 _ic_m = {"verde":"🟢","amarillo":"🟡","rojo":"🔴"}.get(_match_causas[0].get("carril",""),"⚪")
-                st.caption(f"{_ic_m} {_match_causas[0]['numero']} — {ESTADOS_LABEL.get(_match_causas[0]['estado'], _match_causas[0]['estado'])}")
+                st.caption(f"{_ic_m} {_match_causas[0]['numero']} → Mis Causas")
 
     # Últimas causas modificadas
     _ultimas = listar_causas(limit=4)
@@ -453,7 +455,7 @@ if _seccion == "nueva_causa":
             st.session_state.pop(_k, None)
         st.rerun()
 
-    col_izq, col_der = st.columns([1, 1], gap="large")
+    col_izq, col_der = st.columns(2)
 
     with col_izq:
         st.markdown("#### Datos del imputado/a")
@@ -880,8 +882,8 @@ if _seccion == "nueva_causa":
 # ══════════════════════════════════════════════════════════════════════════════
 if _seccion == "mis_causas":
     st.subheader("Gestión de Causas")
-    if st.session_state.pop("goto_perfil", False):
-        st.info("👤 El perfil del imputado/a se muestra en la pestaña **Perfil**.")
+    # goto_perfil ya no aplica — ahora navega directamente via seccion_activa
+    st.session_state.pop("goto_perfil", None)
 
     # ── Causas prioritarias (session-based ⭐ bookmarks) ───────────────────────
     if "gc_prioritarias" not in st.session_state:
