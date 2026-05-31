@@ -2014,7 +2014,10 @@ if _seccion == "perfil":
 # TAB 7 — PANEL DE CONTROL
 # ══════════════════════════════════════════════════════════════════════════════
 if _seccion == "estadisticas":
-    st.subheader("Panel de Control")
+    _nodo_panel = st.session_state.get("nodo_key", "cba_norte")
+    from config_nodos import NODOS as _NODOS_P
+    _nodo_nombre_panel = _NODOS_P.get(_nodo_panel, {}).get("nombre", "")
+    st.subheader(f"Panel de Control — {_nodo_nombre_panel}" if _nodo_nombre_panel else "Panel de Control")
     stats = stats_generales()
     total = stats["total"]
     seg_s = _c_stats_seguimiento()
