@@ -1448,14 +1448,26 @@ def seed_usuarios_desde_config() -> int:
     return len(USUARIOS_DEMO)
 
 
+def _hash_pw(password: str) -> str:
+    """Minimal hash for demo — use bcrypt/argon2 in production."""
+    import hashlib
+    return hashlib.sha256(password.encode()).hexdigest()[:32]
+
+
 def get_usuario(username: str, password: str) -> dict | None:
-    """Autentica un usuario. Retorna el dict del usuario o None."""
+    """Autentica un usuario: acepta password en texto plano o hasheado."""
     with get_conn() as conn:
         r = conn.execute(
-            "SELECT * FROM usuarios WHERE username=? AND password=? AND activo=1",
-            (username, password)
+            "SELECT * FROM usuarios WHERE username=? AND activo=1",
+            (username,)
         ).fetchone()
-    return dict(r) if r else None
+    if not r:
+        return None
+    stored = r["password"]
+    # Accept plain text (legacy/demo) or hash match
+    if stored == password or stored == _hash_pw(password):
+        return dict(r)
+    return None
 
 
 def listar_usuarios(nodo_key: str = None) -> list[dict]:
