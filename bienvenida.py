@@ -284,6 +284,33 @@ def _render_home():
                     st.session_state["seccion_activa"] = sec_key
                     st.rerun()
 
+    # Causas activas del nodo del usuario (vista rapida)
+    st.markdown("---")
+    try:
+        from database import listar_causas as _lc, ESTADOS_LABEL as _EL
+        _unidad_home = st.session_state.get("unidad_key", "norte")
+        _causas_home = [c for c in _lc(unidad=_unidad_home, limit=100)
+                        if c.get("estado") in ("ingresada","clasificada","notificada","en_mediacion")]
+        if _causas_home:
+            _col_h1, _col_h2 = st.columns([1, 3])
+            _col_h1.metric("Causas activas en tu nodo", len(_causas_home))
+            _col_h2.markdown("**Mas urgentes:**")
+            # Sort by inactivity
+            from datetime import datetime as _dth
+            def _urgencia(c):
+                try: return (_dth.now() - _dth.strptime(c["updated_at"][:16], "%Y-%m-%d %H:%M")).days
+                except: return 0
+            for _ch in sorted(_causas_home, key=_urgencia, reverse=True)[:3]:
+                _ic = {"verde":"🟢","amarillo":"🟡","rojo":"🔴"}.get(_ch.get("carril",""),"⚪")
+                _nom = (_ch.get("apellido_nombre","") or "").split(",")[0][:18]
+                _dias = _urgencia(_ch)
+                _col_h2.markdown(
+                    f"{_ic} **{_ch['numero'][-8:]}** {_nom} — "
+                    f"*{_EL.get(_ch['estado'],_ch['estado'])}* · {_dias}d sin mov."
+                )
+    except Exception:
+        pass
+
     st.markdown("")
     st.caption("SIATC · MPF Cordoba · v1.3-demo · Ley N 10.326")
 
