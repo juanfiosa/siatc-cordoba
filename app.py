@@ -62,8 +62,11 @@ from mensajeria import (
 init_db()
 if not ya_poblado():
     poblar()
-if not rc_poblado():   # Seed RC cases independently (runs even if CBA cases exist)
-    poblar_rc()
+try:
+    if not rc_poblado():   # Seed RC cases independently (runs even if CBA cases exist)
+        poblar_rc()
+except Exception:
+    pass  # RC seed is optional — won't block CBA users
 
 # Seed node structure into DB if not already there (idempotent — INSERT OR IGNORE)
 from database import seed_nodos_desde_config as _seed_nodos, listar_nodos as _ln
