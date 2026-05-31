@@ -41,7 +41,7 @@ from database import (
 from seguimiento_tab import render_tab_seguimiento
 from agenda_tab import render_tab_agenda
 from perfil_tab import render_buscador_perfil
-from demo_seed import poblar, ya_poblado
+from demo_seed import poblar, ya_poblado, poblar_rc, rc_poblado
 from bienvenida import mostrar_si_primera_vez
 from export_excel import causas_a_excel, seguimientos_a_excel, audiencias_a_excel
 from database import (
@@ -62,6 +62,8 @@ from mensajeria import (
 init_db()
 if not ya_poblado():
     poblar()
+if not rc_poblado():   # Seed RC cases independently (runs even if CBA cases exist)
+    poblar_rc()
 
 # Seed node structure into DB if not already there (idempotent — INSERT OR IGNORE)
 from database import seed_nodos_desde_config as _seed_nodos, listar_nodos as _ln
@@ -266,6 +268,8 @@ with st.sidebar:
                          use_container_width=True, type="secondary"):
                 st.session_state["perfil_busqueda"] = _q_rapid
                 st.session_state["goto_perfil"] = True
+                st.session_state["seccion_activa"] = "perfil"
+                st.rerun()
         # Expediente pattern (UCN-NNNNN) — auto-select if exact match
         elif _q_rapid.upper().startswith("UCN-"):
             _match_causas = listar_causas(busqueda=_q_rapid, limit=5)
@@ -287,8 +291,10 @@ with st.sidebar:
                 key=f"sb_uc_{_uc['id']}",
                 use_container_width=True,
             ):
-                st.session_state["gc_busqueda"] = _uc["numero"]
-                st.session_state["causa_sel_id"] = _uc["id"]
+                st.session_state["gc_busqueda"]    = _uc["numero"]
+                st.session_state["causa_sel_id"]   = _uc["id"]
+                st.session_state["seccion_activa"] = "mis_causas"
+                st.rerun()
 
     st.markdown("---")
     st.caption(
@@ -1256,6 +1262,8 @@ if _seccion == "mis_causas":
                     if _col_pfil.button("👤 Ver perfil", key=f"pfil_{c['id']}", use_container_width=True):
                         st.session_state["perfil_busqueda"] = c["persona_dni"]
                         st.session_state["goto_perfil"] = True
+                        st.session_state["seccion_activa"] = "perfil"
+                        st.rerun()
                     _tel_raw = c.get("persona_telefono") or ""
                     if _tel_raw:
                         _tel_digits = "".join(ch for ch in _tel_raw if ch.isdigit())
@@ -2613,6 +2621,8 @@ if _seccion == "estadisticas":
                                                      use_container_width=True):
                             st.session_state["perfil_busqueda"] = _r_top["dni"]
                             st.session_state["goto_perfil"] = True
+                            st.session_state["seccion_activa"] = "perfil"
+                            st.rerun()
             else:
                 st.success("✅ No hay reincidentes en el padrón actual.")
 
@@ -3454,14 +3464,23 @@ if _seccion == "estadisticas":
                 if st.button("🔄 Restablecer datos demo", disabled=not confirmar,
                              type="secondary"):
                     try:
-                        reset_db()   # trunca tablas (más confiable que borrar el archivo)
+                        reset_db()
                     except Exception as _re:
                         st.warning(f"Reset parcial: {_re}")
                     init_db()
                     poblar()
+                    poblar_rc()
                     st.cache_data.clear()
-                    st.session_state["seccion_activa"] = "estadisticas"  # stay in module after reset
-                    st.success("Datos restablecidos correctamente.")
+                    st.session_state["seccion_activa"] = "estadisticas"
+                    st.success("Datos restablecidos — incluye casos de Río Cuarto.")
+                    st.rerun()
+                # Seed RC independently (without full reset)
+                if st.button("🏙️ Agregar casos Río Cuarto", key="seed_rc_btn",
+                             use_container_width=True,
+                             help="Agrega los 6 casos demo del nodo Río Cuarto sin borrar los existentes"):
+                    poblar_rc()
+                    st.cache_data.clear()
+                    st.success("Casos de Río Cuarto agregados.")
                     st.rerun()
             with col_r2:
                 st.info("💡 **Guía de demostración (v1.3)**\n\n"

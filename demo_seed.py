@@ -230,6 +230,70 @@ def ya_poblado():
     return n >= 5
 
 
+def rc_poblado():
+    """Verifica si hay causas del nodo Río Cuarto en la DB."""
+    with db.get_conn() as conn:
+        n = conn.execute(
+            "SELECT COUNT(*) as n FROM causas WHERE unidad='rio_cuarto'"
+        ).fetchone()["n"]
+    return n >= 3
+
+
+def poblar_rc():
+    """Inserta los casos demo específicos de Río Cuarto. Idempotente."""
+    if rc_poblado():
+        return False
+
+    rc_casos = [c for c in CASOS_SEED if c.get("unidad") == "rio_cuarto"]
+    rc_personas_idx = {c["persona_idx"] for c in rc_casos}
+
+    with db.get_conn() as conn:
+        for idx in rc_personas_idx:
+            p = PERSONAS_DEMO[idx]
+            db.upsert_persona(p["dni"], p["apellido_nombre"], p["edad"],
+                              p["domicilio"], p["telefono"])
+
+    prefijos = {"rio_cuarto": "RC"}
+    for i, caso in enumerate(rc_casos):
+        p = PERSONAS_DEMO[caso["persona_idx"]]
+        pref  = "RC"
+        numero = f"2025-{pref}-{i+1:05d}"
+        clf    = {"carril": caso["carril"], "accion": _accion(caso["carril"]),
+                  "score": _score(caso["carril"])}
+
+        with db.get_conn() as conn:
+            existing = conn.execute("SELECT id FROM causas WHERE numero=?", (numero,)).fetchone()
+            if existing:
+                continue
+            _n_est  = {"ingresada":1,"clasificada":2,"notificada":3,"en_mediacion":4,"resuelta":4,"archivada":5}.get(caso["estado"],2)
+            _step   = max(1, caso["dias_atras"] // _n_est)
+            cur = conn.execute("""
+                INSERT INTO causas
+                  (numero, persona_id, tipo_infraccion, descripcion, carril, accion,
+                   unidad, fiscal_asignado, estado, score_clasificacion,
+                   fecha_hecho, created_at, updated_at)
+                VALUES (?,
+                  (SELECT id FROM personas WHERE dni=?),
+                  ?,?,?,?,?,?,?,?,?,?,?)""", (
+                numero, p["dni"], caso["tipo"], caso["desc"],
+                caso["carril"], clf["accion"],
+                caso["unidad"],
+                caso.get("fiscal", "Dr. Moine"),
+                caso["estado"], clf["score"],
+                _fecha(caso["dias_atras"] + 3),
+                _dt(caso["dias_atras"]),
+                _dt(caso.get("updated_dias", _step)),
+            ))
+            causa_id = cur.lastrowid
+            fiscal_caso = caso.get("fiscal", "Dr. Moine")
+            _insertar_timeline(conn, causa_id, caso["estado"], caso["dias_atras"], fiscal_caso)
+        if caso.get("seg"):
+            p_dict = PERSONAS_DEMO[caso["persona_idx"]]
+            _crear_seg_demo(causa_id, caso, p_dict)
+
+    return True
+
+
 def poblar():
     """Inserta todos los datos demo en la base. Idempotente por DNI único."""
     if ya_poblado():
