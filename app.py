@@ -166,18 +166,23 @@ with st.sidebar:
     col1.metric("🔴", stats["por_carril"].get("rojo", 0))
     col2.metric("👤 Personas", stats["personas"])
 
-    # ── Alertas de seguimiento ─────────────────────────────────────────────
+    # ── Alertas de seguimiento — click navega al módulo ───────────────────────
     st.markdown("---")
     seg_stats = _c_stats_seguimiento()
     if seg_stats["total"] > 0:
-        st.markdown("**🔔 Seguimientos activos**")
-        col_s1, col_s2 = st.columns(2)
-        col_s1.metric("Activos", seg_stats["activos"])
-        col_s2.metric("Cumplidos", seg_stats["cumplidos"])
+        _sb_sc1, _sb_sc2 = st.columns(2)
+        _sb_sc1.metric("Seguimientos activos", seg_stats["activos"])
+        _sb_sc2.metric("Cumplidos", seg_stats["cumplidos"])
         if seg_stats["vencidos"] > 0:
-            st.error(f"⚠️ {seg_stats['vencidos']} seguimiento(s) vencido(s) sin cierre")
+            if st.button(f"⚠️ {seg_stats['vencidos']} vencido(s)", key="sb_alert_venc",
+                         use_container_width=True, type="secondary"):
+                st.session_state["seccion_activa"] = "seguimiento"
+                st.rerun()
         if seg_stats["incumplidos"] > 0:
-            st.warning(f"❌ {seg_stats['incumplidos']} incumplido(s)")
+            if st.button(f"❌ {seg_stats['incumplidos']} incumplido(s)", key="sb_alert_inc",
+                         use_container_width=True, type="secondary"):
+                st.session_state["seccion_activa"] = "seguimiento"
+                st.rerun()
 
         # Próximos vencimientos
         from datetime import date as _date
@@ -221,25 +226,23 @@ with st.sidebar:
                 _lbl = "HOY" if _cpd == 0 else f"en {_cpd}d"
                 st.caption(f"🔵 {_cps['apellido_nombre'].split(',')[0]} — control {_lbl}")
 
-    # ── Audiencias del día ─────────────────────────────────────────────────
+    # ── Audiencias — click navega al Agenda ───────────────────────────────────
     hoy_auds = audiencias_hoy()
-    if hoy_auds:
+    aud_s    = _c_stats_audiencias()
+    if hoy_auds or aud_s["proximas"] > 0:
         st.markdown("---")
-        st.markdown(f"**📅 Audiencias hoy ({len(hoy_auds)})**")
-        for a in hoy_auds:
-            st.caption(f"🔵 {a['hora']} — {a['apellido_nombre'].split(',')[0]} ({a['numero']})")
-
-    # Próximas audiencias esta semana
-    aud_s = _c_stats_audiencias()
-    if aud_s["proximas"] > 0:
-        st.markdown("---")
-        st.markdown(f"**📆 Esta semana: {aud_s['proximas']} audiencia(s)**")
-
-    # Causas sin audiencia programada (sidebar alert)
-    _sin_aud_sb = _c_sin_audiencia()
-    if _sin_aud_sb:
-        st.markdown("---")
-        st.error(f"📋 {len(_sin_aud_sb)} sin audiencia")
+        if hoy_auds:
+            if st.button(f"📅 {len(hoy_auds)} audiencia(s) HOY", key="sb_aud_hoy",
+                         use_container_width=True, type="secondary"):
+                st.session_state["seccion_activa"] = "agenda"
+                st.rerun()
+            for a in hoy_auds[:2]:
+                st.caption(f"  🔵 {a['hora']} — {a['apellido_nombre'].split(',')[0]}")
+        elif aud_s["proximas"] > 0:
+            if st.button(f"📆 {aud_s['proximas']} audiencia(s) esta semana", key="sb_aud_sem",
+                         use_container_width=True, type="secondary"):
+                st.session_state["seccion_activa"] = "agenda"
+                st.rerun()
 
     # Esta semana — quick activity snapshot
     st.markdown("---")
