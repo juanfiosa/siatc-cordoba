@@ -916,8 +916,22 @@ if _seccion == "mis_causas":
                                       format_func=lambda x: "Todos los estados" if x=="Todos" else ESTADOS_LABEL.get(x,x))
     filtro_carril = col_f3.selectbox("Carril", ["Todos","verde","amarillo","rojo"],
                                       format_func=lambda x: {"Todos":"Todos","verde":"🟢 Verde","amarillo":"🟡 Amarillo","rojo":"🔴 Rojo"}[x])
-    filtro_unidad = col_f4.selectbox("Unidad", ["Todas","norte","sur","genero"],
-                                      format_func=lambda x: {"Todas":"Todas","norte":"Norte","sur":"Sur","genero":"Género"}[x])
+    # Build unidad options dynamically — include user's node for interior fiscales
+    _unidad_opts = ["Todas","norte","sur","genero"]
+    _unidad_labels = {"Todas":"Todas","norte":"Norte","sur":"Sur","genero":"Género"}
+    if unidad_key not in _unidad_opts and unidad_key:
+        _unidad_opts.append(unidad_key)
+        from config_nodos import NODOS as _NODOS_GC
+        _unidad_labels[unidad_key] = _NODOS_GC.get(unidad_key, {}).get("ciudad", unidad_key)
+    # Default to user's node for interior users on first load
+    _gc_unidad_default = unidad_key if unidad_key not in ("norte","sur","genero") else "Todas"
+    filtro_unidad = col_f4.selectbox(
+        "Unidad/Nodo",
+        _unidad_opts,
+        index=_unidad_opts.index(_gc_unidad_default) if _gc_unidad_default in _unidad_opts else 0,
+        format_func=lambda x: _unidad_labels.get(x, x),
+        key="gc_filtro_unidad",
+    )
     col_f5.markdown("&nbsp;")   # vertical spacer
     if col_f5.button("✕ Todo", key="gc_clear_all", use_container_width=True,
                      help="Limpiar todos los filtros"):
