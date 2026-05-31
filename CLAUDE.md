@@ -7,24 +7,43 @@ It handles contravention case triage, follow-up tracking, hearing scheduling,
 and document generation under Ley Provincial N° 10.326 (CCC).
 
 ## How to run
+
+**Production:** https://contravenciones.streamlit.app (Streamlit Cloud, auto-deploys from GitHub)
+
+**Local (from L: drive clone):**
 ```
-cd "E:\Mi unidad\IA\contravencional\prototipo"
+cd L:\siatc-work
 python -m streamlit run app.py --server.port 8502
 ```
-App auto-seeds the DB on first launch (no manual step needed).
+NOTE: E: drive (Google Drive) is FULL — the working copy is at L:\siatc-work.
+App auto-seeds CBA cases (poblar()) and RC cases (poblar_rc()) on first launch.
 Reset demo data via Panel de Control > Opciones de demostración.
+
+## Multi-node system
+10 judicial circumscriptions of Córdoba Province configured in `config_nodos.py`.
+- Capital (1ª): Policía Judicial MPF + specialized Unidades Contravencionales
+- Interior (2ª-10ª): Policía Provincial + Fiscales de Instrucción (both criminal and contravention)
+Ghost offices: Juzgado de Control, Centro de Mediación (pending interinstitutional agreement).
+
+## Demo users (password: mpf2024)
+- `aperez` / `cmedina` / `lsuarez` / `pjudicial` → Córdoba Capital
+- `mrodriguez` / `sgomez` / `policiarc` → Río Cuarto (2ª circumscription)
+- `demo` → generic (password: demo)
 
 ## Architecture
 
 | File | Purpose |
 |---|---|
-| `app.py` | Main entry point, 7-tab Streamlit layout |
+| `app.py` | Main entry point — section routing (nueva_causa/mis_causas/agenda/seguimiento/mensajeria/estadisticas/perfil) |
+| `bienvenida.py` | 3-step flow: Login → Perfil → Home (6 cards) → Module |
 | `database.py` | All SQLite CRUD via `get_conn()` context manager |
-| `demo_seed.py` | Idempotent seed: 15 causas, 14 personas, seguimientos, audiencias |
+| `config_nodos.py` | 12 node configs for all 10 judicial circumscriptions of Córdoba |
+| `mensajeria.py` | Inter-office messaging: bandeja, pases, PDF for external offices |
+| `demo_seed.py` | Idempotent seed: 21 causas (15 CBA + 6 RC), 20 personas |
 | `classifier.py` | Triage classifier → carril verde/amarillo/rojo |
 | `pdf_gen.py` | PDF generation via fpdf2 (latin-1 only, `_USE_TTF=False`) |
 | `document_gen.py` | Text-only document generation helpers |
-| `data_cordoba.py` | Static data: TIPOS_INFRACCION (22 types), UNIDADES, CONDICIONES_SUSPENSION |
+| `data_cordoba.py` | CCC Ley 10.326: 64 infracciones (8 Títulos Libro II), conditions |
 | `seguimiento_tab.py` | Compliance tracking UI (post-resolución) |
 | `agenda_tab.py` | Hearing scheduler: week view, list, new hearing form |
 | `perfil_tab.py` | Person profile view (full case/hearing/seguimiento history) |
