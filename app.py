@@ -285,6 +285,20 @@ with st.sidebar:
                 st.session_state["seccion_activa"] = "mis_causas"
                 _ic_m = {"verde":"🟢","amarillo":"🟡","rojo":"🔴"}.get(_match_causas[0].get("carril",""),"⚪")
                 st.caption(f"{_ic_m} {_match_causas[0]['numero']} → Mis Causas")
+        # Generic text (name) — offer search in Mis Causas
+        else:
+            _prev = listar_causas(busqueda=_q_rapid, limit=3)
+            if _prev:
+                st.caption(f"{len(_prev)} coincidencia(s):")
+                for _pv in _prev:
+                    _ic_pv = {"verde":"🟢","amarillo":"🟡","rojo":"🔴"}.get(_pv.get("carril",""),"⚪")
+                    _nm_pv = (_pv.get("apellido_nombre","") or "").split(",")[0]
+                    st.caption(f"  {_ic_pv} {_pv['numero']} — {_nm_pv}")
+            if st.button(f"🔎 Buscar '{_q_rapid[:20]}' en Mis Causas", key="sb_buscar_gc",
+                         use_container_width=True, type="secondary"):
+                st.session_state["gc_busqueda"]    = _q_rapid
+                st.session_state["seccion_activa"] = "mis_causas"
+                st.rerun()
 
     # Últimas causas modificadas
     _ultimas = listar_causas(limit=4)
