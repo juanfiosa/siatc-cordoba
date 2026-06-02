@@ -30,13 +30,14 @@ def _autenticar(username: str, password: str) -> dict | None:
     return None
 
 ETAPAS = [
-    ("Ingreso",      "Registro del hecho contravencional"),
-    ("Triaje",       "Clasificacion automatica Verde/Amarillo/Rojo"),
-    ("Notificacion", "Cedula de citacion al imputado/a"),
-    ("Audiencia",    "Mediacion, suspension o proceso pleno"),
-    ("Resolucion",   "Dictamen, acuerdo o requerimiento"),
-    ("Seguimiento",  "Monitoreo de condiciones impuestas"),
-    ("Cierre",       "Archivo de la causa"),
+    ("Acta policial",  "La policia labra el acta y eleva las actuaciones al fiscal"),
+    ("Ingreso",        "El fiscal recibe y registra la causa en el sistema"),
+    ("Triaje",         "Clasificacion automatica: Verde / Amarillo / Rojo"),
+    ("Notificacion",   "Cedula de citacion al imputado/a (ejecuta la policia)"),
+    ("Audiencia",      "Mediacion, suspension a prueba o proceso contravencional pleno"),
+    ("Resolucion",     "Dictamen, acuerdo de suspension o requerimiento de apertura"),
+    ("Seguimiento",    "Monitoreo del cumplimiento de condiciones impuestas"),
+    ("Cierre",         "Verificado el cumplimiento, se archiva la causa"),
 ]
 
 SECCIONES = [
@@ -180,9 +181,21 @@ def _render_perfil():
                                      value=nombre,
                                      placeholder="Ej: Dr. Juan Perez",
                                      key="perfil_nombre")
-        nuevo_cargo  = st.selectbox(
+        _cargos_filtrados = [c for c in CARGOS if not c.startswith("—")]
+        # Pre-seleccionar cargo según oficina: policial → Sumariante, fiscal → Fiscal
+        _oficina_default = st.session_state.get("oficina_key", "")
+        _cargo_default   = st.session_state.get("fiscal_cargo", "")
+        if not _cargo_default:
+            _cargo_default = (
+                "Sumariante" if any(p in _oficina_default
+                                    for p in ("policia", "policial", "guardia"))
+                else "Fiscal"
+            )
+        _cargo_idx = _cargos_filtrados.index(_cargo_default) if _cargo_default in _cargos_filtrados else 0
+        nuevo_cargo = st.selectbox(
             "Cargo",
-            [c for c in CARGOS if not c.startswith("—")],  # excluye separadores
+            _cargos_filtrados,
+            index=_cargo_idx,
             key="perfil_cargo"
         )
 
