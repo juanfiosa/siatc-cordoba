@@ -681,36 +681,42 @@ CONDICIONES_SUSPENSION = {
 }
 
 # ── get_condiciones_para — implementación final (después de CONDICIONES_SUSPENSION)
-def get_condiciones_para(tipo_infraccion: str) -> list:
+def get_condiciones_para(tipo_infraccion: str, incluir_articulo: bool = False) -> list:
     """
     Retorna las condiciones de suspensión apropiadas para el tipo de infracción dado.
-    Usa el campo 'categoria' + 'titulo_ccc' para seleccionar el set correcto.
+    Si incluir_articulo=True, agrega el artículo CCC específico al inicio de la lista.
     """
     v    = TIPOS_INFRACCION.get(tipo_infraccion, {})
     cat  = v.get("categoria", "")
     tit  = v.get("titulo_ccc", "")
-    grav = v.get("gravedad_base", 1)
+    art  = v.get("articulo", "")
 
     if tipo_infraccion == "transito_alcoholemia":
-        return CONDICIONES_SUSPENSION["transito_alcoholemia"]
-    if cat == "Transito" or tit == "VII":
-        return CONDICIONES_SUSPENSION["transito"]
-    if cat == "Animales":
-        return CONDICIONES_SUSPENSION["animales"]
-    if cat == "Pirotecnia":
-        return CONDICIONES_SUSPENSION["pirotecnia"]
-    if cat == "Propiedad":
-        return CONDICIONES_SUSPENSION["propiedad"]
-    if cat == "Integridad":
-        return CONDICIONES_SUSPENSION["integridad"]
-    if cat == "Comercio":
-        return CONDICIONES_SUSPENSION["comercio"]
-    if cat == "Espacio Publico":
-        return CONDICIONES_SUSPENSION["espacio_publico"]
-    if cat == "Proteccion Menores":
-        return CONDICIONES_SUSPENSION["proteccion_menores"]
-    # Convivencia y fallback
-    return CONDICIONES_SUSPENSION["convivencia"]
+        conds = CONDICIONES_SUSPENSION["transito_alcoholemia"]
+    elif cat == "Transito" or tit == "VII":
+        conds = CONDICIONES_SUSPENSION["transito"]
+    elif cat == "Animales":
+        conds = CONDICIONES_SUSPENSION["animales"]
+    elif cat == "Pirotecnia":
+        conds = CONDICIONES_SUSPENSION["pirotecnia"]
+    elif cat == "Propiedad":
+        conds = CONDICIONES_SUSPENSION["propiedad"]
+    elif cat == "Integridad":
+        conds = CONDICIONES_SUSPENSION["integridad"]
+    elif cat == "Comercio":
+        conds = CONDICIONES_SUSPENSION["comercio"]
+    elif cat == "Espacio Publico":
+        conds = CONDICIONES_SUSPENSION["espacio_publico"]
+    elif cat == "Proteccion Menores":
+        conds = CONDICIONES_SUSPENSION["proteccion_menores"]
+    else:
+        conds = CONDICIONES_SUSPENSION["convivencia"]
+
+    if incluir_articulo and art:
+        # Prepend the specific CCC article reference
+        ref = f"Infracción encuadrada en {art} del Código de Convivencia Ciudadana (Ley N° 10.326)"
+        return [ref] + list(conds)
+    return list(conds)
 
 
 UNIDADES = {

@@ -1788,6 +1788,24 @@ if _seccion == "mis_causas":
                                 st.caption(f"→ {_o_lbl} · {_p['created_at'][:16]} · {_p['motivo'][:40]}")
 
                     st.markdown("---")
+                    # Tipo de proceso (penal/contravencional) — solo nodos interior
+                    _nodo_gc = st.session_state.get("nodo_key", "cba_norte")
+                    from config_nodos import NODOS as _N_GC
+                    if _N_GC.get(_nodo_gc, {}).get("tipo") == "interior":
+                        _tipo_proc = c.get("tipo_proceso", "contravencional")
+                        _tp_opts   = ["contravencional", "penal"]
+                        _tp_col1, _tp_col2 = st.columns([3, 2])
+                        _tp_col1.caption(f"Proceso: **{_tipo_proc.upper()}**")
+                        if _tp_col2.button(
+                            "↔️ Cambiar a penal" if _tipo_proc == "contravencional" else "↔️ Cambiar a contravencional",
+                            key=f"tipo_proc_{c['id']}", use_container_width=True
+                        ):
+                            from database import cambiar_tipo_proceso
+                            _nuevo_tp = "penal" if _tipo_proc == "contravencional" else "contravencional"
+                            cambiar_tipo_proceso(c["id"], _nuevo_tp, fiscal_nombre)
+                            st.cache_data.clear()
+                            st.rerun()
+
                     st.markdown("**👨‍⚖️ Fiscal asignado:**")
                     with st.popover("Reasignar fiscal", use_container_width=True):
                         _fiscal_actual = c.get("fiscal_asignado","")
@@ -1810,6 +1828,67 @@ if _seccion == "mis_causas":
                                 st.rerun()
                             else:
                                 st.warning("Ingresá el nombre del fiscal.")
+
+                    st.markdown("---")
+                    st.markdown("**📧 Notificación al imputado/a:**")
+                    with st.popover("Enviar notificación", use_container_width=True):
+                        from database import registrar_notificacion, listar_notificaciones, marcar_notificacion_enviada
+                        _tel_notif = c.get("persona_telefono","") or ""
+                        _asunto_notif = st.text_input(
+                            "Asunto", key=f"notif_asunto_{c['id']}",
+                            value=f"Citación — Expediente {c['numero']}"
+                        )
+                        _cuerpo_default = (
+                            f"Estimado/a {c.get('apellido_nombre','').split(',')[0]}:\n\n"
+                            f"Se le notifica que deberá comparecer ante esta Unidad "
+                            f"en relación al Expediente N° {c['numero']}.\n\n"
+                            f"Infracción: {TIPOS_INFRACCION.get(c.get('tipo_infraccion',''),{}).get('articulo','')} "
+                            f"— {TIPOS_INFRACCION.get(c.get('tipo_infraccion',''),{}).get('label','')}\n\n"
+                            f"Fiscal a cargo: {c.get('fiscal_asignado', fiscal_nombre)}\n"
+                            f"MPF Córdoba — Ley N° 10.326"
+                        )
+                        _cuerpo_notif = st.text_area(
+                            "Texto de la notificación", height=150,
+                            value=_cuerpo_default,
+                            key=f"notif_cuerpo_{c['id']}"
+                        )
+                        _tipo_notif = st.radio(
+                            "Canal", ["email", "SMS", "whatsapp"],
+                            horizontal=True, key=f"notif_tipo_{c['id']}"
+                        )
+                        _dest_notif = st.text_input(
+                            "Destinatario (email/tel)",
+                            value=_tel_notif,
+                            key=f"notif_dest_{c['id']}",
+                            placeholder="Ej: 358-4621001 o persona@mail.com"
+                        )
+                        if st.button("📤 Registrar y enviar", key=f"notif_btn_{c['id']}",
+                                     type="primary", use_container_width=True):
+                            if _dest_notif.strip():
+                                _nid = registrar_notificacion(
+                                    c["id"], _tipo_notif,
+                                    _dest_notif.strip(), _asunto_notif,
+                                    _cuerpo_notif, fiscal_nombre
+                                )
+                                marcar_notificacion_enviada(_nid)
+                                agregar_nota_causa(
+                                    c["id"],
+                                    f"NOTIFICACION enviada por {_tipo_notif.upper()} "
+                                    f"a {_dest_notif}: {_asunto_notif}",
+                                    fiscal_nombre
+                                )
+                                st.cache_data.clear()
+                                st.success(f"Notificación registrada (ID #{_nid}).")
+                                st.rerun()
+                            else:
+                                st.warning("Ingresá destinatario.")
+                        # Show notification history
+                        _notifs_hist = listar_notificaciones(c["id"])
+                        if _notifs_hist:
+                            st.markdown("**Historial:**")
+                            for _nh in _notifs_hist[:3]:
+                                _ic_n = {"enviada":"✅","pendiente":"⏳"}.get(_nh.get("estado",""),"📨")
+                                st.caption(f"{_ic_n} {_nh['tipo'].upper()} → {_nh['destinatario'][:30]} · {_nh['created_at'][:16]}")
 
                     st.markdown("---")
                     st.markdown("**Generar documento:**")
@@ -2025,6 +2104,13 @@ if _seccion == "agenda":
 if _seccion == "perfil":
     st.header("👤 Perfil del Imputado/a")
     st.caption("Historial completo de causas, seguimientos y audiencias de una persona.")
+    # Si viene navegado desde Gestión/Panel, mostrar contexto
+    _perfil_dni = st.session_state.get("perfil_busqueda", "")
+    if _perfil_dni:
+        st.info(
+            f"📋 Mostrando perfil para DNI/nombre: **{_perfil_dni}**  \n"
+            "Podés buscar otro imputado/a usando el campo de abajo."
+        )
     render_buscador_perfil()
 
 
@@ -3141,6 +3227,36 @@ if _seccion == "estadisticas":
                 )
             except Exception as _e_men:
                 st.error(f"Error informe mensual: {_e_men}")
+
+        # ── Backup de la base de datos ────────────────────────────────────
+        st.markdown("---")
+        st.subheader("💾 Backup de la base de datos")
+        st.caption(
+            "Descargá una copia completa de la DB para resguardo. "
+            "El archivo .db puede restaurarse reemplazando siatc.db en el servidor."
+        )
+        _bk_c1, _bk_c2 = st.columns(2)
+        try:
+            import os as _os_bk
+            _db_path_bk = _os_bk.path.join(_os_bk.path.dirname(__file__), "siatc.db")
+            if _os_bk.path.exists(_db_path_bk):
+                with open(_db_path_bk, "rb") as _f_bk:
+                    _db_bytes = _f_bk.read()
+                _bk_c1.download_button(
+                    "⬇️ Descargar siatc.db",
+                    data=_db_bytes,
+                    file_name=f"siatc_backup_{datetime.now().strftime('%Y%m%d_%H%M')}.db",
+                    mime="application/octet-stream",
+                    use_container_width=True,
+                    type="primary",
+                )
+                _bk_c2.info(
+                    f"DB: `siatc.db`  \n"
+                    f"Tamaño: {len(_db_bytes) // 1024} KB  \n"
+                    f"Causas: {stats.get('total', 0)} | Personas: {stats.get('personas', 0)}"
+                )
+        except Exception as _e_bk:
+            st.error(f"No se pudo leer la DB: {_e_bk}")
 
         # ── Causas sin audiencia programada ───────────────────────────────
         st.markdown("---")

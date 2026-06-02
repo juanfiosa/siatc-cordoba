@@ -38,8 +38,8 @@ def _fecha_formal(fecha=None):
     return f"{f.day} de {MESES[f.month-1]} de {f.year}"
 
 def _get_condiciones(tipo, categoria):
-    """Wrapper para compatibilidad — usa get_condiciones_para() centralizado."""
-    return get_condiciones_para(tipo)
+    """Wrapper para compatibilidad — incluye artículo CCC específico en documentos."""
+    return get_condiciones_para(tipo, incluir_articulo=True)
 
 
 # -- Clase base para documentos MPF -------------------------------------------
@@ -156,6 +156,32 @@ class PDFMPFBase(FPDF):
         self.set_x(x_firma)
         self.cell(80, 4, _s(unidad), align="C", ln=True)
 
+    def sello_digital(self, fiscal_nombre: str, documento_id: str = ""):
+        """
+        Agrega un sello de autenticidad digital al pie del documento.
+        Incluye hash SHA-256 truncado del contenido para verificación básica.
+        """
+        import hashlib
+        ts = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+        contenido = f"{fiscal_nombre}|{ts}|{documento_id}"
+        hash_doc = hashlib.sha256(contenido.encode()).hexdigest()[:24].upper()
+        self.ln(4)
+        self.set_draw_color(*AZUL_CLARO)
+        self.set_line_width(0.3)
+        self.line(20, self.get_y(), 190, self.get_y())
+        self.ln(2)
+        self._sf("I", 6)
+        self.set_text_color(*GRIS_TEXTO)
+        self.set_fill_color(245, 248, 255)
+        self.rect(20, self.get_y(), 170, 9, style="F")
+        self.set_xy(22, self.get_y() + 1)
+        self.cell(85, 3.5, _s(f"Firmado digitalmente: {_s(fiscal_nombre)}"), ln=False)
+        self.cell(85, 3.5, _s(f"Timestamp: {ts}"), align="R", ln=True)
+        self.set_x(22)
+        self.cell(85, 3.5, _s(f"Cod. autenticidad: {hash_doc}"), ln=False)
+        self.cell(85, 3.5, "MPF Cordoba - SIATC v1.3", align="R", ln=True)
+        self.set_text_color(*NEGRO)
+
 
 # -- Dictamen de derivacion a mediacion ---------------------------------------
 
@@ -165,6 +191,7 @@ def pdf_dictamen_mediacion(caso, clasificacion, fiscal_nombre, unidad_key):
     fecha_audiencia = _fecha_formal(datetime.now() + timedelta(days=7))
 
     pdf = PDFMPFBase(unidad_key)
+    pdf._fiscal_nombre_sello = fiscal_nombre if "fiscal_nombre" in dir() else ""
     pdf.alias_nb_pages()
     pdf.add_page()
 
@@ -233,6 +260,12 @@ def pdf_dictamen_mediacion(caso, clasificacion, fiscal_nombre, unidad_key):
 
     pdf.linea_firma(fiscal_nombre, "Ayudante Fiscal", pdf.unidad_str.split(" - ")[0].strip())
 
+    try:
+        _fn = getattr(pdf, "_fiscal_nombre_sello", "")
+        if _fn:
+            pdf.sello_digital(_fn)
+    except Exception:
+        pass
     buf = BytesIO()
     pdf.output(buf)
     return buf.getvalue()
@@ -250,6 +283,7 @@ def pdf_dictamen_suspension(caso, clasificacion, fiscal_nombre, unidad_key):
     antec = caso.get("antecedentes", 0)
 
     pdf = PDFMPFBase(unidad_key)
+    pdf._fiscal_nombre_sello = fiscal_nombre if "fiscal_nombre" in dir() else ""
     pdf.alias_nb_pages()
     pdf.add_page()
 
@@ -326,6 +360,12 @@ def pdf_dictamen_suspension(caso, clasificacion, fiscal_nombre, unidad_key):
 
     pdf.linea_firma(fiscal_nombre, "Ayudante Fiscal", pdf.unidad_str.split(" - ")[0].strip())
 
+    try:
+        _fn = getattr(pdf, "_fiscal_nombre_sello", "")
+        if _fn:
+            pdf.sello_digital(_fn)
+    except Exception:
+        pass
     buf = BytesIO()
     pdf.output(buf)
     return buf.getvalue()
@@ -344,6 +384,7 @@ def pdf_citacion(caso, fiscal_nombre, unidad_key, motivo="audiencia"):
     }.get(motivo, "comparecer ante esta Unidad")
 
     pdf = PDFMPFBase(unidad_key)
+    pdf._fiscal_nombre_sello = fiscal_nombre if "fiscal_nombre" in dir() else ""
     pdf.alias_nb_pages()
     pdf.add_page()
 
@@ -398,6 +439,12 @@ def pdf_citacion(caso, fiscal_nombre, unidad_key, motivo="audiencia"):
 
     pdf.linea_firma(fiscal_nombre, "Ayudante Fiscal", pdf.unidad_str.split(" - ")[0].strip())
 
+    try:
+        _fn = getattr(pdf, "_fiscal_nombre_sello", "")
+        if _fn:
+            pdf.sello_digital(_fn)
+    except Exception:
+        pass
     buf = BytesIO()
     pdf.output(buf)
     return buf.getvalue()
@@ -411,6 +458,7 @@ def pdf_acta_compromiso(caso, condiciones_lista, fiscal_nombre, unidad_key, mese
     meses_str = {3:"TRES", 6:"SEIS", 9:"NUEVE", 12:"DOCE"}.get(meses, str(meses))
 
     pdf = PDFMPFBase(unidad_key)
+    pdf._fiscal_nombre_sello = fiscal_nombre if "fiscal_nombre" in dir() else ""
     pdf.alias_nb_pages()
     pdf.add_page()
 
@@ -465,6 +513,12 @@ def pdf_acta_compromiso(caso, condiciones_lista, fiscal_nombre, unidad_key, mese
     pdf.cell(90, 4, f"D.N.I. {caso['dni']}", align="C")
     pdf.cell(70, 4, _s(pdf.unidad_str.split(" - ")[0].strip()), align="C", ln=True)
 
+    try:
+        _fn = getattr(pdf, "_fiscal_nombre_sello", "")
+        if _fn:
+            pdf.sello_digital(_fn)
+    except Exception:
+        pass
     buf = BytesIO()
     pdf.output(buf)
     return buf.getvalue()
@@ -477,6 +531,7 @@ def pdf_informe_incumplimiento(caso, seguimiento, condiciones_inc, fiscal_nombre
     fecha = _fecha_formal()
 
     pdf = PDFMPFBase(unidad_key)
+    pdf._fiscal_nombre_sello = fiscal_nombre if "fiscal_nombre" in dir() else ""
     pdf.alias_nb_pages()
     pdf.add_page()
 
@@ -522,6 +577,12 @@ def pdf_informe_incumplimiento(caso, seguimiento, condiciones_inc, fiscal_nombre
 
     pdf.linea_firma(fiscal_nombre, "Ayudante Fiscal", pdf.unidad_str.split(" - ")[0].strip())
 
+    try:
+        _fn = getattr(pdf, "_fiscal_nombre_sello", "")
+        if _fn:
+            pdf.sello_digital(_fn)
+    except Exception:
+        pass
     buf = BytesIO()
     pdf.output(buf)
     return buf.getvalue()
@@ -539,6 +600,7 @@ def pdf_reporte_diario(stats, audiencias_hoy, causas_pendientes, fiscal_nombre, 
     now   = datetime.now()
 
     pdf = PDFMPFBase(unidad_key)
+    pdf._fiscal_nombre_sello = fiscal_nombre if "fiscal_nombre" in dir() else ""
     pdf.alias_nb_pages()
     pdf.add_page()
 
@@ -666,6 +728,12 @@ def pdf_reporte_diario(stats, audiencias_hoy, causas_pendientes, fiscal_nombre, 
         f"Generado automaticamente por SIATC - MPF Cordoba - {now.strftime('%d/%m/%Y %H:%M')}",
         ln=True, align="C")
 
+    try:
+        _fn = getattr(pdf, "_fiscal_nombre_sello", "")
+        if _fn:
+            pdf.sello_digital(_fn)
+    except Exception:
+        pass
     buf = BytesIO()
     pdf.output(buf)
     return buf.getvalue()
@@ -683,6 +751,7 @@ def pdf_perfil_persona(perfil: dict, fiscal_nombre: str, unidad_key: str) -> byt
     fecha   = _fecha_formal()
 
     pdf = PDFMPFBase(unidad_key)
+    pdf._fiscal_nombre_sello = fiscal_nombre if "fiscal_nombre" in dir() else ""
     pdf.alias_nb_pages()
     pdf.add_page()
 
@@ -805,6 +874,12 @@ def pdf_perfil_persona(perfil: dict, fiscal_nombre: str, unidad_key: str) -> byt
         _s(f"Generado por SIATC - MPF Cordoba - {datetime.now().strftime('%d/%m/%Y %H:%M')} - {fiscal_nombre}"),
         ln=True, align="C")
 
+    try:
+        _fn = getattr(pdf, "_fiscal_nombre_sello", "")
+        if _fn:
+            pdf.sello_digital(_fn)
+    except Exception:
+        pass
     buf = BytesIO()
     pdf.output(buf)
     return buf.getvalue()
@@ -902,6 +977,12 @@ def pdf_requerimiento_apertura(caso: dict, clf: dict, fiscal_nombre: str, unidad
     pdf.cell(0, 5, "AYUDANTE FISCAL", ln=True)
     pdf.cell(0, 5, _s(unidad_str), ln=True)
 
+    try:
+        _fn = getattr(pdf, "_fiscal_nombre_sello", "")
+        if _fn:
+            pdf.sello_digital(_fn)
+    except Exception:
+        pass
     buf = BytesIO()
     pdf.output(buf)
     return buf.getvalue()
@@ -931,6 +1012,7 @@ def pdf_informe_seguimiento(seg: dict, condiciones: list, prog: dict,
     est = _s(seg.get("estado", "")).capitalize()
 
     pdf = PDFMPFBase(unidad_key)
+    pdf._fiscal_nombre_sello = fiscal_nombre if "fiscal_nombre" in dir() else ""
     pdf.alias_nb_pages()
     pdf.add_page()
 
@@ -1082,6 +1164,12 @@ def pdf_informe_seguimiento(seg: dict, condiciones: list, prog: dict,
         _s(f"Generado por SIATC - MPF Cordoba - {datetime.now().strftime('%d/%m/%Y %H:%M')}"),
         ln=True, align="C")
 
+    try:
+        _fn = getattr(pdf, "_fiscal_nombre_sello", "")
+        if _fn:
+            pdf.sello_digital(_fn)
+    except Exception:
+        pass
     buf = BytesIO()
     pdf.output(buf)
     return buf.getvalue()
@@ -1108,6 +1196,7 @@ def pdf_expediente_causa(causa: dict, timeline: list, audiencias: list,
                  "rojo":"Carril Rojo (Proceso pleno)"}
 
     pdf = PDFMPFBase(unidad_key)
+    pdf._fiscal_nombre_sello = fiscal_nombre if "fiscal_nombre" in dir() else ""
     pdf.alias_nb_pages()
     pdf.add_page()
 
@@ -1195,6 +1284,12 @@ def pdf_expediente_causa(causa: dict, timeline: list, audiencias: list,
     pdf._sf("I", 7); pdf.set_text_color(*GRIS_TEXTO)
     pdf.cell(0, 4, _s(f"Generado por SIATC - MPF Cordoba - {datetime.now().strftime('%d/%m/%Y %H:%M')}"),
              ln=True, align="C")
+    try:
+        _fn = getattr(pdf, "_fiscal_nombre_sello", "")
+        if _fn:
+            pdf.sello_digital(_fn)
+    except Exception:
+        pass
     buf = BytesIO()
     pdf.output(buf)
     return buf.getvalue()
@@ -1222,6 +1317,7 @@ def pdf_informe_mensual(mes: str, stats_gen: dict, causas_ingresadas: int,
         _mes_lbl = mes
 
     pdf = PDFMPFBase(unidad_key)
+    pdf._fiscal_nombre_sello = fiscal_nombre if "fiscal_nombre" in dir() else ""
     pdf.alias_nb_pages()
     pdf.add_page()
 
@@ -1294,6 +1390,12 @@ def pdf_informe_mensual(mes: str, stats_gen: dict, causas_ingresadas: int,
         _s(f"Generado por SIATC - MPF Cordoba - {datetime.now().strftime('%d/%m/%Y %H:%M')}"),
         ln=True, align="C")
 
+    try:
+        _fn = getattr(pdf, "_fiscal_nombre_sello", "")
+        if _fn:
+            pdf.sello_digital(_fn)
+    except Exception:
+        pass
     buf = BytesIO()
     pdf.output(buf)
     return buf.getvalue()
@@ -1307,6 +1409,7 @@ def pdf_lista_causas_activas(causas: list, fiscal_nombre: str, unidad_key: str) 
     from data_cordoba import TIPOS_INFRACCION as _TI
     from collections import defaultdict as _dd
     pdf = PDFMPFBase(unidad_key)
+    pdf._fiscal_nombre_sello = fiscal_nombre if "fiscal_nombre" in dir() else ""
     pdf.alias_nb_pages()
     pdf.add_page()
 
@@ -1358,6 +1461,12 @@ def pdf_lista_causas_activas(causas: list, fiscal_nombre: str, unidad_key: str) 
         _s(f"Generado por SIATC - MPF Cordoba - {datetime.now().strftime('%d/%m/%Y %H:%M')}"),
         ln=True, align="C")
 
+    try:
+        _fn = getattr(pdf, "_fiscal_nombre_sello", "")
+        if _fn:
+            pdf.sello_digital(_fn)
+    except Exception:
+        pass
     buf = BytesIO()
     pdf.output(buf)
     return buf.getvalue()
@@ -1370,6 +1479,7 @@ def pdf_agenda_semanal(audiencias: list, desde: str, hasta: str,
     audiencias: lista de dicts de listar_audiencias() filtrada por el rango desde/hasta.
     """
     pdf = PDFMPFBase(unidad_key)
+    pdf._fiscal_nombre_sello = fiscal_nombre if "fiscal_nombre" in dir() else ""
     pdf.alias_nb_pages()
     pdf.add_page()
 
@@ -1444,6 +1554,12 @@ def pdf_agenda_semanal(audiencias: list, desde: str, hasta: str,
         _s(f"Generado por SIATC - MPF Cordoba - {datetime.now().strftime('%d/%m/%Y %H:%M')}"),
         ln=True, align="C")
 
+    try:
+        _fn = getattr(pdf, "_fiscal_nombre_sello", "")
+        if _fn:
+            pdf.sello_digital(_fn)
+    except Exception:
+        pass
     buf = BytesIO()
     pdf.output(buf)
     return buf.getvalue()

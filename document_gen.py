@@ -20,8 +20,8 @@ def _numero_expediente(numero_caso: str) -> str:
 
 
 def _get_condiciones(tipo_infraccion: str, categoria: str = "") -> list:
-    """Centralizado en data_cordoba.get_condiciones_para() — cubre las 64 infracciones."""
-    return get_condiciones_para(tipo_infraccion)
+    """Centralizado en data_cordoba.get_condiciones_para() — incluye artículo CCC."""
+    return get_condiciones_para(tipo_infraccion, incluir_articulo=True)
 
 
 def generar_dictamen_mediacion(caso: dict, clasificacion: dict, fiscal_nombre: str, unidad_key: str) -> str:

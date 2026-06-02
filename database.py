@@ -329,6 +329,20 @@ def init_db():
                 updated_at TEXT DEFAULT (datetime('now','localtime')),
                 updated_by TEXT DEFAULT '',
                 UNIQUE(nodo_key, oficina_key))""",
+            # Módulo penal — tipo de proceso en causas
+            "ALTER TABLE causas ADD COLUMN tipo_proceso TEXT DEFAULT 'contravencional'",
+            # Notificaciones enviadas
+            """CREATE TABLE IF NOT EXISTS notificaciones (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                causa_id    INTEGER REFERENCES causas(id),
+                tipo        TEXT NOT NULL DEFAULT 'email',
+                destinatario TEXT NOT NULL DEFAULT '',
+                asunto      TEXT NOT NULL DEFAULT '',
+                cuerpo      TEXT NOT NULL DEFAULT '',
+                estado      TEXT NOT NULL DEFAULT 'pendiente',
+                enviado_at  TEXT,
+                created_at  TEXT DEFAULT (datetime('now','localtime')),
+                created_by  TEXT DEFAULT '')""",
         ]
         for _sql in _migrations:
             try:
@@ -1432,6 +1446,52 @@ def stats_tiempo_por_estado() -> list[dict]:
         """).fetchall()
     result = [dict(r) for r in rows if r["avg_dias"] is not None]
     return sorted(result, key=lambda x: ESTADO_ORDER.get(x["estado"], 99))
+
+
+def cambiar_tipo_proceso(causa_id: int, tipo: str, usuario: str) -> None:
+    """Cambia el tipo de proceso de una causa (contravencional/penal)."""
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE causas SET tipo_proceso=?, updated_at=datetime('now','localtime') WHERE id=?",
+            (tipo, causa_id)
+        )
+    agregar_nota_causa(
+        causa_id,
+        f"TIPO DE PROCESO actualizado a: {tipo.upper()}. "
+        "El expediente continúa tramitándose bajo el nuevo encuadre procesal.",
+        usuario
+    )
+
+
+def registrar_notificacion(causa_id: int | None, tipo: str, destinatario: str,
+                            asunto: str, cuerpo: str, usuario: str) -> int:
+    """Registra una notificación (email/SMS) en la DB."""
+    with get_conn() as conn:
+        cur = conn.execute(
+            """INSERT INTO notificaciones
+               (causa_id, tipo, destinatario, asunto, cuerpo, created_by)
+               VALUES (?,?,?,?,?,?)""",
+            (causa_id, tipo, destinatario, asunto, cuerpo, usuario)
+        )
+        nid = cur.lastrowid
+    return nid
+
+
+def marcar_notificacion_enviada(notif_id: int) -> None:
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE notificaciones SET estado='enviada', enviado_at=datetime('now','localtime') WHERE id=?",
+            (notif_id,)
+        )
+
+
+def listar_notificaciones(causa_id: int) -> list[dict]:
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT * FROM notificaciones WHERE causa_id=? ORDER BY created_at DESC",
+            (causa_id,)
+        ).fetchall()
+    return [dict(r) for r in rows]
 
 
 def seed_usuarios_desde_config() -> int:
