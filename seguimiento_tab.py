@@ -285,7 +285,19 @@ def _panel_seguimientos(fiscal):
         filtro_estado = st.selectbox("Estado",
                                      ["Todos", "activo", "cumplido", "incumplido", "revocado"])
     with col_f2:
-        filtro_unidad = st.selectbox("Unidad", ["Todas", "norte", "sur", "genero"])
+        # Build dynamic unidad list including interior nodes
+        _unidades_seg = ["Todas", "norte", "sur", "genero"]
+        try:
+            import streamlit as _st_seg
+            _nodo_seg = _st_seg.session_state.get("unidad_key", "norte")
+            if _nodo_seg not in _unidades_seg:
+                _unidades_seg.append(_nodo_seg)
+        except Exception:
+            pass
+        filtro_unidad = st.selectbox("Unidad", _unidades_seg,
+                                     index=_unidades_seg.index(
+                                         st.session_state.get("unidad_key","norte"))
+                                     if st.session_state.get("unidad_key","norte") in _unidades_seg else 0)
     with col_f3:
         filtro_tipo_res = st.selectbox(
             "Tipo resolución",
