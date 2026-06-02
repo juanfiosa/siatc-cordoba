@@ -570,6 +570,28 @@ if _seccion == "nueva_causa":
                 format_func=lambda x: "Ninguno" if x==0 else f"{x} antecedente{'s' if x>1 else ''}",
             )
 
+        # Tipo de proceso — solo nodos interior (fiscales de instrucción)
+        _nodo_nc = st.session_state.get("nodo_key", "cba_norte")
+        from config_nodos import NODOS as _N_NC
+        _es_interior_nc = _N_NC.get(_nodo_nc, {}).get("tipo") == "interior"
+        if _es_interior_nc:
+            _tipo_proc_nc = st.radio(
+                "Tipo de proceso",
+                ["contravencional", "penal"],
+                horizontal=True,
+                key="nc_tipo_proceso",
+                help="Los fiscales de instrucción tramitan ambos tipos. "
+                     "El triaje CCC aplica solo a causas contravencionales."
+            )
+            if _tipo_proc_nc == "penal":
+                st.warning(
+                    "**Causa penal** — el triaje automático del CCC no aplica. "
+                    "El expediente se tramitará por el Código Procesal Penal. "
+                    "Completá la descripción del hecho y guardá la causa."
+                )
+        else:
+            _tipo_proc_nc = "contravencional"
+
         st.markdown("#### Datos del hecho")
         # ── Acordeón de títulos del CCC (Ley 10.326, Libro II) ─────────────
         from data_cordoba import TITULOS_CCC
@@ -686,7 +708,41 @@ if _seccion == "nueva_causa":
         resistencia= col_r.checkbox("Resistencia a autoridad")
 
     with col_der:
-        st.markdown("#### Clasificación automática")
+        st.markdown("#### Clasificación automática" if _tipo_proc_nc == "contravencional" else "#### Datos del proceso penal")
+
+        if nombre and dni_input and (_tipo_proc_nc == "contravencional" or descripcion):
+            if _tipo_proc_nc == "penal":
+                # Penal: simple save without CCC triage
+                _caso_penal = {
+                    "numero": None, "tipo": tipo, "imputado": nombre,
+                    "dni": dni_input, "edad": edad, "antecedentes": antecedentes,
+                    "descripcion": descripcion, "unidad": unidad_key,
+                    "domicilio": domicilio, "telefono": telefono,
+                    "victima": victima, "lesiones": lesiones,
+                    "resistencia": resistencia,
+                    "fecha_hecho": fecha_hecho.isoformat(),
+                }
+                _clf_penal = {
+                    "carril": "rojo", "accion": "Proceso Penal",
+                    "score": 4.0, "fundamento": ["Causa penal"],
+                    "icono": "⚖️", "descripcion": "Proceso tramitado por CPP",
+                    "color": "#6c757d", "categoria": "",
+                }
+                _guardar_penal = st.button("💾 Guardar causa penal", type="primary",
+                                           use_container_width=True)
+                if _guardar_penal:
+                    _cid_penal = guardar_causa(_caso_penal, _clf_penal, fiscal_nombre)
+                    from database import cambiar_tipo_proceso
+                    cambiar_tipo_proceso(_cid_penal, "penal", fiscal_nombre)
+                    st.cache_data.clear()
+                    _saved = get_causa(_cid_penal)
+                    _num_penal = _saved["numero"] if _saved else f"ID#{_cid_penal}"
+                    st.success(f"✅ Causa penal **{_num_penal}** registrada.")
+                    st.balloons()
+                    st.session_state["seccion_activa"] = "mis_causas"
+                    st.session_state["gc_busqueda"] = _num_penal
+                    st.rerun()
+                st.stop()
 
         if nombre and dni_input and tipo:
             # Advertencia de causa duplicada — misma persona + mismo tipo + estado activo
@@ -1269,6 +1325,7 @@ if _seccion == "mis_causas":
 
             # Reincidente badge when persona has more than one causa in the system
             _rein_badge_gc = "  ⚠️ Rein." if _pers_cnt_gc.get(c.get("persona_id"), 0) > 1 else ""
+            _penal_badge_gc = "  ⚖️ PENAL" if c.get("tipo_proceso") == "penal" else ""
 
             # Days in current state — only meaningful for active states
             _dias_badge = ""
@@ -1282,7 +1339,7 @@ if _seccion == "mis_causas":
                     pass
 
             with st.expander(
-                f"{carril_icon} **{c['numero']}** — {c['apellido_nombre']}  |  {infraccion_label}  |  {estado_label}{_dias_badge}{_rein_badge_gc}",
+                f"{carril_icon} **{c['numero']}** — {c['apellido_nombre']}  |  {infraccion_label}  |  {estado_label}{_dias_badge}{_rein_badge_gc}{_penal_badge_gc}",
                 expanded=(causa_sel_id == c["id"])
             ):
                 col_info, col_acciones = st.columns([2,1])
@@ -1862,7 +1919,16 @@ if _seccion == "mis_causas":
                             key=f"notif_dest_{c['id']}",
                             placeholder="Ej: 358-4621001 o persona@mail.com"
                         )
-                        if st.button("📤 Registrar y enviar", key=f"notif_btn_{c['id']}",
+                        # Email: generate mailto link for direct sending
+                        if _tipo_notif == "email" and _dest_notif.strip() and "@" in _dest_notif:
+                            from urllib.parse import quote as _uq
+                            _mailto = (f"mailto:{_dest_notif.strip()}"
+                                       f"?subject={_uq(_asunto_notif)}"
+                                       f"&body={_uq(_cuerpo_notif)}")
+                            st.markdown(f"[📧 Abrir en cliente de correo]({_mailto})",
+                                        unsafe_allow_html=False)
+
+                        if st.button("📤 Registrar envio", key=f"notif_btn_{c['id']}",
                                      type="primary", use_container_width=True):
                             if _dest_notif.strip():
                                 _nid = registrar_notificacion(
@@ -1878,10 +1944,10 @@ if _seccion == "mis_causas":
                                     fiscal_nombre
                                 )
                                 st.cache_data.clear()
-                                st.success(f"Notificación registrada (ID #{_nid}).")
+                                st.success(f"Notificacion registrada (ID #{_nid}).")
                                 st.rerun()
                             else:
-                                st.warning("Ingresá destinatario.")
+                                st.warning("Ingresa destinatario.")
                         # Show notification history
                         _notifs_hist = listar_notificaciones(c["id"])
                         if _notifs_hist:
