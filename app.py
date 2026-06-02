@@ -3459,7 +3459,12 @@ if _seccion == "estadisticas":
             _ua1, _ua2, _ua3 = st.columns(3)
             _new_uname  = _ua1.text_input("Usuario", placeholder="Ej: jgomez", key="adm_new_uname")
             _new_unombre= _ua1.text_input("Nombre", placeholder="Ej: Dr. Juan Gomez", key="adm_new_unombre")
-            _new_ucargo = _ua2.selectbox("Cargo", ["Fiscal","Fiscal Adjunto/a","Ayudante Fiscal","Secretario/a","Otro"], key="adm_new_ucargo")
+            from bienvenida import CARGOS as _CARGOS_PANEL
+            _new_ucargo = _ua2.selectbox(
+                "Cargo",
+                [c for c in _CARGOS_PANEL if not c.startswith("—")],
+                key="adm_new_ucargo"
+            )
             _new_unodo  = _ua2.selectbox("Nodo", list(NODOS.keys()),
                                          format_func=lambda k: NODOS[k]["nombre"], key="adm_new_unodo")
             _of_disp    = _gon_p(_new_unodo)

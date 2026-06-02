@@ -48,8 +48,37 @@ SECCIONES = [
     ("estadisticas", "📊", "Estadisticas",  "Panel de control, KPIs y exportacion de informes"),
 ]
 
-CARGOS = ["Fiscal", "Fiscal Adjunto/a", "Ayudante Fiscal", "Fiscal Interino/a",
-          "Secretario/a", "Of. Mayor", "Otro"]
+# Cargos del MPF (fiscalía)
+_CARGOS_FISCALIA = [
+    "Fiscal",
+    "Fiscal Adjunto/a",
+    "Ayudante Fiscal",
+    "Fiscal Interino/a",
+    "Secretario/a de Fiscalía",
+    "Oficial Mayor",
+    "Auxiliar Letrado/a",
+]
+
+# Cargos de Policía Judicial (MPF) y Policía Provincial
+_CARGOS_POLICIAL = [
+    "Sumariante",
+    "Oficial de Guardia",
+    "Inspector/a",
+    "Sub-Inspector/a",
+    "Comisario/a",
+    "Sub-Comisario/a",
+    "Oficial Principal",
+    "Oficial",
+    "Sub-Oficial Mayor",
+    "Sub-Oficial",
+    "Cabo",
+    "Agente",
+    "Detective",
+    "Perito / Auxiliar Técnico",
+]
+
+# Lista completa para el selectbox de Perfil
+CARGOS = _CARGOS_FISCALIA + ["— Policía / Fuerzas de Seguridad —"] + _CARGOS_POLICIAL + ["Otro"]
 
 
 # ── PASO 1: Login ─────────────────────────────────────────────────────────────
@@ -151,7 +180,11 @@ def _render_perfil():
                                      value=nombre,
                                      placeholder="Ej: Dr. Juan Perez",
                                      key="perfil_nombre")
-        nuevo_cargo  = st.selectbox("Cargo", CARGOS, key="perfil_cargo")
+        nuevo_cargo  = st.selectbox(
+            "Cargo",
+            [c for c in CARGOS if not c.startswith("—")],  # excluye separadores
+            key="perfil_cargo"
+        )
 
     with col_b:
         st.markdown("**Tu oficina**")
