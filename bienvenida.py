@@ -129,24 +129,13 @@ def _render_login():
             else:
                 st.error("Usuario o contrasena incorrectos.")
 
-        st.markdown(
-            "<div style='background:#f0f4ff;border:1px solid #c8d8f8;"
-            "border-radius:8px;padding:10px 14px;font-size:0.82rem;margin-top:8px'>"
-            "<strong>Usuarios demo</strong><br>"
-            "<table style='width:100%;border-collapse:collapse;margin-top:6px'>"
-            "<tr><th style='text-align:left;color:#555;font-weight:normal'>Usuario</th>"
-            "<th style='text-align:left;color:#555;font-weight:normal'>Contraseña</th>"
-            "<th style='text-align:left;color:#555;font-weight:normal'>Nodo</th></tr>"
-            "<tr><td><code>aperez</code></td><td><code>mpf2024</code></td><td>Córdoba Norte</td></tr>"
-            "<tr><td><code>cmedina</code></td><td><code>mpf2024</code></td><td>Córdoba Sur</td></tr>"
-            "<tr><td><code>lsuarez</code></td><td><code>mpf2024</code></td><td>Córdoba Género</td></tr>"
-            "<tr><td><code>pjudicial</code></td><td><code>mpf2024</code></td><td>Policía Judicial</td></tr>"
-            "<tr><td><code>mrodriguez</code></td><td><code>mpf2024</code></td><td>Río Cuarto</td></tr>"
-            "<tr><td><code>sgomez</code></td><td><code>mpf2024</code></td><td>Río Cuarto</td></tr>"
-            "<tr><td><code>policiarc</code></td><td><code>mpf2024</code></td><td>Policía RC</td></tr>"
-            "<tr><td><code>demo</code></td><td><code>demo</code></td><td>Genérico</td></tr>"
-            "</table></div>",
-            unsafe_allow_html=True,
+        st.info(
+            "**Usuarios demo** — contrasena: `mpf2024`  \n\n"
+            "🏛️ **Cordoba Capital:**  \n"
+            "`aperez` (Unidad Norte) · `cmedina` (Sur) · `lsuarez` (Genero) · `pjudicial` (Policia Judicial)  \n\n"
+            "🏙️ **Rio Cuarto:**  \n"
+            "`mrodriguez` (Fiscalia 1) · `sgomez` (Fiscalia 2) · `policiarc` (Policia Provincial)  \n\n"
+            "👤 **Demo generico:** usuario `demo` / contrasena `demo`"
         )
 
     with col_info:
