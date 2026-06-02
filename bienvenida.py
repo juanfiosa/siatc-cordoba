@@ -188,6 +188,34 @@ def _render_perfil():
 
     with col_b:
         st.markdown("**Tu oficina**")
+
+        # Selector de nodo — permite cambiar de unidad/circunscripción
+        ciudad_actual = nodo_cfg.get("ciudad", "Córdoba")
+        # Agrupar nodos por ciudad para simplificar la selección
+        _nodos_misma_ciudad = {k: v for k, v in NODOS.items()
+                               if v.get("ciudad") == ciudad_actual}
+        _nodos_todas = {"__sep__": f"── {ciudad_actual} ──"} | {
+            k: f"{v['nombre']}" for k, v in _nodos_misma_ciudad.items()
+        }
+        # Si hay más de un nodo en la ciudad, mostrar selector de unidad
+        if len(_nodos_misma_ciudad) > 1:
+            _nodo_keys = list(_nodos_misma_ciudad.keys())
+            _nodo_idx  = _nodo_keys.index(nodo_key) if nodo_key in _nodo_keys else 0
+            nodo_sel = st.selectbox(
+                "Unidad / Circunscripción",
+                _nodo_keys,
+                index=_nodo_idx,
+                format_func=lambda k: NODOS[k]["nombre"],
+                key="perfil_nodo_sel",
+            )
+            # Update nodo if changed
+            if nodo_sel != nodo_key:
+                st.session_state["nodo_key"]         = nodo_sel
+                st.session_state["circunscripcion"]  = NODOS[nodo_sel].get("circunscripcion","")
+                st.rerun()
+            nodo_key  = nodo_sel
+            nodo_cfg  = NODOS.get(nodo_key, {})
+
         oficinas_nodo = get_oficinas_nodo(nodo_key)
         of_activas    = {k: v for k, v in oficinas_nodo.items() if v.get("activa", True)}
         of_key_actual = st.session_state.get("oficina_key", list(of_activas.keys())[0] if of_activas else "")
@@ -200,15 +228,23 @@ def _render_perfil():
             format_func=lambda k: f"{of_activas[k]['icon']} {of_activas[k]['label']}",
             key="perfil_oficina",
         )
-        st.caption(f"Nodo: {nodo_cfg.get('nombre','')}  \n{circ}")
+        st.caption(f"{nodo_cfg.get('nombre','')}  ·  {nodo_cfg.get('circunscripcion','')}")
 
     st.markdown("")
     if st.button("Confirmar y comenzar", type="primary", use_container_width=True):
         st.session_state.update({
             "fiscal_nombre":    nuevo_nombre.strip() or nombre,
             "fiscal_cargo":     nuevo_cargo,
+            "nodo_key":         nodo_key,
             "oficina_key":      nueva_oficina,
             "oficina_label":    of_activas.get(nueva_oficina, {}).get("label", nueva_oficina),
+            "circunscripcion":  nodo_cfg.get("circunscripcion", ""),
+            "unidad_key": (
+                "norte"  if "norte"  in nueva_oficina else
+                "sur"    if "sur"    in nueva_oficina else
+                "genero" if "genero" in nueva_oficina else
+                nodo_key
+            ),
             "perfil_configurado": True,
         })
         st.rerun()
