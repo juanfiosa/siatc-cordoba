@@ -221,17 +221,23 @@ def _render_perfil():
                 format_func=lambda k: NODOS[k]["nombre"],
                 key="perfil_nodo_sel",
             )
-            # Update nodo if changed
+            # Update nodo if changed — clear old office selection so it defaults correctly
             if nodo_sel != nodo_key:
                 st.session_state["nodo_key"]         = nodo_sel
                 st.session_state["circunscripcion"]  = NODOS[nodo_sel].get("circunscripcion","")
+                # Reset office to avoid cross-node mismatch
+                st.session_state.pop("perfil_oficina", None)
+                st.session_state.pop("oficina_key", None)
                 st.rerun()
             nodo_key  = nodo_sel
             nodo_cfg  = NODOS.get(nodo_key, {})
 
         oficinas_nodo = get_oficinas_nodo(nodo_key)
         of_activas    = {k: v for k, v in oficinas_nodo.items() if v.get("activa", True)}
-        of_key_actual = st.session_state.get("oficina_key", list(of_activas.keys())[0] if of_activas else "")
+        # Default to first active office of the selected node (not old cross-node value)
+        of_key_actual = st.session_state.get("oficina_key", "")
+        if of_key_actual not in of_activas:
+            of_key_actual = list(of_activas.keys())[0] if of_activas else ""
         of_keys       = list(of_activas.keys())
         of_idx        = of_keys.index(of_key_actual) if of_key_actual in of_keys else 0
         nueva_oficina = st.selectbox(
