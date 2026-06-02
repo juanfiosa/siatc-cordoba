@@ -686,6 +686,15 @@ def stats_generales() -> dict:
                WHERE persona_id IN (SELECT persona_id FROM causas GROUP BY persona_id HAVING COUNT(*)>1)"""
         ).fetchone()["n"]
         personas = conn.execute("SELECT COUNT(*) as n FROM personas").fetchone()["n"]
+        try:
+            por_tipo_proceso = {
+                r["tipo_proceso"] or "contravencional": r["n"]
+                for r in conn.execute(
+                    "SELECT tipo_proceso, COUNT(*) as n FROM causas GROUP BY tipo_proceso"
+                ).fetchall()
+            }
+        except Exception:
+            por_tipo_proceso = {"contravencional": total}
 
     return {
         "total": total,
@@ -694,6 +703,7 @@ def stats_generales() -> dict:
         "por_unidad": por_unidad,
         "reincidentes": reincidentes,
         "personas": personas,
+        "por_tipo_proceso": por_tipo_proceso,
     }
 
 

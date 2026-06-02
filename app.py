@@ -2260,12 +2260,19 @@ if _seccion == "estadisticas":
         rojo_n     = stats["por_carril"].get("rojo",0)
         no_punitivo = verde_n + amarillo_n
 
-        col1,col2,col3,col4,col5 = st.columns(5)
-        col1.metric("Total", total)
-        col2.metric("🟢 Mediación",   verde_n,    f"{verde_n*100//total}%" if total else "")
-        col3.metric("🟡 Suspensión",  amarillo_n, f"{amarillo_n*100//total}%" if total else "")
-        col4.metric("🔴 Proceso",     rojo_n,     f"{rojo_n*100//total}%" if total else "")
-        col5.metric("Sin condena", f"{no_punitivo*100//total}%" if total else "0%")
+        _n_penal = stats.get("por_tipo_proceso", {}).get("penal", 0)
+        _n_cols  = 6 if _n_penal else 5
+        _metric_cols = st.columns(_n_cols)
+        _metric_cols[0].metric("Total", total)
+        _metric_cols[1].metric("🟢 Mediación",   verde_n,    f"{verde_n*100//total}%" if total else "")
+        _metric_cols[2].metric("🟡 Suspensión",  amarillo_n, f"{amarillo_n*100//total}%" if total else "")
+        _metric_cols[3].metric("🔴 Proceso CCC", rojo_n,     f"{rojo_n*100//total}%" if total else "")
+        _metric_cols[4].metric("Sin condena", f"{no_punitivo*100//total}%" if total else "0%")
+        if _n_penal:
+            _metric_cols[5].metric("⚖️ Penales", _n_penal,
+                                   help="Causas tramitadas por el Código Procesal Penal")
+        # legacy alias
+        col1=col2=col3=col4=col5=None
 
         # Mes actual vs. anterior
         _mom = causas_mes_actual_vs_anterior()
