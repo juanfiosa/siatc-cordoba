@@ -34,9 +34,11 @@ Ghost offices: Juzgado de Control, Centro de Mediación (pending interinstitutio
 
 | File | Purpose |
 |---|---|
-| `app.py` | Main entry point — section routing (nueva_causa/mis_causas/agenda/seguimiento/mensajeria/estadisticas/perfil) |
-| `bienvenida.py` | 3-step flow: Login → Perfil → Home (6 cards) → Module |
+| `app.py` | Main entry point — section routing (nueva_causa/mis_causas/agenda/seguimiento/mensajeria/estadisticas/perfil/bandeja_rc) |
+| `bienvenida.py` | 3-step flow: Login → Perfil → Home (7 cards) → Module |
 | `database.py` | All SQLite CRUD via `get_conn()` context manager |
+| `supabase_sync.py` | Bridge to sumarios-rc Supabase: pull pending RC cases, push triage results |
+| `supabase/siatc_integration.sql` | Migration SQL to run in Supabase of sumarios-rc (extends causas, creates *_ccc tables) |
 | `config_nodos.py` | 12 node configs for all 10 judicial circumscriptions of Córdoba |
 | `mensajeria.py` | Inter-office messaging: bandeja, pases, PDF for external offices |
 | `demo_seed.py` | Idempotent seed: 21 causas (15 CBA + 6 RC), 20 personas |
@@ -47,7 +49,6 @@ Ghost offices: Juzgado de Control, Centro de Mediación (pending interinstitutio
 | `seguimiento_tab.py` | Compliance tracking UI (post-resolución) |
 | `agenda_tab.py` | Hearing scheduler: week view, list, new hearing form |
 | `perfil_tab.py` | Person profile view (full case/hearing/seguimiento history) |
-| `bienvenida.py` | Welcome screen shown once per session (uses real DB stats) |
 | `export_excel.py` | Excel export via openpyxl (causas + seguimientos + audiencias) |
 
 ## Database schema (siatc.db — SQLite)
@@ -305,6 +306,36 @@ Conflict detection: warns when same date+hora already has a programada audiencia
 - Editable contact form (nombre, edad, domicilio, teléfono) via `upsert_persona()`
 - Timeline differentiates notes (grey border, 📝) from state transitions (blue border)
 - Causa expander titles show próxima audiencia date when one is programada (bulk-fetched)
+
+## Supabase integration (supabase_sync.py)
+SIATC uses SQLite locally but can sync with sumarios-rc's Supabase (PostgreSQL).
+
+**Activation**: set `SUPABASE_URL` + `SUPABASE_KEY` in Streamlit Cloud secrets.
+See `.streamlit/secrets.toml.example` for format.
+
+**Graceful degradation**: `supabase_sync.is_configured()` returns False when env vars absent.
+All `pull_*` and `push_*` functions return empty/False without exceptions. SIATC
+continues working with local SQLite only.
+
+**Two integration flows (Art. 125 CCC):**
+- PULL: `pull_causas_pendientes()` → reads `v_causas_contravencionales` where
+  `estado_policial='remitido' AND carril IS NULL` — police-submitted cases pending triage
+- PUSH: `push_clasificacion(causa_supabase_id, carril, accion, score, ...)` →
+  updates causas CCC columns after SIATC triage; `push_estado_causa()` maps SIATC
+  states to Supabase states (resuelta→archivado, etc.)
+
+**Schema migration**: run `supabase/siatc_integration.sql` in Supabase SQL Editor
+(sumarios-rc project) ONCE. It's idempotent (IF NOT EXISTS, IF NOT EXISTS).
+
+**Bandeja RC section** (app.py `_seccion == "bandeja_rc"`):
+- Shows cases from sumarios-rc pending CCC triage
+- "Clasificar con CCC" pre-fills Nueva Causa form (`rc_prefill` session key)
+- After `guardar_causa()`: calls `push_clasificacion()` to sync back to Supabase
+- "Importar a SIATC local" saves RC case to SQLite without Supabase push
+- Home card badge shows count of pending RC cases
+
+**SIATC is strictly contravencional (Ley 10.326).**
+Penal cases go to sumarios-rc. The penal module was removed in v1.4-rc.
 
 ## Known issues / decisions
 - `demo_seed.py → ya_poblado()` checks `n >= 5` (not `>= 15`), so adding

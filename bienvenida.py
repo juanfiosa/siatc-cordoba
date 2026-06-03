@@ -184,14 +184,21 @@ def _render_perfil():
                                      key="perfil_nombre")
         _cargos_filtrados = [c for c in CARGOS if not c.startswith("—")]
         # Pre-seleccionar cargo según oficina: policial → Sumariante, fiscal → Fiscal
+        # La detección por oficina_key tiene prioridad sobre cualquier valor residual
+        # en session_state (evita que un login previo contamine la selección).
         _oficina_default = st.session_state.get("oficina_key", "")
-        _cargo_default   = st.session_state.get("fiscal_cargo", "")
-        if not _cargo_default:
-            _cargo_default = (
-                "Sumariante" if any(p in _oficina_default
-                                    for p in ("policia", "policial", "guardia"))
-                else "Fiscal"
-            )
+        _es_policial     = any(p in _oficina_default
+                               for p in ("policia", "policial", "guardia", "comisaria"))
+        _cargo_guardado  = st.session_state.get("fiscal_cargo", "")
+        # Confiar en el cargo guardado solo si coincide con el rol de la oficina actual
+        _cargo_guardado_ok = (
+            _cargo_guardado in _CARGOS_POLICIAL if _es_policial
+            else _cargo_guardado in _CARGOS_FISCALIA
+        ) if _cargo_guardado else False
+        if _cargo_guardado_ok:
+            _cargo_default = _cargo_guardado
+        else:
+            _cargo_default = "Sumariante" if _es_policial else "Fiscal"
         _cargo_idx = _cargos_filtrados.index(_cargo_default) if _cargo_default in _cargos_filtrados else 0
         nuevo_cargo = st.selectbox(
             "Cargo",
