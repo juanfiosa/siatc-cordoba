@@ -473,14 +473,27 @@ if _seccion == "nueva_causa":
              "nuevo_sel_persona", "_nuevo_persona_override"))]
         for _k in _nc_keys:
             st.session_state.pop(_k, None)
+        st.session_state.pop("rc_prefill", None)
         st.rerun()
+
+    # ── Banner de pre-fill desde Bandeja RC ───────────────────────────────────
+    _rc_pf = st.session_state.get("rc_prefill")
+    if _rc_pf:
+        st.info(
+            f"🔗 **Causa de sumarios-rc:** {_rc_pf.get('numero','')} — "
+            f"Completá el triaje CCC y guardá. Los datos del imputado vienen pre-cargados.",
+            icon="📥"
+        )
 
     col_izq, col_der = st.columns(2)
 
     with col_izq:
         st.markdown("#### Datos del imputado/a")
 
-        dni_input = st.text_input("D.N.I.", placeholder="Ej: 38.421.667", key="dni_nuevo")
+        # Prefill desde Bandeja RC si viene de sumarios-rc
+        _rc_dni_default = (st.session_state.get("rc_prefill") or {}).get("dni", "")
+        dni_input = st.text_input("D.N.I.", value=_rc_dni_default,
+                                  placeholder="Ej: 38.421.667", key="dni_nuevo")
 
         # Validación de formato DNI
         _dni_digits = dni_input.replace(".", "").replace("-", "").replace(" ", "")
@@ -546,17 +559,25 @@ if _seccion == "nueva_causa":
                 persona_encontrada = _persona_override
                 antecedentes_db = contar_antecedentes(persona_encontrada["id"])
 
-        nombre_default = persona_encontrada["apellido_nombre"] if persona_encontrada else ""
-        edad_default   = persona_encontrada["edad"]             if persona_encontrada else 30
+        # Valores por defecto: DB > prefill RC > vacío
+        _rc_pf_nc = st.session_state.get("rc_prefill") or {}
+        nombre_default = (persona_encontrada["apellido_nombre"] if persona_encontrada
+                          else _rc_pf_nc.get("imputado", ""))
+        edad_default   = (persona_encontrada["edad"]             if persona_encontrada
+                          else (_rc_pf_nc.get("edad") or 30))
+        dom_default    = (persona_encontrada.get("domicilio","") if persona_encontrada
+                          else _rc_pf_nc.get("domicilio", ""))
+        tel_default    = (persona_encontrada.get("telefono","")  if persona_encontrada
+                          else _rc_pf_nc.get("telefono", ""))
 
         nombre = st.text_input("Apellido y nombre", value=nombre_default, placeholder="Ej: García, Lucas Damián")
         col_e, col_d, col_t = st.columns(3)
         with col_e:
-            edad = st.number_input("Edad", min_value=16, max_value=99, value=edad_default)
+            edad = st.number_input("Edad", min_value=16, max_value=99, value=max(16, int(edad_default or 30)))
         with col_d:
-            domicilio = st.text_input("Domicilio", value=persona_encontrada.get("domicilio","") if persona_encontrada else "")
+            domicilio = st.text_input("Domicilio", value=dom_default)
         with col_t:
-            telefono = st.text_input("Teléfono", value=persona_encontrada.get("telefono","") if persona_encontrada else "",
+            telefono = st.text_input("Teléfono", value=tel_default,
                                      placeholder="Ej: (0351) 4123456")
 
         # Antecedentes: DB tiene prioridad, manual como fallback
@@ -570,27 +591,9 @@ if _seccion == "nueva_causa":
                 format_func=lambda x: "Ninguno" if x==0 else f"{x} antecedente{'s' if x>1 else ''}",
             )
 
-        # Tipo de proceso — solo nodos interior (fiscales de instrucción)
-        _nodo_nc = st.session_state.get("nodo_key", "cba_norte")
-        from config_nodos import NODOS as _N_NC
-        _es_interior_nc = _N_NC.get(_nodo_nc, {}).get("tipo") == "interior"
-        if _es_interior_nc:
-            _tipo_proc_nc = st.radio(
-                "Tipo de proceso",
-                ["contravencional", "penal"],
-                horizontal=True,
-                key="nc_tipo_proceso",
-                help="Los fiscales de instrucción tramitan ambos tipos. "
-                     "El triaje CCC aplica solo a causas contravencionales."
-            )
-            if _tipo_proc_nc == "penal":
-                st.warning(
-                    "**Causa penal** — el triaje automático del CCC no aplica. "
-                    "El expediente se tramitará por el Código Procesal Penal. "
-                    "Completá la descripción del hecho y guardá la causa."
-                )
-        else:
-            _tipo_proc_nc = "contravencional"
+        # SIATC es exclusivamente contravencional (Ley 10.326).
+        # Las causas penales se gestionan en sumarios-rc (sistema separado).
+        _tipo_proc_nc = "contravencional"
 
         st.markdown("#### Datos del hecho")
         # ── Acordeón de títulos del CCC (Ley 10.326, Libro II) ─────────────
@@ -708,41 +711,7 @@ if _seccion == "nueva_causa":
         resistencia= col_r.checkbox("Resistencia a autoridad")
 
     with col_der:
-        st.markdown("#### Clasificación automática" if _tipo_proc_nc == "contravencional" else "#### Datos del proceso penal")
-
-        if nombre and dni_input and (_tipo_proc_nc == "contravencional" or descripcion):
-            if _tipo_proc_nc == "penal":
-                # Penal: simple save without CCC triage
-                _caso_penal = {
-                    "numero": None, "tipo": tipo, "imputado": nombre,
-                    "dni": dni_input, "edad": edad, "antecedentes": antecedentes,
-                    "descripcion": descripcion, "unidad": unidad_key,
-                    "domicilio": domicilio, "telefono": telefono,
-                    "victima": victima, "lesiones": lesiones,
-                    "resistencia": resistencia,
-                    "fecha_hecho": fecha_hecho.isoformat(),
-                }
-                _clf_penal = {
-                    "carril": "rojo", "accion": "Proceso Penal",
-                    "score": 4.0, "fundamento": ["Causa penal"],
-                    "icono": "⚖️", "descripcion": "Proceso tramitado por CPP",
-                    "color": "#6c757d", "categoria": "",
-                }
-                _guardar_penal = st.button("💾 Guardar causa penal", type="primary",
-                                           use_container_width=True)
-                if _guardar_penal:
-                    _cid_penal = guardar_causa(_caso_penal, _clf_penal, fiscal_nombre)
-                    from database import cambiar_tipo_proceso
-                    cambiar_tipo_proceso(_cid_penal, "penal", fiscal_nombre)
-                    st.cache_data.clear()
-                    _saved = get_causa(_cid_penal)
-                    _num_penal = _saved["numero"] if _saved else f"ID#{_cid_penal}"
-                    st.success(f"✅ Causa penal **{_num_penal}** registrada.")
-                    st.balloons()
-                    st.session_state["seccion_activa"] = "mis_causas"
-                    st.session_state["gc_busqueda"] = _num_penal
-                    st.rerun()
-                st.stop()
+        st.markdown("#### Clasificación automática")
 
         if nombre and dni_input and tipo:
             # Advertencia de causa duplicada — misma persona + mismo tipo + estado activo
@@ -884,6 +853,30 @@ if _seccion == "nueva_causa":
                 # Save initial observation as first nota in timeline
                 if _obs_inicial and _obs_inicial.strip():
                     agregar_nota_causa(causa_id, _obs_inicial.strip(), fiscal_nombre)
+
+                # ── Push a Supabase si la causa viene de la Bandeja RC ──────────
+                _rc_sb_id = (st.session_state.get("rc_prefill") or {}).get("supabase_id", "")
+                if _rc_sb_id:
+                    try:
+                        from supabase_sync import push_clasificacion as _sb_push_c
+                        _sb_ok = _sb_push_c(
+                            _rc_sb_id,
+                            carril=clf["carril"],
+                            accion=clf["accion"],
+                            score=float(clf.get("score", 0) or 0),
+                            fiscal_nombre=fiscal_nombre,
+                            tipo_infraccion=caso.get("tipo", ""),
+                            fundamento=clf.get("fundamento", []),
+                            victima=bool(caso.get("victima")),
+                            lesiones=bool(caso.get("lesiones")),
+                            resistencia=bool(caso.get("resistencia")),
+                        )
+                        if _sb_ok:
+                            st.session_state.pop("rc_prefill", None)
+                            # Marcar como leída en la bandeja
+                    except Exception as _sb_exc:
+                        st.warning(f"⚠️ No se pudo sincronizar con sumarios-rc: {_sb_exc}")
+
                 st.cache_data.clear()
                 c_saved        = get_causa(causa_id)
                 numero_guardado = c_saved["numero"] if c_saved else f"ID#{causa_id}"
@@ -1325,7 +1318,6 @@ if _seccion == "mis_causas":
 
             # Reincidente badge when persona has more than one causa in the system
             _rein_badge_gc = "  ⚠️ Rein." if _pers_cnt_gc.get(c.get("persona_id"), 0) > 1 else ""
-            _penal_badge_gc = "  ⚖️ PENAL" if c.get("tipo_proceso") == "penal" else ""
 
             # Days in current state — only meaningful for active states
             _dias_badge = ""
@@ -1339,7 +1331,7 @@ if _seccion == "mis_causas":
                     pass
 
             with st.expander(
-                f"{carril_icon} **{c['numero']}** — {c['apellido_nombre']}  |  {infraccion_label}  |  {estado_label}{_dias_badge}{_rein_badge_gc}{_penal_badge_gc}",
+                f"{carril_icon} **{c['numero']}** — {c['apellido_nombre']}  |  {infraccion_label}  |  {estado_label}{_dias_badge}{_rein_badge_gc}",
                 expanded=(causa_sel_id == c["id"])
             ):
                 col_info, col_acciones = st.columns([2,1])
@@ -1845,24 +1837,6 @@ if _seccion == "mis_causas":
                                 st.caption(f"→ {_o_lbl} · {_p['created_at'][:16]} · {_p['motivo'][:40]}")
 
                     st.markdown("---")
-                    # Tipo de proceso (penal/contravencional) — solo nodos interior
-                    _nodo_gc = st.session_state.get("nodo_key", "cba_norte")
-                    from config_nodos import NODOS as _N_GC
-                    if _N_GC.get(_nodo_gc, {}).get("tipo") == "interior":
-                        _tipo_proc = c.get("tipo_proceso", "contravencional")
-                        _tp_opts   = ["contravencional", "penal"]
-                        _tp_col1, _tp_col2 = st.columns([3, 2])
-                        _tp_col1.caption(f"Proceso: **{_tipo_proc.upper()}**")
-                        if _tp_col2.button(
-                            "↔️ Cambiar a penal" if _tipo_proc == "contravencional" else "↔️ Cambiar a contravencional",
-                            key=f"tipo_proc_{c['id']}", use_container_width=True
-                        ):
-                            from database import cambiar_tipo_proceso
-                            _nuevo_tp = "penal" if _tipo_proc == "contravencional" else "contravencional"
-                            cambiar_tipo_proceso(c["id"], _nuevo_tp, fiscal_nombre)
-                            st.cache_data.clear()
-                            st.rerun()
-
                     st.markdown("**👨‍⚖️ Fiscal asignado:**")
                     with st.popover("Reasignar fiscal", use_container_width=True):
                         _fiscal_actual = c.get("fiscal_asignado","")
@@ -2260,17 +2234,12 @@ if _seccion == "estadisticas":
         rojo_n     = stats["por_carril"].get("rojo",0)
         no_punitivo = verde_n + amarillo_n
 
-        _n_penal = stats.get("por_tipo_proceso", {}).get("penal", 0)
-        _n_cols  = 6 if _n_penal else 5
-        _metric_cols = st.columns(_n_cols)
+        _metric_cols = st.columns(5)
         _metric_cols[0].metric("Total", total)
         _metric_cols[1].metric("🟢 Mediación",   verde_n,    f"{verde_n*100//total}%" if total else "")
         _metric_cols[2].metric("🟡 Suspensión",  amarillo_n, f"{amarillo_n*100//total}%" if total else "")
         _metric_cols[3].metric("🔴 Proceso CCC", rojo_n,     f"{rojo_n*100//total}%" if total else "")
         _metric_cols[4].metric("Sin condena", f"{no_punitivo*100//total}%" if total else "0%")
-        if _n_penal:
-            _metric_cols[5].metric("⚖️ Penales", _n_penal,
-                                   help="Causas tramitadas por el Código Procesal Penal")
         # legacy alias
         col1=col2=col3=col4=col5=None
 
@@ -3752,6 +3721,165 @@ if _seccion == "estadisticas":
                     f"Servidor: {datetime.now().strftime('%d/%m/%Y %H:%M')}",
                     language=None
                 )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SECCIÓN — BANDEJA RC (causas de sumarios-rc pendientes de triaje CCC)
+# ══════════════════════════════════════════════════════════════════════════════
+if _seccion == "bandeja_rc":
+    st.header("🔗 Bandeja RC — Causas de sumarios-rc")
+    st.caption(
+        "Causas contravencionales elevadas por la policía en **sumarios-rc** "
+        "y remitidas al fiscal para triaje CCC. "
+        "Art. 125 Ley 10.326: la fiscalía puede actuar de oficio o recibir actuaciones policiales."
+    )
+
+    from supabase_sync import (
+        is_configured as _sb_is_cfg,
+        pull_causas_pendientes as _sb_pull,
+        push_clasificacion as _sb_push_clf,
+        causa_supabase_a_siatc as _sb_map,
+    )
+
+    if not _sb_is_cfg():
+        st.warning(
+            "⚠️ **Integración con sumarios-rc no configurada.**\n\n"
+            "Para activar la Bandeja RC necesitás agregar dos secretos en Streamlit Cloud:\n"
+            "- `SUPABASE_URL` → URL del proyecto Supabase de sumarios-rc\n"
+            "- `SUPABASE_KEY` → API key (anon o service_role)\n\n"
+            "Luego reiniciá la aplicación. El equipo de TI puede obtener estos datos "
+            "desde el panel de Supabase del proyecto sumarios-rc."
+        )
+        st.info(
+            "💡 **Mientras tanto:** seguí registrando causas manualmente en **Nueva Causa**. "
+            "Todos los datos quedán en el sistema local y se podrán sincronizar después."
+        )
+        st.stop()
+
+    # ── Supabase conectado ─────────────────────────────────────────────────────
+    _rb_dep_id = st.session_state.get("dependencia_supabase_id", "")
+    with st.spinner("Consultando causas en sumarios-rc…"):
+        _rb_causas_raw = _sb_pull(dependencia_id=_rb_dep_id or None, limit=100)
+    _rb_causas = [_sb_map(r) for r in _rb_causas_raw]
+
+    st.success(f"✅ Conectado a sumarios-rc — {len(_rb_causas)} causa(s) pendiente(s) de triaje")
+
+    if not _rb_causas:
+        st.info(
+            "🎉 No hay causas pendientes en la bandeja. "
+            "La policía no ha remitido expedientes contravencionales sin triaje."
+        )
+    else:
+        # Filtros rápidos
+        _rb_col_f1, _rb_col_f2 = st.columns([3, 1])
+        _rb_busq = _rb_col_f1.text_input("🔍 Buscar por nombre, DNI o número", key="rb_busq")
+        _rb_orden = _rb_col_f2.selectbox("Ordenar", ["Más antiguos primero", "Más recientes"], key="rb_orden")
+
+        _rb_mostrar = _rb_causas
+        if _rb_busq:
+            _rb_busq_l = _rb_busq.lower()
+            _rb_mostrar = [
+                c for c in _rb_causas
+                if _rb_busq_l in c.get("apellido_nombre","").lower()
+                or _rb_busq_l in c.get("persona_dni","").lower()
+                or _rb_busq_l in c.get("numero","").lower()
+            ]
+        if _rb_orden == "Más recientes":
+            _rb_mostrar = list(reversed(_rb_mostrar))
+
+        st.markdown(f"**{len(_rb_mostrar)} causa(s)**")
+        st.markdown("---")
+
+        for _rbc in _rb_mostrar:
+            _rbc_icon = "⚪"  # sin triaje
+            _rbc_num = _rbc.get("numero","—")
+            _rbc_nom = _rbc.get("apellido_nombre", "Imputado")
+            _rbc_tipo = TIPOS_INFRACCION.get(_rbc.get("tipo_infraccion",""), {}).get("label", _rbc.get("tipo_infraccion","—"))
+            _rbc_fecha = str(_rbc.get("fecha_hecho",""))[:10] or "s/f"
+
+            with st.expander(
+                f"{_rbc_icon} **{_rbc_num}** — {_rbc_nom}  |  {_rbc_tipo}  |  {_rbc_fecha}",
+                expanded=False
+            ):
+                _rbc_c1, _rbc_c2 = st.columns([2, 1])
+
+                with _rbc_c1:
+                    st.markdown(f"**Imputado/a:** {_rbc_nom}")
+                    st.markdown(f"**DNI:** {_rbc.get('persona_dni','—')} &nbsp; **Edad:** {_rbc.get('persona_edad','—')}")
+                    st.markdown(f"**Domicilio:** {_rbc.get('persona_domicilio','—')}")
+                    st.markdown(f"**Hecho:** {_rbc.get('descripcion','—')[:200]}")
+                    st.markdown(f"**Fecha del hecho:** {_rbc_fecha} &nbsp; **Lugar:** {_rbc.get('lugar_hecho','—')}")
+                    st.caption(f"UUID Supabase: {_rbc.get('supabase_id','')}")
+
+                with _rbc_c2:
+                    st.markdown("**Acciones rápidas**")
+
+                    # Clasificar directamente desde la bandeja
+                    _rbc_clf_btn = st.button(
+                        "🔍 Clasificar con CCC",
+                        key=f"rb_clf_{_rbc.get('supabase_id','')}",
+                        use_container_width=True,
+                        type="primary",
+                    )
+                    if _rbc_clf_btn:
+                        # Pre-llenar la sesión con los datos de la causa RC y saltar a Nueva Causa
+                        st.session_state["rc_prefill"] = {
+                            "numero": _rbc_num,
+                            "imputado": _rbc_nom,
+                            "dni": _rbc.get("persona_dni",""),
+                            "edad": _rbc.get("persona_edad") or 0,
+                            "domicilio": _rbc.get("persona_domicilio",""),
+                            "telefono": _rbc.get("persona_telefono",""),
+                            "descripcion": _rbc.get("descripcion",""),
+                            "tipo": _rbc.get("tipo_infraccion",""),
+                            "fecha_hecho": _rbc_fecha,
+                            "supabase_id": _rbc.get("supabase_id",""),
+                        }
+                        st.session_state["seccion_activa"] = "nueva_causa"
+                        st.rerun()
+
+                    # Importar a SQLite como causa local
+                    _rbc_imp_btn = st.button(
+                        "💾 Importar a SIATC local",
+                        key=f"rb_imp_{_rbc.get('supabase_id','')}",
+                        use_container_width=True,
+                    )
+                    if _rbc_imp_btn:
+                        from database import upsert_persona, guardar_causa
+                        _imp_caso = {
+                            "numero": _rbc_num,
+                            "tipo": _rbc.get("tipo_infraccion","otro"),
+                            "imputado": _rbc_nom,
+                            "dni": _rbc.get("persona_dni","RC-SN"),
+                            "edad": _rbc.get("persona_edad") or 0,
+                            "domicilio": _rbc.get("persona_domicilio",""),
+                            "telefono": _rbc.get("persona_telefono",""),
+                            "descripcion": _rbc.get("descripcion",""),
+                            "unidad": st.session_state.get("unidad_key","norte"),
+                            "victima": False, "lesiones": False, "resistencia": False,
+                            "fecha_hecho": _rbc_fecha,
+                        }
+                        _imp_clf = {
+                            "carril": None, "accion": "Pendiente de triaje CCC",
+                            "score": 0.0, "fundamento": ["Importado desde sumarios-rc"],
+                            "icono": "⚪", "descripcion": "Elevada por la policía",
+                            "color": "#6c757d", "categoria": "",
+                        }
+                        try:
+                            _imp_id = guardar_causa(_imp_caso, _imp_clf, fiscal_nombre)
+                            from database import avanzar_estado
+                            avanzar_estado(_imp_id, "ingresada", fiscal_nombre,
+                                          f"Importada desde sumarios-rc [{_rbc.get('supabase_id','')}]")
+                            st.cache_data.clear()
+                            st.success(f"✅ Causa **{_rbc_num}** importada al sistema local.")
+                        except Exception as _ie:
+                            st.error(f"Error al importar: {_ie}")
+
+        st.markdown("---")
+        st.caption(
+            f"Bandeja RC · sumarios-rc · {len(_rb_causas)} causa(s) sin triaje CCC · "
+            f"Actualizado: {datetime.now().strftime('%H:%M')}"
+        )
 
 
 # ══════════════════════════════════════════════════════════════════════════════
