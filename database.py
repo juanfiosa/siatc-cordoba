@@ -279,6 +279,21 @@ def init_db():
             # Column additions
             "ALTER TABLE causas ADD COLUMN oficina_actual TEXT DEFAULT 'unidad'",
             "ALTER TABLE seguimientos ADD COLUMN proximo_control TEXT",
+            # Workflow CCC completo — motivo de archivo + víctima + prescripción
+            "ALTER TABLE causas ADD COLUMN motivo_archivo TEXT DEFAULT ''",
+            "ALTER TABLE causas ADD COLUMN fecha_hecho_real TEXT DEFAULT ''",
+            """CREATE TABLE IF NOT EXISTS victimas_causa (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                causa_id        INTEGER NOT NULL REFERENCES causas(id),
+                apellido_nombre TEXT    NOT NULL,
+                dni             TEXT    DEFAULT '',
+                telefono        TEXT    DEFAULT '',
+                email           TEXT    DEFAULT '',
+                domicilio       TEXT    DEFAULT '',
+                quiere_notif    INTEGER DEFAULT 1,
+                created_at      TEXT    DEFAULT (datetime('now','localtime'))
+            )""",
+            "CREATE INDEX IF NOT EXISTS idx_victimas_causa ON victimas_causa(causa_id)",
             # New tables for older DBs that don't have them yet
             """CREATE TABLE IF NOT EXISTS infracciones_favoritas (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1960,3 +1975,186 @@ def stats_por_unidad() -> list[dict]:
         d["pct_resolucion"] = round(cer * 100 / tot) if tot else 0
         result.append(d)
     return result
+
+
+# ── Víctimas de la causa ───────────────────────────────────────────────────────
+
+def registrar_victima(causa_id: int, apellido_nombre: str, dni: str = "",
+                      telefono: str = "", email: str = "",
+                      domicilio: str = "", quiere_notif: bool = True) -> int:
+    """Registra una víctima asociada a una causa."""
+    with get_conn() as conn:
+        cur = conn.execute(
+            """INSERT INTO victimas_causa
+               (causa_id, apellido_nombre, dni, telefono, email, domicilio, quiere_notif)
+               VALUES (?,?,?,?,?,?,?)""",
+            (causa_id, apellido_nombre, dni, telefono, email, domicilio, int(quiere_notif))
+        )
+        return cur.lastrowid
+
+
+def get_victimas(causa_id: int) -> list[dict]:
+    """Devuelve las víctimas registradas para una causa."""
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT * FROM victimas_causa WHERE causa_id=? ORDER BY id",
+            (causa_id,)
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def actualizar_victima(victima_id: int, apellido_nombre: str = "", dni: str = "",
+                       telefono: str = "", email: str = "",
+                       domicilio: str = "", quiere_notif: bool = True) -> None:
+    with get_conn() as conn:
+        conn.execute(
+            """UPDATE victimas_causa
+               SET apellido_nombre=?, dni=?, telefono=?, email=?, domicilio=?, quiere_notif=?
+               WHERE id=?""",
+            (apellido_nombre, dni, telefono, email, domicilio, int(quiere_notif), victima_id)
+        )
+
+
+def eliminar_victima(victima_id: int) -> None:
+    with get_conn() as conn:
+        conn.execute("DELETE FROM victimas_causa WHERE id=?", (victima_id,))
+
+
+# ── Motivo de archivo y prescripción ───────────────────────────────────────────
+
+MOTIVOS_ARCHIVO = {
+    "prescripcion":      "Prescripcion de la accion (Art. 43 CCC)",
+    "reparacion_danio":  "Reparacion voluntaria del dano (Art. 58 CCC)",
+    "conciliacion":      "Conciliacion entre las partes (Art. 59 CCC)",
+    "oportunidad":       "Criterio de oportunidad reglada (Art. 44 CCC)",
+    "falta_merito":      "Falta de merito suficiente",
+    "muerte_imputado":   "Fallecimiento del imputado/a (Art. 45 inc. 1 CCC)",
+    "otro":              "Otro motivo (ver observaciones)",
+}
+
+
+def archivar_causa_con_motivo(causa_id: int, motivo: str,
+                               usuario: str, observaciones: str = "") -> bool:
+    """
+    Archiva una causa registrando el motivo legal de extinción de la acción.
+    motivo: clave de MOTIVOS_ARCHIVO
+    """
+    if motivo not in MOTIVOS_ARCHIVO:
+        motivo = "otro"
+    with get_conn() as conn:
+        conn.execute(
+            """UPDATE causas
+               SET estado='archivada', motivo_archivo=?,
+                   updated_at=datetime('now','localtime')
+               WHERE id=?""",
+            (motivo, causa_id)
+        )
+    obs_txt = (f"ARCHIVO — {MOTIVOS_ARCHIVO[motivo]}"
+               + (f". {observaciones}" if observaciones else ""))
+    agregar_nota_causa(causa_id, obs_txt, usuario)
+    return True
+
+
+def get_motivo_archivo(causa_id: int) -> str:
+    """Devuelve la clave del motivo de archivo de una causa, o '' si no aplica."""
+    with get_conn() as conn:
+        r = conn.execute(
+            "SELECT motivo_archivo FROM causas WHERE id=?", (causa_id,)
+        ).fetchone()
+    return r["motivo_archivo"] if r else ""
+
+
+def calcular_prescripcion(causa_id: int) -> dict:
+    """
+    Calcula el estado de prescripción de una causa (Art. 43 Ley 10.326).
+    Retorna:
+      {
+        'prescribe_en': fecha ISO,
+        'dias_restantes': int (negativo = ya prescribió),
+        'prescripta': bool,
+        'plazo_anos': 1 | 2,
+        'alerta': 'roja' | 'naranja' | 'verde' | None,
+      }
+    """
+    from datetime import date, timedelta
+    from data_cordoba import TIPOS_INFRACCION
+
+    with get_conn() as conn:
+        r = conn.execute(
+            "SELECT tipo_infraccion, fecha_hecho, fecha_hecho_real, created_at, estado FROM causas WHERE id=?",
+            (causa_id,)
+        ).fetchone()
+    if not r:
+        return {}
+
+    # Si ya está archivada o resuelta, no hay riesgo de prescripción
+    if r["estado"] in ("archivada", "resuelta"):
+        return {"prescripta": False, "alerta": None}
+
+    # Fecha de inicio del cómputo: fecha_hecho_real > fecha_hecho > created_at
+    fecha_inicio_str = (r["fecha_hecho_real"] or r["fecha_hecho"] or
+                        r["created_at"][:10] if r["created_at"] else "")
+    try:
+        fecha_inicio = date.fromisoformat(fecha_inicio_str)
+    except (ValueError, TypeError):
+        return {}
+
+    # Plazo según gravedad: 2 años si la infracción tiene pena > 6 meses
+    inf = TIPOS_INFRACCION.get(r["tipo_infraccion"] or "", {})
+    # Infracciones de Título I (violencia/hostigamiento) y Título VII (armas, pirotecnia) = 2 años
+    titulo = inf.get("titulo_ccc", "")
+    plazo_anos = 2 if titulo in ("I", "VII", "VIII") else 1
+
+    fecha_prescripcion = date(fecha_inicio.year + plazo_anos,
+                              fecha_inicio.month, fecha_inicio.day)
+    hoy = date.today()
+    dias_restantes = (fecha_prescripcion - hoy).days
+
+    alerta = None
+    if dias_restantes < 0:
+        alerta = "roja"      # ya prescribió
+    elif dias_restantes <= 30:
+        alerta = "roja"      # prescribe en menos de 30 días
+    elif dias_restantes <= 90:
+        alerta = "naranja"   # prescribe en 30-90 días
+    elif dias_restantes <= 180:
+        alerta = "amarilla"  # prescribe en 90-180 días
+
+    return {
+        "prescribe_en":    fecha_prescripcion.isoformat(),
+        "dias_restantes":  dias_restantes,
+        "prescripta":      dias_restantes < 0,
+        "plazo_anos":      plazo_anos,
+        "alerta":          alerta,
+    }
+
+
+def causas_con_alerta_prescripcion(unidad: str = None, dias_alerta: int = 90) -> list[dict]:
+    """
+    Retorna causas activas cuya prescripción vence en menos de `dias_alerta` días.
+    Útil para el banner de alertas en la UI.
+    """
+    from datetime import date
+    estados_activos = ("ingresada", "clasificada", "notificada", "en_mediacion")
+    placeholders = ",".join("?" * len(estados_activos))
+    sql = f"""
+        SELECT c.id, c.numero, c.tipo_infraccion, c.estado,
+               c.fecha_hecho, c.fecha_hecho_real, c.created_at,
+               p.apellido_nombre, p.dni
+        FROM causas c
+        LEFT JOIN personas p ON c.persona_id = p.id
+        WHERE c.estado IN ({placeholders})
+    """
+    params = list(estados_activos)
+    if unidad:
+        sql += " AND c.unidad = ?"
+        params.append(unidad)
+    with get_conn() as conn:
+        rows = conn.execute(sql, params).fetchall()
+
+    alertas = []
+    for r in rows:
+        pres = calcular_prescripcion(r["id"])
+        if pres.get("alerta") in ("roja", "naranja"):
+            alertas.append({**dict(r), **pres})
+    return sorted(alertas, key=lambda x: x.get("dias_restantes", 9999))

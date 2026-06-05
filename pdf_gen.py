@@ -3,6 +3,7 @@
 Generador de PDF institucional - SIATC
 Ministerio Publico Fiscal - Cordoba
 """
+from __future__ import annotations  # Python 3.9 compat
 
 from fpdf import FPDF
 from datetime import datetime, timedelta
@@ -1565,12 +1566,768 @@ def pdf_agenda_semanal(audiencias: list, desde: str, hasta: str,
     return buf.getvalue()
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# DOCUMENTOS COMPLEMENTARIOS — Completamiento del workflow CCC (Ley 10.326)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def pdf_acta_restriccion_acercamiento(caso: dict, fiscal_nombre: str,
+                                       unidad_key: str,
+                                       victima_nombre: str = "",
+                                       victima_domicilio: str = "",
+                                       plazo_dias: int = 90) -> bytes:
+    """
+    Acta de restricción de acercamiento y prohibición de comunicación.
+    Medida cautelar urgente del Fiscal (Art. 10 y 21 Ley 9283 / Art. 72 CCC).
+    Adaptada de plantilla "ACTAS NOTIFICACION MEDIDAS EN EL LUGAR".
+    """
+    fecha = _fecha_formal()
+    pdf = PDFMPFBase(unidad_key)
+    pdf.alias_nb_pages()
+    pdf.add_page()
+
+    pdf.titulo_documento("Acta de Notificacion de Medidas Restrictivas")
+    pdf.metadatos(caso.get("numero", "S/N"), fecha)
+
+    inf = TIPOS_INFRACCION.get(caso.get("tipo", caso.get("tipo_infraccion", "")), {})
+    nom_imp = _s(caso.get("imputado") or caso.get("apellido_nombre", ""))
+    nom_vic = _s(victima_nombre or "la presunta victima")
+    dom_vic = _s(victima_domicilio or "domicilio consignado en las actuaciones")
+
+    pdf.seccion(
+        "Encabezamiento",
+        f"En la localidad de {_s(pdf.unidad_str.split('-')[0].strip())}, a los {_fecha_formal()} "
+        f"horas, comparece por ante la Fiscalia interviniente el/la ciudadano/a {nom_imp}, "
+        f"a quien por este mismo acto se le NOTIFICA de la medida dispuesta por la "
+        f"{_s(pdf.unidad_str.split('-')[0].strip())} en el marco de los autos caratulados "
+        f"\"{nom_imp.upper()} - infraccion al {inf.get('articulo', 'Codigo de Convivencia Ciudadana')}\","
+    )
+
+    pdf._sf("B", 10)
+    pdf.set_text_color(*AZUL_MPF)
+    pdf.set_fill_color(235, 240, 255)
+    pdf.cell(0, 8, "RESOLUCION DEL FISCAL — MEDIDAS RESTRICTIVAS", align="C", fill=True, ln=True)
+    pdf.set_text_color(*NEGRO)
+    pdf.ln(3)
+
+    pdf._sf("", 9)
+    pdf.multi_cell(0, 5,
+        f"Atento a las constancias obrantes en las presentes actuaciones contravencionales, "
+        f"y en virtud de lo establecido por el Art. 72 de la Ley 10.326 (Codigo de Convivencia "
+        f"Ciudadana) y Arts. 10 y 21 de la Ley 9283 (Violencia Familiar), este Ministerio "
+        f"Publico Fiscal RESUELVE establecer las siguientes medidas restrictivas:",
+        align="J")
+    pdf.ln(4)
+
+    medidas = [
+        f"RESTRICCION DE ACERCAMIENTO: Se prohibe a {nom_imp} acercarse "
+        f"a {nom_vic} y a su domicilio, sito en {dom_vic}, "
+        f"a una distancia menor a 200 (doscientos) metros.",
+        f"PROHIBICION DE COMUNICACION: Se prohibe a {nom_imp} mantener "
+        f"todo tipo de comunicacion verbal, telefonica, digital o por intermedio de terceros "
+        f"con {nom_vic}.",
+        f"PLAZO: Las medidas se extienden por el termino de {plazo_dias} "
+        f"dias corridos desde la presente notificacion, hasta que tome intervencion "
+        f"el Juzgado con competencia en la materia.",
+        "CARACTER RECIPROCO: Las medidas de restriccion son de caracter reciproco "
+        "entre las partes.",
+    ]
+    for i, m in enumerate(medidas, 1):
+        pdf.item_lista(i, m)
+
+    pdf.ln(5)
+    pdf._sf("", 9)
+    pdf.multi_cell(0, 5,
+        "Se hace saber al/la compareciente que el incumplimiento de las medidas "
+        "dispuestas configura la contravension prevista en el Art. 85 de la Ley 10.326 "
+        "(desobediencia a disposicion fiscal) y podra motivar la extension del plazo "
+        "y/o la elevacion de las actuaciones al Juez Contravencional.",
+        align="J")
+    pdf.ln(6)
+
+    # Firmas
+    pdf._sf("", 8)
+    pdf.cell(0, 5, "Con lo que se da finalizado el acto, previa lectura y ratificacion,", ln=True)
+    pdf.cell(0, 5, "firman los comparecientes por ante el/la fiscal actuante.", ln=True)
+    pdf.ln(10)
+
+    c1, c2 = pdf.get_x(), pdf.get_y()
+    pdf.set_draw_color(*GRIS_LINEA)
+    pdf.set_line_width(0.3)
+    pdf.line(22, c2 + 15, 95, c2 + 15)
+    pdf.line(115, c2 + 15, 188, c2 + 15)
+    pdf.set_xy(22, c2 + 17)
+    pdf._sf("B", 8)
+    pdf.cell(73, 4, _s(nom_imp).upper(), align="C")
+    pdf.set_x(115)
+    pdf.cell(73, 4, _s(fiscal_nombre).upper(), align="C", ln=True)
+    pdf.set_x(22)
+    pdf._sf("", 7)
+    pdf.cell(73, 4, "Imputado/a", align="C")
+    pdf.set_x(115)
+    pdf.cell(73, 4, "Fiscal Contravencional", align="C", ln=True)
+
+    pdf.sello_digital(fiscal_nombre, caso.get("numero", ""))
+    buf = BytesIO()
+    pdf.output(buf)
+    return buf.getvalue()
+
+
+def pdf_oficio_polo_mujer(caso: dict, fiscal_nombre: str,
+                           unidad_key: str,
+                           victima_nombre: str = "",
+                           resena_hechos: str = "") -> bytes:
+    """
+    Oficio al Polo Integral de la Mujer / Centro de Atencion a Victimas.
+    Para casos contravencionales del Titulo I (convivencia, hostigamiento, VF).
+    Adaptado de plantilla "OFICIO AL POLO".
+    """
+    fecha = _fecha_formal()
+    pdf = PDFMPFBase(unidad_key)
+    pdf.alias_nb_pages()
+    pdf.add_page()
+
+    pdf.titulo_documento("Oficio al Polo Integral de la Mujer")
+    pdf.metadatos(caso.get("numero", "S/N"), fecha)
+
+    inf = TIPOS_INFRACCION.get(caso.get("tipo", caso.get("tipo_infraccion", "")), {})
+    nom_imp = _s(caso.get("imputado") or caso.get("apellido_nombre", ""))
+    nom_vic = _s(victima_nombre or "la presunta victima")
+    resena = _s(resena_hechos or caso.get("descripcion", "Segun constancias de autos."))
+
+    # Destinatario
+    pdf.set_fill_color(240, 244, 252)
+    pdf.set_draw_color(*AZUL_CLARO)
+    y0 = pdf.get_y()
+    pdf.rect(20, y0, 170, 22, style="FD")
+    pdf.set_xy(24, y0 + 3)
+    pdf._sf("B", 9)
+    pdf.cell(0, 5, "A la Direccion del Polo Integral de la Mujer", ln=True)
+    pdf.set_x(24)
+    pdf._sf("", 9)
+    pdf.cell(0, 5, "/ Centro de Asistencia a Victimas de Violencia de Genero", ln=True)
+    pdf.set_x(24)
+    pdf.cell(0, 5, "S / D", ln=True)
+    pdf.ln(8)
+
+    pdf._sf("", 9)
+    pdf.multi_cell(0, 5,
+        f"En el marco de las actuaciones contravencionales caratuladas \"{nom_imp.upper()} "
+        f"- infraccion al {inf.get('articulo', 'Codigo de Convivencia Ciudadana')}\", "
+        f"que se tramitan ante esta {_s(pdf.unidad_str)}, se ha resuelto librar el "
+        f"presente a fin de PONER EN SU CONOCIMIENTO que en fecha "
+        f"{_fecha_formal()} se formalizaron actuaciones contravencionales en las que "
+        f"resulta presunta damnificada la Sra. {nom_vic}.",
+        align="J")
+    pdf.ln(4)
+
+    if resena:
+        pdf.seccion("Resena de los hechos", resena)
+
+    pdf._sf("", 9)
+    pdf.multi_cell(0, 5,
+        f"El motivo del presente es a los fines de que ese organismo adopte las medidas "
+        f"de contencion y asistencia que crea pertinentes en orden a la problematica y "
+        f"necesidades de {nom_vic}, presunta victima en los presentes autos.",
+        align="J")
+    pdf.ln(4)
+
+    pdf.multi_cell(0, 5,
+        "Asimismo, se solicita que en caso de que la persona concurra a ese Centro, "
+        "se informe a esta Fiscalia a efectos de coordinar las medidas de proteccion "
+        "que correspondan.",
+        align="J")
+
+    pdf.linea_firma(fiscal_nombre, "Fiscal Contravencional", pdf.unidad_str.split("-")[0].strip())
+    pdf.sello_digital(fiscal_nombre, caso.get("numero", ""))
+    buf = BytesIO()
+    pdf.output(buf)
+    return buf.getvalue()
+
+
+def pdf_oficio_informe_socioambiental(caso: dict, fiscal_nombre: str,
+                                       unidad_key: str,
+                                       municipio: str = "",
+                                       puntos_pericia=None) -> bytes:
+    """
+    Oficio a Asistente Social por informe socioambiental.
+    Usado como condicion en suspensiones a prueba (carril amarillo).
+    Adaptado de plantilla "OFICIO A ASISTENTE SOCIAL POR INFORME SOCIOAMBIENTAL".
+    puntos_pericia: list[str] | None
+    """
+    fecha = _fecha_formal()
+    pdf = PDFMPFBase(unidad_key)
+    pdf.alias_nb_pages()
+    pdf.add_page()
+
+    pdf.titulo_documento("Oficio - Informe Socioambiental")
+    pdf.metadatos(caso.get("numero", "S/N"), fecha)
+
+    inf = TIPOS_INFRACCION.get(caso.get("tipo", caso.get("tipo_infraccion", "")), {})
+    nom_imp = _s(caso.get("imputado") or caso.get("apellido_nombre", ""))
+    dom_imp = _s(caso.get("domicilio") or caso.get("persona_domicilio", "segun actuaciones"))
+    mun = _s(municipio or "esta ciudad")
+
+    # Destinatario
+    pdf.set_fill_color(240, 244, 252)
+    pdf.set_draw_color(*AZUL_CLARO)
+    y0 = pdf.get_y()
+    pdf.rect(20, y0, 170, 22, style="FD")
+    pdf.set_xy(24, y0 + 3)
+    pdf._sf("B", 9)
+    pdf.cell(0, 5, "Sra. Asistente Social", ln=True)
+    pdf.set_x(24)
+    pdf._sf("", 9)
+    pdf.cell(0, 5, f"Area de Desarrollo Social — Municipalidad de {mun}", ln=True)
+    pdf.set_x(24)
+    pdf.cell(0, 5, "S / D", ln=True)
+    pdf.ln(8)
+
+    pdf._sf("", 9)
+    pdf.multi_cell(0, 5,
+        f"En relacion a los autos caratulados \"{nom_imp.upper()} - infraccion al "
+        f"{inf.get('articulo', 'Codigo de Convivencia Ciudadana')}\", que se tramitan "
+        f"ante esta {_s(pdf.unidad_str)}, se ha dispuesto librar el presente a los fines "
+        f"de solicitarle que tenga a bien realizar un INFORME SOCIOAMBIENTAL en el "
+        f"domicilio habitado por {nom_imp}, ubicado en {dom_imp}.",
+        align="J")
+    pdf.ln(4)
+
+    puntos = puntos_pericia or [
+        "Diagnostico social a fin de determinar la situacion familiar.",
+        "Configuracion vincular del grupo familiar.",
+        "Caracterizacion de los vinculos e interacciones entre sus miembros.",
+        "Presencia y/o ausencia de situacion de vulnerabilidad y factores protectores.",
+        "Evaluacion del cumplimiento de las condiciones impuestas en el marco de la "
+        "suspension contravencional a prueba.",
+        "Todo otro dato de interes que se estime util a los fines del seguimiento.",
+    ]
+
+    pdf.seccion("Puntos de pericia", "Para lo cual se requiere que el informe atienda los siguientes puntos:")
+    for i, p in enumerate(puntos, 1):
+        pdf.item_lista(i, p)
+
+    pdf.ln(4)
+    pdf._sf("", 9)
+    pdf.multi_cell(0, 5,
+        f"Se solicita que en caso de existir informes anteriores sobre el imputado/a "
+        f"o su grupo familiar, los mismos sean valorados al elaborar el informe respectivo.\n\n"
+        f"Tenga a bien remitir lo actuado a la sede de este organismo a la brevedad posible.",
+        align="J")
+
+    pdf.linea_firma(fiscal_nombre, "Fiscal Contravencional", pdf.unidad_str.split("-")[0].strip())
+    pdf.sello_digital(fiscal_nombre, caso.get("numero", ""))
+    buf = BytesIO()
+    pdf.output(buf)
+    return buf.getvalue()
+
+
+def pdf_oficio_valoracion_psicologica(caso: dict, fiscal_nombre: str,
+                                       unidad_key: str,
+                                       hospital: str = "",
+                                       persona_nombre: str = "",
+                                       motivo_valoracion: str = "") -> bytes:
+    """
+    Oficio al Hospital para turno de valoracion psicologica.
+    Usado en suspensiones VF (carril amarillo, Titulo I CCC).
+    Adaptado de plantilla "OFICIO HOSPITAL PARA VALORACION NO URGENTE".
+    """
+    fecha = _fecha_formal()
+    pdf = PDFMPFBase(unidad_key)
+    pdf.alias_nb_pages()
+    pdf.add_page()
+
+    pdf.titulo_documento("Oficio - Solicitud de Valoracion Psicologica")
+    pdf.metadatos(caso.get("numero", "S/N"), fecha)
+
+    inf = TIPOS_INFRACCION.get(caso.get("tipo", caso.get("tipo_infraccion", "")), {})
+    nom_imp = _s(caso.get("imputado") or caso.get("apellido_nombre", ""))
+    nom_per = _s(persona_nombre or nom_imp)
+    hosp = _s(hospital or "el Hospital de la ciudad")
+    motivo = _s(motivo_valoracion or
+                "valoracion del estado de salud mental del/la imputado/a como "
+                "condicion de la suspension del proceso contravencional a prueba")
+
+    # Destinatario
+    pdf.set_fill_color(240, 244, 252)
+    pdf.set_draw_color(*AZUL_CLARO)
+    y0 = pdf.get_y()
+    pdf.rect(20, y0, 170, 16, style="FD")
+    pdf.set_xy(24, y0 + 3)
+    pdf._sf("B", 9)
+    pdf.cell(0, 5, f"Sr./Sra. Director/a — {hosp}", ln=True)
+    pdf.set_x(24)
+    pdf._sf("", 9)
+    pdf.cell(0, 5, "S / D", ln=True)
+    pdf.ln(8)
+
+    pdf._sf("", 9)
+    pdf.multi_cell(0, 5,
+        f"En el marco de los autos caratulados \"{nom_imp.upper()} - infraccion al "
+        f"{inf.get('articulo', 'Codigo de Convivencia Ciudadana')}\", tramitados ante esta "
+        f"{_s(pdf.unidad_str)}, y por intermedio de quien corresponda, se solicita a ese "
+        f"nosocomio que otorgue turno a/la Sr./Sra. {nom_per} a los fines de que personal "
+        f"a su cargo realice sobre dicha persona una {motivo}.",
+        align="J")
+    pdf.ln(4)
+
+    pdf.multi_cell(0, 5,
+        "En caso de no contar con personal en el area de salud mental, informe a "
+        "partir de que fecha retornaria la actividad, o indique el centro de salud "
+        "mas apropiado para la realizacion de la valoracion solicitada.",
+        align="J")
+    pdf.ln(4)
+
+    pdf.multi_cell(0, 5,
+        "El resultado de la valoracion debera ser remitido a la sede de esta "
+        f"{_s(pdf.unidad_str)} a la brevedad posible, a efectos de su incorporacion "
+        "al expediente y control del cumplimiento de condiciones.",
+        align="J")
+
+    pdf.linea_firma(fiscal_nombre, "Fiscal Contravencional", pdf.unidad_str.split("-")[0].strip())
+    pdf.sello_digital(fiscal_nombre, caso.get("numero", ""))
+    buf = BytesIO()
+    pdf.output(buf)
+    return buf.getvalue()
+
+
+def pdf_decreto_archivo(caso: dict, fiscal_nombre: str, unidad_key: str,
+                         motivo: str = "prescripcion",
+                         fundamento: str = "") -> bytes:
+    """
+    Decreto de archivo de actuaciones contravencionales.
+    Causas de extincion (Arts. 43, 45, 58, 59 Ley 10.326 CCC).
+    motivo: 'prescripcion' | 'reparacion_danio' | 'conciliacion' |
+            'oportunidad' | 'falta_merito' | 'muerte_imputado' | 'otro'
+    """
+    fecha = _fecha_formal()
+    pdf = PDFMPFBase(unidad_key)
+    pdf.alias_nb_pages()
+    pdf.add_page()
+
+    pdf.titulo_documento("Decreto de Archivo")
+    pdf.metadatos(caso.get("numero", "S/N"), fecha)
+
+    inf = TIPOS_INFRACCION.get(caso.get("tipo", caso.get("tipo_infraccion", "")), {})
+    nom_imp = _s(caso.get("imputado") or caso.get("apellido_nombre", ""))
+
+    # Fundamentos legales según motivo
+    _MOTIVOS = {
+        "prescripcion": (
+            "prescripcion de la accion contravencional",
+            "Art. 43 de la Ley 10.326 (Codigo de Convivencia Ciudadana): "
+            "la accion contravencional prescribe a los dos (2) anos para las contravenciones "
+            "sancionadas con pena mayor a seis meses, y al ano (1) para las demas.",
+            "habiendo transcurrido el plazo legal de prescripcion sin que se hubiera "
+            "dictado resolucion definitiva.",
+        ),
+        "reparacion_danio": (
+            "reparacion voluntaria del danio causado",
+            "Art. 58 de la Ley 10.326: constituye causa de extincion de la accion "
+            "contravencional la reparacion integral del danio causado, de modo voluntario "
+            "y antes de que se dicte la resolucion final.",
+            "habiendo el/la imputado/a reparado integralmente el danio causado "
+            "a satisfaccion de la parte damnificada.",
+        ),
+        "conciliacion": (
+            "conciliacion entre las partes",
+            "Art. 59 de la Ley 10.326: extingue la accion contravencional el acuerdo "
+            "de conciliacion celebrado entre imputado/a y damnificado/a.",
+            "habiendo las partes alcanzado un acuerdo de conciliacion que resuelve "
+            "el conflicto subyacente al hecho investigado.",
+        ),
+        "oportunidad": (
+            "criterio de oportunidad reglada",
+            "Art. 44 de la Ley 10.326: el Ministerio Publico Fiscal podra prescindir "
+            "del ejercicio de la accion contravencional cuando el hecho carezca de "
+            "significacion contravencional o el bien juridico afectado sea de escasa "
+            "entidad.",
+            "por carecer el hecho investigado de la significacion contravencional "
+            "suficiente para justificar el ejercicio de la accion publica.",
+        ),
+        "falta_merito": (
+            "falta de merito suficiente",
+            "Art. 312 del CPP (aplicacion supletoria, Art. 128 Ley 10.326): "
+            "no existiendo meritos suficientes para sostener la acusacion.",
+            "por no haberse reunido elementos probatorios suficientes para "
+            "acreditar la comision del hecho investigado.",
+        ),
+        "muerte_imputado": (
+            "fallecimiento del imputado/a",
+            "Art. 45 inc. 1 de la Ley 10.326: la accion contravencional se extingue "
+            "por muerte del imputado/a.",
+            "habiendose acreditado el fallecimiento del/la imputado/a.",
+        ),
+    }
+    causa_txt, base_legal, circunstancia = _MOTIVOS.get(motivo, (
+        "causa de archivo debidamente fundada",
+        fundamento or "conforme las constancias de autos.",
+        "",
+    ))
+
+    pdf._sf("", 9)
+    pdf.multi_cell(0, 5,
+        f"VISTOS: Las actuaciones contravencionales caratuladas "
+        f"\"{nom_imp.upper()} - infraccion al "
+        f"{inf.get('articulo', 'Codigo de Convivencia Ciudadana')}\", "
+        f"tramitadas ante esta {_s(pdf.unidad_str)}.",
+        align="J")
+    pdf.ln(4)
+
+    pdf.seccion("CONSIDERANDO",
+        f"Que habiendose analizado las presentes actuaciones, se advierte que concurre "
+        f"la causa de extincion de la accion contravencional consistente en la "
+        f"{causa_txt}.\n\n"
+        f"{base_legal}\n\n"
+        f"Que en el caso concreto ello se verifica {circunstancia}"
+        + (f"\n\nFundamento adicional: {_s(fundamento)}" if fundamento and motivo not in _MOTIVOS else "")
+    )
+
+    pdf._sf("B", 10)
+    pdf.set_text_color(*AZUL_MPF)
+    pdf.set_fill_color(235, 245, 235)
+    pdf.cell(0, 9,
+             "POR TODO ELLO, ESTE MINISTERIO PUBLICO FISCAL RESUELVE:",
+             align="C", fill=True, ln=True)
+    pdf.set_text_color(*NEGRO)
+    pdf.ln(4)
+
+    pdf._sf("B", 9)
+    pdf.cell(0, 6, "ARTICULO 1:", ln=True)
+    pdf._sf("", 9)
+    pdf.multi_cell(0, 5,
+        f"ARCHIVAR las presentes actuaciones contravencionales caratuladas "
+        f"\"{nom_imp.upper()}\", por {causa_txt}, en los terminos "
+        f"del {base_legal.split(':')[0]}.",
+        align="J")
+    pdf.ln(3)
+
+    pdf._sf("B", 9)
+    pdf.cell(0, 6, "ARTICULO 2:", ln=True)
+    pdf._sf("", 9)
+    pdf.multi_cell(0, 5,
+        "Hacer saber lo dispuesto al/la imputado/a y, en su caso, al/la "
+        "damnificado/a mediante notificacion fehaciente. Agreguense los presentes al "
+        "legajo fiscal. NOTIFIQUESE Y ARCHIVESE.",
+        align="J")
+
+    pdf.linea_firma(fiscal_nombre, "Fiscal Contravencional", pdf.unidad_str.split("-")[0].strip())
+    pdf.sello_digital(fiscal_nombre, caso.get("numero", ""))
+    buf = BytesIO()
+    pdf.output(buf)
+    return buf.getvalue()
+
+
+def pdf_certificado_cumplimiento(caso: dict, seguimiento: dict,
+                                  condiciones: list, fiscal_nombre: str,
+                                  unidad_key: str) -> bytes:
+    """
+    Certificado de cumplimiento de condiciones de la suspension a prueba.
+    Se emite cuando todas las condiciones del seguimiento estan en estado 'cumplido'.
+    El imputado lo usa como constancia de extincion de la accion contravencional.
+    """
+    fecha = _fecha_formal()
+    pdf = PDFMPFBase(unidad_key)
+    pdf.alias_nb_pages()
+    pdf.add_page()
+
+    pdf.titulo_documento("Certificado de Cumplimiento de Condiciones")
+    pdf.metadatos(caso.get("numero", "S/N"), fecha)
+
+    nom_imp = _s(caso.get("imputado") or caso.get("apellido_nombre", ""))
+    dni_imp = _s(caso.get("dni") or caso.get("persona_dni", ""))
+    inf = TIPOS_INFRACCION.get(caso.get("tipo", caso.get("tipo_infraccion", "")), {})
+
+    # Datos del imputado en caja
+    pdf.set_fill_color(240, 244, 252)
+    pdf.set_draw_color(*AZUL_CLARO)
+    y0 = pdf.get_y()
+    pdf.rect(20, y0, 170, 22, style="FD")
+    pdf.set_xy(24, y0 + 3)
+    pdf._sf("B", 9)
+    pdf.cell(40, 5, "Imputado/a:")
+    pdf._sf("", 9)
+    pdf.cell(0, 5, nom_imp, ln=True)
+    pdf.set_x(24)
+    pdf._sf("B", 9)
+    pdf.cell(40, 5, "D.N.I.:")
+    pdf._sf("", 9)
+    pdf.cell(0, 5, dni_imp, ln=True)
+    pdf.set_x(24)
+    pdf._sf("B", 9)
+    pdf.cell(40, 5, "Infraccion:")
+    pdf._sf("", 9)
+    pdf.cell(0, 5, _s(inf.get("label", caso.get("tipo", ""))), ln=True)
+    pdf.ln(8)
+
+    # Cuerpo
+    pdf._sf("", 9)
+    pdf.multi_cell(0, 5,
+        f"El/la Fiscal Contravencional que suscribe, CERTIFICA que en los autos "
+        f"caratulados \"{nom_imp.upper()} - infraccion al "
+        f"{inf.get('articulo', 'Codigo de Convivencia Ciudadana')}\", "
+        f"tramitados ante esta {_s(pdf.unidad_str)}, el/la imputado/a ha dado "
+        f"cumplimiento INTEGRO Y SATISFACTORIO a la totalidad de las condiciones "
+        f"impuestas en el marco de la suspension del proceso contravencional a prueba "
+        f"(Arts. 76 a 81 Ley 10.326).",
+        align="J")
+    pdf.ln(5)
+
+    pdf.seccion("Condiciones cumplidas", "")
+    for i, cond in enumerate(condiciones, 1):
+        estado = cond.get("estado", "cumplido")
+        if estado == "cumplido":
+            pdf.item_lista(i, _s(cond.get("descripcion", "")))
+
+    pdf.ln(4)
+    f_inicio = _s(seguimiento.get("fecha_inicio", ""))
+    f_fin = _s(seguimiento.get("fecha_fin", ""))
+    pdf.multi_cell(0, 5,
+        f"La suspension se otorgo con fecha {f_inicio} y concluyo el {f_fin}. "
+        f"Habiendo el/la imputado/a cumplido satisfactoriamente con todas las "
+        f"condiciones impuestas, corresponde tener por EXTINGUIDA la accion "
+        f"contravencional en los terminos del Art. 81 de la Ley 10.326.",
+        align="J")
+    pdf.ln(5)
+
+    # Sello verde de cumplimiento
+    pdf.set_fill_color(220, 240, 220)
+    pdf.set_draw_color(60, 140, 60)
+    pdf.set_line_width(1)
+    y0 = pdf.get_y()
+    pdf.rect(45, y0, 120, 14, style="FD")
+    pdf.set_xy(45, y0 + 3)
+    pdf._sf("B", 11)
+    pdf.set_text_color(20, 100, 20)
+    pdf.cell(120, 7, "CONDICIONES CUMPLIDAS - PROCESO EXTINGUIDO", align="C", ln=True)
+    pdf.set_text_color(*NEGRO)
+    pdf.ln(6)
+
+    pdf.linea_firma(fiscal_nombre, "Fiscal Contravencional", pdf.unidad_str.split("-")[0].strip())
+    pdf.sello_digital(fiscal_nombre, caso.get("numero", ""))
+    buf = BytesIO()
+    pdf.output(buf)
+    return buf.getvalue()
+
+
+def pdf_acta_audiencia(caso: dict, fiscal_nombre: str, unidad_key: str,
+                        tipo_audiencia: str = "contravencional",
+                        resultado: str = "",
+                        manifestaciones: str = "",
+                        resuelve: str = "") -> bytes:
+    """
+    Acta de audiencia contravencional.
+    Registra lo actuado en la audiencia: tipo, manifestaciones del imputado, resolucion.
+    Tipos: 'contravencional' | 'mediacion' | 'acta_compromiso' | 'control_seg' | 'debate'
+    """
+    fecha = _fecha_formal()
+    pdf = PDFMPFBase(unidad_key)
+    pdf.alias_nb_pages()
+    pdf.add_page()
+
+    _TIPOS = {
+        "contravencional":   "Audiencia Contravencional",
+        "mediacion":         "Audiencia de Mediacion",
+        "acta_compromiso":   "Audiencia - Acta de Compromiso",
+        "control_seg":       "Audiencia de Control de Seguimiento",
+        "debate":            "Audiencia de Debate Contravencional",
+    }
+    titulo = _TIPOS.get(tipo_audiencia, "Audiencia Contravencional")
+    pdf.titulo_documento(titulo)
+    pdf.metadatos(caso.get("numero", "S/N"), fecha)
+
+    inf = TIPOS_INFRACCION.get(caso.get("tipo", caso.get("tipo_infraccion", "")), {})
+    nom_imp = _s(caso.get("imputado") or caso.get("apellido_nombre", ""))
+    dni_imp = _s(caso.get("dni") or caso.get("persona_dni", ""))
+
+    pdf._sf("", 9)
+    pdf.multi_cell(0, 5,
+        f"En la sede de esta {_s(pdf.unidad_str)}, siendo las ______ horas del dia "
+        f"{_fecha_formal()}, comparece por ante el/la Fiscal Contravencional el/la Sr./Sra. "
+        f"{nom_imp}, DNI N. {dni_imp}, en los autos caratulados "
+        f"\"{nom_imp.upper()} - infraccion al {inf.get('articulo', 'Codigo de Convivencia Ciudadana')}\". "
+        f"Enterado/a del objeto del acto y de sus derechos (Art. 40 Const. Prov. Cordoba), "
+        f"procede a manifestar:",
+        align="J")
+    pdf.ln(5)
+
+    # Manifestaciones
+    pdf._sf("B", 9)
+    pdf.set_text_color(*AZUL_MPF)
+    pdf.cell(0, 5, "MANIFESTACIONES DEL/LA IMPUTADO/A:", ln=True)
+    pdf.set_text_color(*NEGRO)
+    pdf._sf("", 9)
+    if manifestaciones:
+        pdf.multi_cell(0, 5, _s(manifestaciones), align="J")
+    else:
+        # Líneas en blanco para completar a mano
+        for _ in range(4):
+            pdf.ln(7)
+            pdf.set_draw_color(*GRIS_LINEA)
+            pdf.line(22, pdf.get_y(), 188, pdf.get_y())
+    pdf.ln(5)
+
+    # Resultado
+    if resultado or resuelve:
+        pdf._sf("B", 9)
+        pdf.set_text_color(*AZUL_MPF)
+        pdf.cell(0, 5, "RESOLUCION DEL FISCAL:", ln=True)
+        pdf.set_text_color(*NEGRO)
+        pdf._sf("", 9)
+        res_txt = resuelve or resultado
+        if res_txt:
+            pdf.multi_cell(0, 5, _s(res_txt), align="J")
+        else:
+            for _ in range(3):
+                pdf.ln(7)
+                pdf.set_draw_color(*GRIS_LINEA)
+                pdf.line(22, pdf.get_y(), 188, pdf.get_y())
+    pdf.ln(8)
+
+    pdf._sf("", 8)
+    pdf.cell(0, 5, "Con lo que se da por terminado el acto, previa lectura en alta voz y", ln=True)
+    pdf.cell(0, 5, "ratificacion, firman los intervinientes.", ln=True)
+    pdf.ln(10)
+
+    # Doble firma
+    y_f = pdf.get_y()
+    pdf.set_draw_color(*GRIS_LINEA)
+    pdf.set_line_width(0.3)
+    pdf.line(22, y_f, 95, y_f)
+    pdf.line(115, y_f, 188, y_f)
+    pdf.set_xy(22, y_f + 2)
+    pdf._sf("B", 8)
+    pdf.cell(73, 4, nom_imp, align="C")
+    pdf.set_x(115)
+    pdf.cell(73, 4, _s(fiscal_nombre), align="C", ln=True)
+    pdf.set_x(22)
+    pdf._sf("", 7)
+    pdf.cell(73, 4, "Imputado/a", align="C")
+    pdf.set_x(115)
+    pdf.cell(73, 4, "Fiscal Contravencional", align="C", ln=True)
+
+    pdf.sello_digital(fiscal_nombre, caso.get("numero", ""))
+    buf = BytesIO()
+    pdf.output(buf)
+    return buf.getvalue()
+
+
+def pdf_decreto_suspension_prueba(caso: dict, condiciones_lista: list,
+                                   fiscal_nombre: str, unidad_key: str,
+                                   plazo_meses: int = 6,
+                                   fecha_inicio: str = "") -> bytes:
+    """
+    Decreto formal de suspension del proceso contravencional a prueba.
+    Arts. 76 a 81 Ley 10.326 CCC. Distinto del dictamen previo: este es el
+    instrumento ejecutivo que dispone la suspension con condiciones y plazo.
+    """
+    fecha = _fecha_formal()
+    f_inicio = _s(fecha_inicio or datetime.now().strftime("%d/%m/%Y"))
+    from datetime import date, timedelta
+    try:
+        fi_dt = datetime.strptime(fecha_inicio, "%Y-%m-%d") if fecha_inicio else datetime.now()
+    except Exception:
+        fi_dt = datetime.now()
+    fi_fin = fi_dt + timedelta(days=plazo_meses * 30)
+    f_fin = _fecha_formal(fi_fin)
+
+    pdf = PDFMPFBase(unidad_key)
+    pdf.alias_nb_pages()
+    pdf.add_page()
+
+    pdf.titulo_documento("Decreto de Suspension del Proceso Contravencional a Prueba")
+    pdf.metadatos(caso.get("numero", "S/N"), fecha)
+
+    inf = TIPOS_INFRACCION.get(caso.get("tipo", caso.get("tipo_infraccion", "")), {})
+    nom_imp = _s(caso.get("imputado") or caso.get("apellido_nombre", ""))
+    dni_imp = _s(caso.get("dni") or caso.get("persona_dni", ""))
+
+    pdf._sf("", 9)
+    pdf.multi_cell(0, 5,
+        f"VISTOS los autos caratulados \"{nom_imp.upper()} - infraccion al "
+        f"{inf.get('articulo', 'Codigo de Convivencia Ciudadana')}\", tramitados "
+        f"ante esta {_s(pdf.unidad_str)}, en los que como imputado/a figura "
+        f"{nom_imp}, DNI N. {dni_imp};",
+        align="J")
+    pdf.ln(4)
+
+    pdf.seccion("CONSIDERANDO",
+        f"Que habiendose celebrado audiencia con el/la imputado/a, quien presto "
+        f"conformidad con la propuesta de suspension del proceso contravencional a prueba, "
+        f"en los terminos de los Arts. 76 a 81 de la Ley 10.326 (Codigo de Convivencia "
+        f"Ciudadana), y habiendo acordado las condiciones que a continuacion se detallan, "
+        f"corresponde hacer lugar a la suspension solicitada.")
+
+    pdf._sf("B", 10)
+    pdf.set_text_color(*AZUL_MPF)
+    pdf.set_fill_color(235, 240, 250)
+    pdf.cell(0, 9, "ESTE MINISTERIO PUBLICO FISCAL RESUELVE:", align="C", fill=True, ln=True)
+    pdf.set_text_color(*NEGRO)
+    pdf.ln(4)
+
+    pdf._sf("B", 9)
+    pdf.cell(0, 6, "ARTICULO 1:", ln=True)
+    pdf._sf("", 9)
+    pdf.multi_cell(0, 5,
+        f"SUSPENDER el proceso contravencional a prueba seguido contra {nom_imp}, "
+        f"DNI N. {dni_imp}, por el termino de {plazo_meses} ({_num_a_letra(plazo_meses)}) "
+        f"meses, contados a partir del dia {f_inicio} y hasta el dia {f_fin}.",
+        align="J")
+    pdf.ln(3)
+
+    pdf._sf("B", 9)
+    pdf.cell(0, 6, "ARTICULO 2:", ln=True)
+    pdf._sf("", 9)
+    pdf.multi_cell(0, 5,
+        "Imponer al/la imputado/a el cumplimiento de las siguientes condiciones "
+        "durante el plazo de la suspension:",
+        align="J")
+    pdf.ln(2)
+    for i, cond in enumerate(condiciones_lista, 1):
+        texto = cond if isinstance(cond, str) else cond.get("descripcion", str(cond))
+        pdf.item_lista(i, texto)
+
+    pdf.ln(3)
+    pdf._sf("B", 9)
+    pdf.cell(0, 6, "ARTICULO 3:", ln=True)
+    pdf._sf("", 9)
+    pdf.multi_cell(0, 5,
+        "Hacer saber al/la imputado/a que el incumplimiento de cualquiera de las "
+        "condiciones impuestas podra determinar la revocacion de la suspension y la "
+        "continuacion del proceso contravencional (Art. 80 Ley 10.326).",
+        align="J")
+    pdf.ln(3)
+
+    pdf._sf("B", 9)
+    pdf.cell(0, 6, "ARTICULO 4:", ln=True)
+    pdf._sf("", 9)
+    pdf.multi_cell(0, 5,
+        "NOTIFIQUESE fehacientemente al/la imputado/a. Librense oficios a los "
+        "organismos correspondientes. Agreguen al legajo fiscal. REGISTRESE.",
+        align="J")
+
+    pdf.linea_firma(fiscal_nombre, "Fiscal Contravencional", pdf.unidad_str.split("-")[0].strip())
+    pdf.sello_digital(fiscal_nombre, caso.get("numero", ""))
+    buf = BytesIO()
+    pdf.output(buf)
+    return buf.getvalue()
+
+
+def _num_a_letra(n: int) -> str:
+    """Convierte 1-12 a letra para documentos formales."""
+    _MAP = {1:"uno",2:"dos",3:"tres",4:"cuatro",5:"cinco",6:"seis",
+            7:"siete",8:"ocho",9:"nueve",10:"diez",11:"once",12:"doce"}
+    return _MAP.get(n, str(n))
+
+
 # -- Punto de entrada ---------------------------------------------------------
 
 def generar_pdf(tipo_doc, caso, clf, fiscal, unidad):
+    """
+    Dispatcher principal.  clf puede ser un dict de clasificacion o un dict
+    de parametros adicionales segun el tipo de documento.
+    """
     # Normalize DB row keys to the legacy keys used by pdf helpers.
-    # get_causa() returns apellido_nombre / persona_dni / persona_edad;
-    # the pdf helpers expect imputado / dni / edad / tipo / antecedentes.
     if isinstance(caso, dict):
         caso = dict(caso)
         caso.setdefault("tipo",         caso.get("tipo_infraccion", ""))
@@ -1579,22 +2336,85 @@ def generar_pdf(tipo_doc, caso, clf, fiscal, unidad):
         caso.setdefault("edad",         caso.get("persona_edad", ""))
         caso.setdefault("antecedentes", 0)
         caso.setdefault("domicilio",    caso.get("persona_domicilio", ""))
+    extra = clf or {}
     t = tipo_doc.lower()
+
+    # Documentos del workflow CCC ampliado
+    if "restriccion" in t or "acercamiento" in t or "medidas restric" in t:
+        return pdf_acta_restriccion_acercamiento(
+            caso, fiscal, unidad,
+            victima_nombre    = extra.get("victima_nombre", ""),
+            victima_domicilio = extra.get("victima_domicilio", ""),
+            plazo_dias        = extra.get("plazo_dias", 90),
+        )
+    if "polo" in t or "integral" in t:
+        return pdf_oficio_polo_mujer(
+            caso, fiscal, unidad,
+            victima_nombre = extra.get("victima_nombre", ""),
+            resena_hechos  = extra.get("resena", ""),
+        )
+    if "socioambiental" in t or "asistente social" in t:
+        return pdf_oficio_informe_socioambiental(
+            caso, fiscal, unidad,
+            municipio      = extra.get("municipio", ""),
+            puntos_pericia = extra.get("puntos_pericia"),
+        )
+    if "valoracion" in t or "psicolog" in t:
+        return pdf_oficio_valoracion_psicologica(
+            caso, fiscal, unidad,
+            hospital            = extra.get("hospital", ""),
+            persona_nombre      = extra.get("persona_nombre", ""),
+            motivo_valoracion   = extra.get("motivo_valoracion", ""),
+        )
+    if "decreto" in t and "archivo" in t or "archivar" in t:
+        return pdf_decreto_archivo(
+            caso, fiscal, unidad,
+            motivo     = extra.get("motivo", "prescripcion"),
+            fundamento = extra.get("fundamento", ""),
+        )
+    if "certificado" in t and "cumplimiento" in t:
+        return pdf_certificado_cumplimiento(
+            caso, extra.get("seguimiento", {}),
+            extra.get("condiciones", []),
+            fiscal, unidad,
+        )
+    if "acta" in t and "audiencia" in t:
+        return pdf_acta_audiencia(
+            caso, fiscal, unidad,
+            tipo_audiencia  = extra.get("tipo_audiencia", "contravencional"),
+            resultado       = extra.get("resultado", ""),
+            manifestaciones = extra.get("manifestaciones", ""),
+            resuelve        = extra.get("resuelve", ""),
+        )
+    if "decreto" in t and ("suspension" in t or "prueba" in t):
+        return pdf_decreto_suspension_prueba(
+            caso,
+            extra.get("condiciones", []),
+            fiscal, unidad,
+            plazo_meses  = extra.get("plazo_meses", 6),
+            fecha_inicio = extra.get("fecha_inicio", ""),
+        )
+
+    # Documentos originales
     if "requerimiento" in t or "apertura" in t:
-        return pdf_requerimiento_apertura(caso, clf, fiscal, unidad)
-    elif "mediaci" in t:
-        return pdf_dictamen_mediacion(caso, clf, fiscal, unidad)
-    elif "suspensi" in t or "prueba" in t:
-        return pdf_dictamen_suspension(caso, clf, fiscal, unidad)
-    elif "acta" in t and "compromiso" in t:
-        condiciones = clf.get("condiciones", []) if clf else []
+        return pdf_requerimiento_apertura(caso, extra, fiscal, unidad)
+    if "mediaci" in t and "dictamen" in t:
+        return pdf_dictamen_mediacion(caso, extra, fiscal, unidad)
+    if ("suspensi" in t or "prueba" in t) and "dictamen" in t:
+        return pdf_dictamen_suspension(caso, extra, fiscal, unidad)
+    if "acta" in t and "compromiso" in t:
+        condiciones = extra.get("condiciones", [])
         return pdf_acta_compromiso(caso, condiciones, fiscal, unidad)
-    elif "incumplimiento" in t:
-        seguimiento = clf.get("seguimiento", {}) if clf else {}
-        conds_inc   = clf.get("condiciones_inc", []) if clf else []
+    if "incumplimiento" in t:
+        seguimiento = extra.get("seguimiento", {})
+        conds_inc   = extra.get("condiciones_inc", [])
         return pdf_informe_incumplimiento(caso, seguimiento, conds_inc, fiscal, unidad)
-    elif "citaci" in t:
+    if "mediaci" in t:
+        return pdf_dictamen_mediacion(caso, extra, fiscal, unidad)
+    if "suspensi" in t or "prueba" in t:
+        return pdf_dictamen_suspension(caso, extra, fiscal, unidad)
+    if "citaci" in t:
         motivo = "mediacion" if "mediaci" in t else ("acta" if "acta" in t else "audiencia")
         return pdf_citacion(caso, fiscal, unidad, motivo)
-    else:
-        return pdf_citacion(caso, fiscal, unidad)
+    # Fallback
+    return pdf_citacion(caso, fiscal, unidad)

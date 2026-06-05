@@ -37,6 +37,10 @@ from database import (
     actualizar_descripcion, stats_notas, stats_tiempo_por_estado,
     stats_audiencias_por_dia, get_favoritos, toggle_favorito, seed_favoritos,
     reclasificar_causa,
+    # Workflow CCC completo
+    get_victimas, registrar_victima, get_motivo_archivo,
+    archivar_causa_con_motivo, calcular_prescripcion,
+    MOTIVOS_ARCHIVO,
 )
 from seguimiento_tab import render_tab_seguimiento
 from agenda_tab import render_tab_agenda
@@ -408,6 +412,28 @@ try:
 except Exception:
     pass
 
+# Prescripción próxima (Art. 43 Ley 10.326) — causas activas con ≤90 días
+try:
+    from database import causas_con_alerta_prescripcion as _pres_fn
+    _unidad_pres = st.session_state.get("unidad_key")
+    _pres_alertas = _pres_fn(unidad=_unidad_pres, dias_alerta=90)
+    _pres_rojas   = [p for p in _pres_alertas if p.get("alerta") == "roja"]
+    _pres_naranja = [p for p in _pres_alertas if p.get("alerta") == "naranja"]
+    if _pres_rojas:
+        _pres_nums = ", ".join(p.get("numero","")[-8:] for p in _pres_rojas[:3])
+        _pres_extra = f" y {len(_pres_rojas)-3} más" if len(_pres_rojas) > 3 else ""
+        _alertas.append(
+            f"⏰ **{len(_pres_rojas)} causa(s) PRESCRITA(S) o próximas a prescribir** "
+            f"(≤30 días) — {_pres_nums}{_pres_extra} — Art. 43 Ley 10.326"
+        )
+    elif _pres_naranja:
+        _alertas.append(
+            f"⏳ **{len(_pres_naranja)} causa(s) prescriben en 30-90 días** — "
+            f"verificar si corresponde archivo"
+        )
+except Exception:
+    pass
+
 if _alertas:
     with st.container():
         for alerta in _alertas:
@@ -710,6 +736,31 @@ if _seccion == "nueva_causa":
         lesiones   = col_l.checkbox("Lesiones físicas")
         resistencia= col_r.checkbox("Resistencia a autoridad")
 
+        # Datos de víctima (opcional, solo si hay víctima identificada)
+        _vic_datos: dict = {}
+        if victima:
+            with st.expander("👤 Datos de la víctima (opcional)", expanded=True):
+                _vc1, _vc2 = st.columns(2)
+                _vic_nom  = _vc1.text_input("Nombre y apellido", key="nc_vic_nombre",
+                                             placeholder="García, María Laura")
+                _vic_dni  = _vc2.text_input("DNI", key="nc_vic_dni",
+                                             placeholder="Ej: 32.100.200")
+                _vc3, _vc4 = st.columns(2)
+                _vic_tel  = _vc3.text_input("Teléfono", key="nc_vic_tel")
+                _vic_email= _vc4.text_input("Email", key="nc_vic_email")
+                _vic_dom  = st.text_input("Domicilio", key="nc_vic_dom")
+                _vic_notif= st.checkbox("La víctima quiere ser notificada de avances",
+                                         value=True, key="nc_vic_notif")
+                if _vic_nom:
+                    _vic_datos = {
+                        "apellido_nombre": _vic_nom,
+                        "dni": _vic_dni,
+                        "telefono": _vic_tel,
+                        "email": _vic_email,
+                        "domicilio": _vic_dom,
+                        "quiere_notif": _vic_notif,
+                    }
+
     with col_der:
         st.markdown("#### Clasificación automática")
 
@@ -835,13 +886,28 @@ if _seccion == "nueva_causa":
                 help="Esta nota quedará registrada en el historial de estados de la causa al guardarla.",
             )
 
-            # Documento
+            # Documento — menú contextual según carril e infracción
+            _nc_titulo_ccc = TIPOS_INFRACCION.get(tipo, {}).get("titulo_ccc", "")
+            _nc_es_vf = _nc_titulo_ccc == "I"  # Convivencia/VF/hostigamiento
             if clf["carril"] == "verde":
                 doc_ops = ["Dictamen de derivación a mediación", "Cédula de citación a mediación"]
             elif clf["carril"] == "amarillo":
-                doc_ops = ["Dictamen de suspensión del proceso a prueba", "Cédula de citación", "Dictamen de derivación a mediación"]
+                doc_ops = ["Dictamen de suspensión del proceso a prueba",
+                           "Decreto de suspensión a prueba",
+                           "Cédula de citación",
+                           "Oficio - Informe socioambiental",
+                           "Dictamen de derivación a mediación"]
+                if _nc_es_vf:
+                    doc_ops += ["Acta de restricción de acercamiento",
+                                "Oficio al Polo Integral de la Mujer",
+                                "Oficio - Valoración psicológica"]
             else:
-                doc_ops = ["Requerimiento de apertura del proceso", "Cédula de citación a audiencia", "Resumen ejecutivo del caso"]
+                doc_ops = ["Requerimiento de apertura del proceso",
+                           "Cédula de citación a audiencia",
+                           "Resumen ejecutivo del caso"]
+                if _nc_es_vf:
+                    doc_ops += ["Acta de restricción de acercamiento",
+                                "Oficio al Polo Integral de la Mujer"]
             doc_sel = st.selectbox("Documento a generar", doc_ops)
 
             col_btn1, col_btn2 = st.columns(2)
@@ -853,6 +919,22 @@ if _seccion == "nueva_causa":
                 # Save initial observation as first nota in timeline
                 if _obs_inicial and _obs_inicial.strip():
                     agregar_nota_causa(causa_id, _obs_inicial.strip(), fiscal_nombre)
+
+                # ── Registrar víctima si se cargaron datos ──────────────────────
+                if _vic_datos and _vic_datos.get("apellido_nombre"):
+                    try:
+                        from database import registrar_victima
+                        registrar_victima(
+                            causa_id,
+                            apellido_nombre=_vic_datos["apellido_nombre"],
+                            dni=_vic_datos.get("dni", ""),
+                            telefono=_vic_datos.get("telefono", ""),
+                            email=_vic_datos.get("email", ""),
+                            domicilio=_vic_datos.get("domicilio", ""),
+                            quiere_notif=_vic_datos.get("quiere_notif", True),
+                        )
+                    except Exception:
+                        pass
 
                 # ── Push a Supabase si la causa viene de la Bandeja RC ──────────
                 _rc_sb_id = (st.session_state.get("rc_prefill") or {}).get("supabase_id", "")
@@ -1619,22 +1701,36 @@ if _seccion == "mis_causas":
                             key=f"est_{c['id']}"
                         )
                         obs_estado = st.text_input("Observaciones", key=f"obs_{c['id']}", placeholder="Opcional")
-                        # Closing note for archivada transition
+                        # Motivo legal de archivo (Art. 43-59 CCC)
+                        _motivo_arch_key = ""
                         if nuevo_estado == "archivada":
-                            _cierre_templates = [
-                                "— Seleccioná o escribí el motivo de cierre —",
-                                "Seguimiento de condiciones completado satisfactoriamente.",
-                                "Causa archivada por falta de mérito procesal.",
-                                "Imputado/a cumplió con las condiciones impuestas.",
-                                "Causa archivada a solicitud de la parte damnificada.",
-                                "Archivada por prescripción de la acción contravencional.",
-                            ]
-                            _cierre_sel = st.selectbox("Motivo de cierre", _cierre_templates,
-                                                        key=f"cierre_motivo_{c['id']}")
-                            if _cierre_sel != _cierre_templates[0] and not obs_estado:
-                                obs_estado = _cierre_sel
+                            from database import MOTIVOS_ARCHIVO as _MA
+                            _ma_opts = ["— Seleccioná el motivo legal —"] + list(_MA.keys())
+                            _ma_sel  = st.selectbox(
+                                "Motivo de extinción (Art. CCC)",
+                                _ma_opts,
+                                format_func=lambda k: _MA.get(k, k),
+                                key=f"motivo_arch_{c['id']}"
+                            )
+                            if _ma_sel != _ma_opts[0]:
+                                _motivo_arch_key = _ma_sel
+                            # Prescripción info
+                            try:
+                                from database import calcular_prescripcion as _cp
+                                _pres_info = _cp(c["id"])
+                                if _pres_info.get("prescripta"):
+                                    st.error(f"⏰ Esta causa **ya prescribió** — vence {_pres_info['prescribe_en']}")
+                                elif _pres_info.get("dias_restantes", 999) <= 30:
+                                    st.warning(f"⏳ Prescribe en {_pres_info['dias_restantes']} días — {_pres_info['prescribe_en']}")
+                            except Exception:
+                                pass
                         if st.button("Actualizar estado", key=f"upd_{c['id']}", use_container_width=True):
-                            avanzar_estado(c["id"], nuevo_estado, fiscal_nombre, obs_estado)
+                            if nuevo_estado == "archivada" and _motivo_arch_key:
+                                from database import archivar_causa_con_motivo
+                                archivar_causa_con_motivo(c["id"], _motivo_arch_key,
+                                                          fiscal_nombre, obs_estado)
+                            else:
+                                avanzar_estado(c["id"], nuevo_estado, fiscal_nombre, obs_estado)
                             st.cache_data.clear()
                             st.success(f"Estado actualizado a {ESTADOS_LABEL[nuevo_estado]}")
                             st.rerun()
@@ -1953,18 +2049,44 @@ if _seccion == "mis_causas":
                         "descripcion": c.get("descripcion",""),
                         "unidad": c.get("unidad","norte"),
                     }
+                    _gc_titulo_ccc = TIPOS_INFRACCION.get(c.get("tipo_infraccion",""), {}).get("titulo_ccc", "")
+                    _gc_es_vf = _gc_titulo_ccc == "I"
                     if c.get("carril") == "verde":
-                        doc_opts_causa = ["Dictamen de derivación a mediación", "Cédula de citación a mediación"]
+                        doc_opts_causa = ["Dictamen de derivación a mediación",
+                                          "Acta de audiencia contravencional",
+                                          "Cédula de citación a mediación"]
+                        if _gc_es_vf:
+                            doc_opts_causa += ["Acta de restricción de acercamiento",
+                                               "Oficio al Polo Integral de la Mujer"]
                     elif c.get("carril") == "rojo":
-                        doc_opts_causa = ["Requerimiento de apertura del proceso", "Cédula de citación a audiencia",
+                        doc_opts_causa = ["Requerimiento de apertura del proceso",
+                                          "Acta de audiencia contravencional",
+                                          "Cédula de citación a audiencia",
                                           "Resumen ejecutivo"]
                         if c.get("estado") in ("resuelta", "archivada"):
-                            doc_opts_causa += ["Informe de incumplimiento"]
+                            doc_opts_causa += ["Decreto de archivo", "Informe de incumplimiento"]
+                        if _gc_es_vf:
+                            doc_opts_causa += ["Acta de restricción de acercamiento",
+                                               "Oficio al Polo Integral de la Mujer"]
                     elif c.get("estado") in ("resuelta", "archivada"):
-                        doc_opts_causa = ["Dictamen de suspensión a prueba", "Acta de compromiso",
-                                          "Informe de incumplimiento", "Cédula de citación", "Resumen ejecutivo"]
+                        doc_opts_causa = ["Dictamen de suspensión a prueba",
+                                          "Decreto de suspensión a prueba",
+                                          "Acta de compromiso",
+                                          "Certificado de cumplimiento",
+                                          "Decreto de archivo",
+                                          "Informe de incumplimiento",
+                                          "Cédula de citación", "Resumen ejecutivo"]
                     else:
-                        doc_opts_causa = ["Dictamen de suspensión a prueba", "Cédula de citación", "Resumen ejecutivo"]
+                        doc_opts_causa = ["Dictamen de suspensión a prueba",
+                                          "Decreto de suspensión a prueba",
+                                          "Acta de audiencia contravencional",
+                                          "Cédula de citación",
+                                          "Oficio - Informe socioambiental",
+                                          "Resumen ejecutivo"]
+                        if _gc_es_vf:
+                            doc_opts_causa += ["Acta de restricción de acercamiento",
+                                               "Oficio al Polo Integral de la Mujer",
+                                               "Oficio - Valoración psicológica"]
                     doc_tipo = st.selectbox("Tipo", doc_opts_causa, key=f"dopt_{c['id']}", label_visibility="collapsed")
                     if st.button("Generar y guardar", key=f"gendoc_{c['id']}", use_container_width=True):
                         _needs_rerun = True
@@ -1996,26 +2118,100 @@ if _seccion == "mis_causas":
                             st.session_state[f"_pdf_inf_{c['id']}"] = pdf_bytes
                             doc_txt = f"Informe de incumplimiento — {caso_stored['imputado']} — {c['numero']}"
                             _needs_rerun = False
+                        elif "Acta de restricción" in doc_tipo or "restriccion" in doc_tipo.lower():
+                            pdf_bytes = generar_pdf("medidas restriccion", caso_stored,
+                                                    {}, fiscal_nombre, caso_stored["unidad"])
+                            st.session_state[f"_pdf_rest_{c['id']}"] = pdf_bytes
+                            doc_txt = f"Acta de restriccion de acercamiento — {caso_stored['imputado']}"
+                            _needs_rerun = False
+                        elif "Polo" in doc_tipo:
+                            pdf_bytes = generar_pdf("polo integral", caso_stored,
+                                                    {}, fiscal_nombre, caso_stored["unidad"])
+                            st.session_state[f"_pdf_polo_{c['id']}"] = pdf_bytes
+                            doc_txt = f"Oficio al Polo — {caso_stored['imputado']}"
+                            _needs_rerun = False
+                        elif "socioambiental" in doc_tipo.lower():
+                            pdf_bytes = generar_pdf("socioambiental", caso_stored,
+                                                    {}, fiscal_nombre, caso_stored["unidad"])
+                            st.session_state[f"_pdf_soc_{c['id']}"] = pdf_bytes
+                            doc_txt = f"Oficio informe socioambiental — {caso_stored['imputado']}"
+                            _needs_rerun = False
+                        elif "Valoración psicológica" in doc_tipo or "valoracion" in doc_tipo.lower():
+                            pdf_bytes = generar_pdf("valoracion psicologica", caso_stored,
+                                                    {}, fiscal_nombre, caso_stored["unidad"])
+                            st.session_state[f"_pdf_val_{c['id']}"] = pdf_bytes
+                            doc_txt = f"Oficio valoracion psicologica — {caso_stored['imputado']}"
+                            _needs_rerun = False
+                        elif "Decreto de archivo" in doc_tipo:
+                            _mot_arch = get_motivo_archivo(c["id"]) or "falta_merito"
+                            pdf_bytes = generar_pdf("decreto archivo", caso_stored,
+                                                    {"motivo": _mot_arch},
+                                                    fiscal_nombre, caso_stored["unidad"])
+                            st.session_state[f"_pdf_arch_{c['id']}"] = pdf_bytes
+                            doc_txt = f"Decreto de archivo — {caso_stored['imputado']}"
+                            _needs_rerun = False
+                        elif "Certificado de cumplimiento" in doc_tipo:
+                            _seg_cert = get_seguimiento_por_causa(c["id"]) or {}
+                            _conds_cert = get_condiciones(_seg_cert.get("id", 0)) if _seg_cert else []
+                            pdf_bytes = generar_pdf("certificado cumplimiento", caso_stored,
+                                                    {"seguimiento": _seg_cert, "condiciones": _conds_cert},
+                                                    fiscal_nombre, caso_stored["unidad"])
+                            st.session_state[f"_pdf_cert_{c['id']}"] = pdf_bytes
+                            doc_txt = f"Certificado de cumplimiento — {caso_stored['imputado']}"
+                            _needs_rerun = False
+                        elif "Acta de audiencia" in doc_tipo:
+                            pdf_bytes = generar_pdf("acta audiencia", caso_stored,
+                                                    {"tipo_audiencia": "contravencional"},
+                                                    fiscal_nombre, caso_stored["unidad"])
+                            st.session_state[f"_pdf_aud_{c['id']}"] = pdf_bytes
+                            doc_txt = f"Acta de audiencia contravencional — {caso_stored['imputado']}"
+                            _needs_rerun = False
+                        elif "Decreto de suspensión" in doc_tipo:
+                            _seg_susp = get_seguimiento_por_causa(c["id"]) or {}
+                            _conds_susp = [cd["descripcion"] for cd in get_condiciones(_seg_susp.get("id", 0))]
+                            pdf_bytes = generar_pdf("decreto suspension prueba", caso_stored,
+                                                    {"condiciones": _conds_susp,
+                                                     "plazo_meses": _seg_susp.get("tipo_resolucion","6").split("_")[-1]
+                                                     if _seg_susp else 6},
+                                                    fiscal_nombre, caso_stored["unidad"])
+                            st.session_state[f"_pdf_dec_{c['id']}"] = pdf_bytes
+                            doc_txt = f"Decreto de suspension — {caso_stored['imputado']}"
+                            _needs_rerun = False
                         elif "citación" in doc_tipo:
                             doc_txt = generar_citacion(caso_stored, fiscal_nombre, caso_stored["unidad"])
                         else:
                             doc_txt = generar_resumen_ejecutivo(caso_stored, clf_stored)
-                        guardar_documento(c["id"], doc_tipo, doc_txt, fiscal_nombre)
+                        if doc_txt and _needs_rerun:
+                            guardar_documento(c["id"], doc_tipo, doc_txt, fiscal_nombre)
+                        elif not _needs_rerun:
+                            guardar_documento(c["id"], doc_tipo, doc_txt if doc_txt else doc_tipo, fiscal_nombre)
                         st.success("Documento guardado en la causa")
                         if _needs_rerun:
                             st.rerun()
 
                     # Persistent download buttons for PDF-only docs
-                    if st.session_state.get(f"_pdf_acta_{c['id']}"):
-                        st.download_button("⬇️ Descargar Acta PDF",
-                            data=st.session_state[f"_pdf_acta_{c['id']}"],
-                            file_name=f"{c['numero']}_acta_compromiso.pdf",
-                            mime="application/pdf", key=f"dl_acta_{c['id']}", type="primary")
-                    if st.session_state.get(f"_pdf_inf_{c['id']}"):
-                        st.download_button("⬇️ Descargar Informe PDF",
-                            data=st.session_state[f"_pdf_inf_{c['id']}"],
-                            file_name=f"{c['numero']}_informe_incumplimiento.pdf",
-                            mime="application/pdf", key=f"dl_inf_{c['id']}", type="primary")
+                    for _pdf_key, _pdf_name, _pdf_dl_key in [
+                        (f"_pdf_acta_{c['id']}", "acta_compromiso",    f"dl_acta_{c['id']}"),
+                        (f"_pdf_inf_{c['id']}",  "informe_incumplim",  f"dl_inf_{c['id']}"),
+                        (f"_pdf_rest_{c['id']}", "restriccion",        f"dl_rest_{c['id']}"),
+                        (f"_pdf_polo_{c['id']}", "oficio_polo",        f"dl_polo_{c['id']}"),
+                        (f"_pdf_soc_{c['id']}",  "socioambiental",     f"dl_soc_{c['id']}"),
+                        (f"_pdf_val_{c['id']}",  "valoracion_psi",     f"dl_val_{c['id']}"),
+                        (f"_pdf_arch_{c['id']}", "decreto_archivo",    f"dl_arch_{c['id']}"),
+                        (f"_pdf_cert_{c['id']}", "certificado_cumpl",  f"dl_cert_{c['id']}"),
+                        (f"_pdf_aud_{c['id']}",  "acta_audiencia",     f"dl_aud_{c['id']}"),
+                        (f"_pdf_dec_{c['id']}",  "decreto_suspension", f"dl_dec_{c['id']}"),
+                    ]:
+                        if st.session_state.get(_pdf_key):
+                            st.download_button(
+                                f"⬇️ Descargar {_pdf_name.replace('_',' ').title()} PDF",
+                                data=st.session_state[_pdf_key],
+                                file_name=f"{c['numero']}_{_pdf_name}.pdf",
+                                mime="application/pdf",
+                                key=_pdf_dl_key,
+                                type="primary",
+                                use_container_width=True,
+                            )
 
 
 # ══════════════════════════════════════════════════════════════════════════════
