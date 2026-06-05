@@ -1,22 +1,20 @@
 """
-supabase_sync.py — Puente entre SIATC (SQLite) y sumarios-rc (Supabase/PostgreSQL)
+supabase_sync.py — Puente entre SIATC (SQLite) y sumarios-rc
 MPF Córdoba · Ley N° 10.326
 
-Provee dos flujos:
-  A) PULL — El fiscal ve en SIATC las causas que la policía elevó en sumarios-rc
-             (estado 'remitido', tipo_causa 'contravencional')
-  B) PUSH — Cuando SIATC clasifica o resuelve, actualiza los campos CCC en Supabase
+Dos modalidades de conexión (en orden de prioridad):
+  1. API REST de sumarios-rc (recomendada):
+       SUMARIOS_RC_URL  = "https://sumarios-rc.vercel.app"
+       SIATC_API_KEY    = "<api_key configurada en Vercel>"
 
-Modo degradado: si las variables de entorno no están configuradas, todas las
-funciones retornan vacío/False sin lanzar excepciones. SIATC sigue funcionando
-con SQLite puro hasta que el administrador agregue las credenciales.
+  2. Conexión directa Supabase (fallback):
+       SUPABASE_URL = "https://xxxxx.supabase.co"
+       SUPABASE_KEY = "<service_role_key>"
 
-Configuración (Streamlit Cloud → Settings → Secrets):
-  SUPABASE_URL = "https://xxxxx.supabase.co"
-  SUPABASE_KEY = "eyJhbGciOiJIUzI1..."   # anon o service_role key
+Modo degradado: si ninguna variable está configurada, todas las funciones
+retornan vacío/False sin lanzar excepciones.
 
-Uso desde app.py:
-  from supabase_sync import is_configured, pull_causas_pendientes, push_clasificacion
+Configurar en Streamlit Cloud → Settings → Secrets.
 """
 from __future__ import annotations
 
@@ -32,6 +30,88 @@ logger = logging.getLogger(__name__)
 _SUPABASE_URL: str = ""
 _SUPABASE_KEY: str = ""
 _client: Any = None  # supabase.Client, typed as Any to avoid import at module level
+
+
+def _load_rc_config() -> tuple[str, str]:
+    """Lee la URL de sumarios-rc y la API key para la integración REST."""
+    url = os.environ.get("SUMARIOS_RC_URL", "")
+    key = os.environ.get("SIATC_API_KEY", "")
+    if not (url and key):
+        try:
+            import streamlit as st
+            url = st.secrets.get("SUMARIOS_RC_URL", "")
+            key = st.secrets.get("SIATC_API_KEY", "")
+        except Exception:
+            pass
+    return url.strip().rstrip("/"), key.strip()
+
+
+def is_configured_rc() -> bool:
+    """True si la integración REST con sumarios-rc está disponible."""
+    url, key = _load_rc_config()
+    return bool(url)
+
+
+def _rc_headers() -> dict[str, str]:
+    _, key = _load_rc_config()
+    h: dict[str, str] = {"Content-Type": "application/json"}
+    if key:
+        h["Authorization"] = f"Bearer {key}"
+    return h
+
+
+def _rc_get(path: str, params: dict | None = None) -> list[dict] | dict | None:
+    """GET a la API REST de sumarios-rc. Retorna None si falla."""
+    import urllib.request, urllib.parse, json as _json
+    url, _ = _load_rc_config()
+    if not url:
+        return None
+    full = f"{url}{path}"
+    if params:
+        full += "?" + urllib.parse.urlencode(params)
+    try:
+        req = urllib.request.Request(full, headers=_rc_headers())
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            return _json.loads(resp.read())
+    except Exception as e:
+        logger.warning("_rc_get(%s): %s", path, e)
+        return None
+
+
+def _rc_patch(path: str, data: dict) -> dict | None:
+    """PATCH a la API REST de sumarios-rc."""
+    import urllib.request, json as _json
+    url, _ = _load_rc_config()
+    if not url:
+        return None
+    body = _json.dumps(data).encode()
+    try:
+        req = urllib.request.Request(
+            f"{url}{path}", data=body, headers=_rc_headers(), method="PATCH"
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            return _json.loads(resp.read())
+    except Exception as e:
+        logger.warning("_rc_patch(%s): %s", path, e)
+        return None
+
+
+def _rc_post(path: str, data: dict) -> dict | None:
+    """POST a la API REST de sumarios-rc."""
+    import urllib.request, json as _json
+    url, _ = _load_rc_config()
+    if not url:
+        return None
+    body = _json.dumps(data).encode()
+    try:
+        req = urllib.request.Request(
+            f"{url}{path}", data=body, headers=_rc_headers(), method="POST"
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            return _json.loads(resp.read())
+    except Exception as e:
+        logger.warning("_rc_post(%s): %s", path, e)
+        return None
 
 
 def _load_env() -> tuple[str, str]:
@@ -50,9 +130,8 @@ def _load_env() -> tuple[str, str]:
 
 
 def is_configured() -> bool:
-    """True si las credenciales Supabase están disponibles."""
-    url, key = _load_env()
-    return bool(url and key)
+    """True si alguna modalidad de integración está disponible."""
+    return is_configured_rc() or bool(_load_env()[0])
 
 
 def get_client():
@@ -83,14 +162,20 @@ def pull_causas_pendientes(dependencia_id: str | None = None,
     Devuelve causas contravencionales remitidas por la policía a la fiscalía,
     que aún no tienen triaje CCC (carril IS NULL).
 
-    Retorna lista de dicts compatibles con el formato de SIATC:
-      numero, caratula, apellido_nombre_imputado, dni_imputado,
-      edad_imputado, domicilio_imputado, telefono_imputado,
-      descripcion_hecho, fecha_hecho, lugar_hecho,
-      tipo_infraccion_ccc, id (UUID de Supabase), remitido_en
-
-    Si Supabase no está configurado retorna lista vacía.
+    Prioridad: 1) API REST sumarios-rc  2) Supabase directo
+    Si ninguno está configurado retorna lista vacía.
     """
+    # Modalidad 1: API REST de sumarios-rc
+    if is_configured_rc():
+        params: dict[str, str] = {"sin_triaje": "true", "limit": str(limit)}
+        if dependencia_id:
+            params["dependencia_id"] = dependencia_id
+        resp = _rc_get("/api/contravencional", params)
+        if resp and isinstance(resp, dict):
+            return resp.get("causas", [])
+        return []
+
+    # Modalidad 2: Supabase directo (fallback)
     client = get_client()
     if not client:
         return []
@@ -99,7 +184,7 @@ def pull_causas_pendientes(dependencia_id: str | None = None,
             client.table("v_causas_contravencionales")
             .select("*")
             .eq("estado_policial", "remitido")
-            .is_("carril", "null")   # sin triaje aún
+            .is_("carril", "null")
             .order("remitido_en", desc=False)
             .limit(limit)
         )
@@ -177,44 +262,41 @@ def push_clasificacion(
     resistencia: bool = False,
 ) -> bool:
     """
-    Actualiza los campos CCC en Supabase después del triaje de SIATC.
-
-    Args:
-        causa_supabase_id: UUID de la causa en Supabase
-        carril: 'verde' | 'amarillo' | 'rojo'
-        accion: Texto de la acción recomendada
-        score: Score numérico del clasificador (0.0-4.0)
-        fiscal_nombre: Nombre del fiscal que clasificó
-        tipo_infraccion: Clave del catálogo CCC
-        fundamento: Lista de strings con el fundamento de la clasificación
-        victima/lesiones/resistencia: Factores agravantes
-
-    Returns:
-        True si la actualización fue exitosa
+    Actualiza los campos CCC después del triaje de SIATC.
+    Prioridad: 1) API REST sumarios-rc  2) Supabase directo
+    Returns True si exitoso.
     """
+    payload: dict = {
+        "id": causa_supabase_id,
+        "carril": carril,
+        "accion_ccc": accion,
+        "score_ccc": round(score, 2),
+        "fiscal_nombre_ccc": fiscal_nombre,
+    }
+    if tipo_infraccion:
+        payload["tipo_infraccion_ccc"] = tipo_infraccion
+    if fundamento:
+        payload["fundamento_ccc"] = fundamento[:5]
+    if victima:
+        payload["victima_ccc"] = True
+    if lesiones:
+        payload["lesiones_ccc"] = True
+    if resistencia:
+        payload["resistencia_ccc"] = True
+
+    # Modalidad 1: API REST
+    if is_configured_rc():
+        resp = _rc_patch("/api/contravencional", payload)
+        return bool(resp and resp.get("ok"))
+
+    # Modalidad 2: Supabase directo
     client = get_client()
     if not client:
         return False
     try:
-        payload = {
-            "carril": carril,
-            "accion_ccc": accion,
-            "score_ccc": round(score, 2),
-            "fiscal_nombre_ccc": fiscal_nombre,
-            "updated_at": datetime.utcnow().isoformat(),
-        }
-        if tipo_infraccion:
-            payload["tipo_infraccion_ccc"] = tipo_infraccion
-        if fundamento:
-            payload["fundamento_ccc"] = fundamento[:5]  # PostgreSQL text[]
-        if victima:
-            payload["victima_ccc"] = True
-        if lesiones:
-            payload["lesiones_ccc"] = True
-        if resistencia:
-            payload["resistencia_ccc"] = True
-
-        client.table("causas").update(payload).eq("id", causa_supabase_id).execute()
+        upd = {k: v for k, v in payload.items() if k != "id"}
+        upd["updated_at"] = datetime.utcnow().isoformat()
+        client.table("causas").update(upd).eq("id", causa_supabase_id).execute()
         return True
     except Exception as e:
         logger.error("push_clasificacion(%s): %s", causa_supabase_id, e)
