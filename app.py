@@ -229,7 +229,7 @@ with st.sidebar:
                     pass
         if _controles_prox:
             st.markdown("**📋 Controles próximos:**")
-            for _cpd, _cps in sorted(_controles_prox)[:3]:
+            for _cpd, _cps in sorted(_controles_prox, key=lambda x: x[0])[:3]:
                 _lbl = "HOY" if _cpd == 0 else f"en {_cpd}d"
                 st.caption(f"🔵 {_cps['apellido_nombre'].split(',')[0]} — control {_lbl}")
 
