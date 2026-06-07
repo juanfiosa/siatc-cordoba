@@ -140,9 +140,10 @@ def enviar_mensaje(
 def get_bandeja_entrada(oficina: str, solo_no_leidos: bool = False) -> list[dict]:
     """Mensajes recibidos por una oficina, ordenados por prioridad y fecha."""
     sql = """
-        SELECT m.*, c.numero, c.apellido_nombre
+        SELECT m.*, c.numero, p.apellido_nombre
         FROM mensajes_interoficina m
-        LEFT JOIN causas c ON m.causa_id = c.id
+        LEFT JOIN causas c    ON m.causa_id = c.id
+        LEFT JOIN personas p  ON c.persona_id = p.id
         WHERE m.oficina_destino = ?
     """
     params = [oficina]
@@ -158,9 +159,10 @@ def get_bandeja_salida(oficina: str) -> list[dict]:
     """Mensajes enviados por una oficina."""
     with db.get_conn() as conn:
         rows = conn.execute(
-            """SELECT m.*, c.numero, c.apellido_nombre
+            """SELECT m.*, c.numero, p.apellido_nombre
                FROM mensajes_interoficina m
-               LEFT JOIN causas c ON m.causa_id = c.id
+               LEFT JOIN causas c    ON m.causa_id = c.id
+               LEFT JOIN personas p  ON c.persona_id = p.id
                WHERE m.oficina_origen = ?
                ORDER BY m.created_at DESC""",
             (oficina,)
