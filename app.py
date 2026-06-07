@@ -2750,7 +2750,7 @@ if _seccion == "estadisticas":
                     "Resueltas":           sf["resueltas"],
                     "% Resolución":        sf["pct_resolucion"],
                     "% No punitivas":      sf["pct_no_punitivo"],
-                    "Prom. días":          sf["dias_promedio"] if sf["dias_promedio"] else "—",
+                    "Prom. días":          f'{sf["dias_promedio"]:.0f}' if sf["dias_promedio"] else "—",
                 })
             _df_sfis = pd.DataFrame(_sfis_rows)
             st.dataframe(
@@ -2781,7 +2781,7 @@ if _seccion == "estadisticas":
                     "🟢 Verde":      su.get("verde", 0),
                     "🟡 Amarillo":   su.get("amarillo", 0),
                     "🔴 Rojo":       su.get("rojo", 0),
-                    "Prom. días":    su["dias_promedio"] if su.get("dias_promedio") else "—",
+                    "Prom. días":    f'{su["dias_promedio"]:.0f}' if su.get("dias_promedio") else "—",
                 })
             _df_sunidad = pd.DataFrame(_su_rows)
             st.dataframe(
