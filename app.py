@@ -438,9 +438,15 @@ except Exception:
     pass
 
 if _alertas:
-    with st.container():
+    # Desplegable colapsado — antes eran N st.warning apilados que comían pantalla
+    with st.expander(f"🔔 {len(_alertas)} pendiente(s) requieren tu atención", expanded=False):
         for alerta in _alertas:
-            st.warning(alerta)
+            st.markdown(
+                f"<div style='padding:6px 11px;margin:3px 0;background:#fff8e1;"
+                f"border-left:3px solid #f0ad4e;border-radius:4px;font-size:0.88rem'>"
+                f"{alerta}</div>",
+                unsafe_allow_html=True,
+            )
 
 # ── Navegación de módulo — header + botón Inicio ──────────────────────────────
 _seccion = st.session_state.get("seccion_activa", "nueva_causa")
