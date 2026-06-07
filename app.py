@@ -46,7 +46,7 @@ from seguimiento_tab import render_tab_seguimiento
 from agenda_tab import render_tab_agenda
 from perfil_tab import render_buscador_perfil
 from demo_seed import poblar, ya_poblado, poblar_rc, rc_poblado
-from bienvenida import mostrar_si_primera_vez
+from bienvenida import mostrar_si_primera_vez, nav_registrar, nav_botones
 from export_excel import causas_a_excel, seguimientos_a_excel, audiencias_a_excel
 from database import (
     audiencias_hoy, stats_audiencias, listar_audiencias,
@@ -458,8 +458,12 @@ _SECCION_LABELS = {
 }
 _sec_icon, _sec_label = _SECCION_LABELS.get(_seccion, ("📋", "SIATC"))
 
-_hcol1, _hcol2, _hcol3 = st.columns([1, 6, 1])
-if _hcol1.button("← Inicio", key="btn_volver_home", use_container_width=True):
+# Registrar la página actual en el historial de navegación (back/forward)
+nav_registrar(_seccion)
+
+_hb_back, _hb_fwd, _hb_home, _hcol2, _hcol3 = st.columns([0.8, 0.8, 1.4, 5.2, 1])
+nav_botones(_hb_back, _hb_fwd)
+if _hb_home.button("⌂ Inicio", key="btn_volver_home", use_container_width=True):
     st.session_state.pop("seccion_activa", None)
     st.rerun()
 _hcol2.markdown(

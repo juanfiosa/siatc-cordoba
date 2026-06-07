@@ -277,13 +277,79 @@ def _render_perfil():
         st.rerun()
 
 
+# ── Navegación atrás/adelante (estilo navegador) ──────────────────────────────
+# Historial de páginas visitadas guardado en session_state:
+#   _nav_hist : lista de claves de página, ej. ["home","mis_causas","agenda"]
+#   _nav_i    : índice de la página actual dentro de esa lista
+#   _nav_jump : flag — el último cambio vino de un botón ◀/▶ (no registrar)
+PAGINAS_NAV = {
+    "home":         ("⌂",  "Inicio"),
+    "nueva_causa":  ("📋", "Nueva Causa"),
+    "mis_causas":   ("📂", "Mis Causas"),
+    "agenda":       ("📅", "Agenda"),
+    "seguimiento":  ("🔍", "Seguimiento"),
+    "mensajeria":   ("📨", "Mensajería"),
+    "estadisticas": ("📊", "Estadísticas"),
+    "perfil":       ("👤", "Perfil"),
+}
+
+
+def nav_registrar(pagina: str) -> None:
+    """Registra la página actual en el historial (una vez por render)."""
+    if st.session_state.pop("_nav_jump", False):
+        return  # el cambio vino de ◀/▶ — el índice ya quedó fijado
+    hist = st.session_state.get("_nav_hist", [])
+    idx  = st.session_state.get("_nav_i", -1)
+    if not hist:
+        hist, idx = [pagina], 0
+    elif hist[idx] != pagina:
+        # Navegación nueva: descarta el "adelante" y agrega la página
+        hist = hist[: idx + 1] + [pagina]
+        idx  = len(hist) - 1
+    st.session_state["_nav_hist"] = hist
+    st.session_state["_nav_i"]    = idx
+
+
+def _nav_ir(pagina: str, nuevo_idx: int) -> None:
+    st.session_state["_nav_i"]    = nuevo_idx
+    st.session_state["_nav_jump"] = True
+    if pagina == "home":
+        st.session_state.pop("seccion_activa", None)
+    else:
+        st.session_state["seccion_activa"] = pagina
+    st.rerun()
+
+
+def nav_botones(col_atras, col_adelante) -> None:
+    """Dibuja ◀ / ▶ en las columnas dadas, habilitados según el historial."""
+    hist = st.session_state.get("_nav_hist", [])
+    idx  = st.session_state.get("_nav_i", 0)
+    puede_atras = idx > 0
+    puede_adel  = idx < len(hist) - 1
+    _help_a = (f"Volver a {PAGINAS_NAV.get(hist[idx-1], ('','anterior'))[1]}"
+               if puede_atras else "No hay página anterior")
+    _help_f = (f"Ir a {PAGINAS_NAV.get(hist[idx+1], ('','siguiente'))[1]}"
+               if puede_adel else "No hay página siguiente")
+    if col_atras.button("◀", key="nav_back", help=_help_a,
+                        use_container_width=True, disabled=not puede_atras):
+        _nav_ir(hist[idx - 1], idx - 1)
+    if col_adelante.button("▶", key="nav_fwd", help=_help_f,
+                          use_container_width=True, disabled=not puede_adel):
+        _nav_ir(hist[idx + 1], idx + 1)
+
+
 # ── PASO 3: Home ──────────────────────────────────────────────────────────────
 
 def _render_home():
+    nav_registrar("home")
     nombre    = st.session_state.get("fiscal_nombre", "")
     cargo     = st.session_state.get("fiscal_cargo", "")
     of_label  = st.session_state.get("oficina_label", "")
     circ      = st.session_state.get("circunscripcion", "")
+
+    # Barra de navegación atrás/adelante
+    _nb_back, _nb_fwd, _nb_sp = st.columns([1, 1, 10])
+    nav_botones(_nb_back, _nb_fwd)
 
     # Header compacto
     col_id, col_sal = st.columns([5, 1])
