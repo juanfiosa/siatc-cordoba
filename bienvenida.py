@@ -327,19 +327,36 @@ def _render_home():
     except Exception:
         pass
 
-    # Alertas criticas en el home
+    # Alertas críticas en el home — chips compactos en una sola línea
+    # (antes eran 4 st.warning apilados que ocupaban demasiado espacio)
     try:
-        _alerta_msgs = []
+        _RED    = ("#f8d7da", "#842029", "#f5c2c7")
+        _AMBER  = ("#fff3cd", "#856404", "#ffe69c")
+        _BLUE   = ("#cfe2ff", "#084298", "#b6d4fe")
+        _alerta_chips = []  # (icono, texto, (bg, fg, borde))
         if _ss.get("vencidos", 0):
-            _alerta_msgs.append(f"⚠️ {_ss['vencidos']} seguimiento(s) vencido(s) sin cierre")
+            _alerta_chips.append(("⚠️", f"{_ss['vencidos']} venc. sin cierre", _AMBER))
         if _ss.get("incumplidos", 0):
-            _alerta_msgs.append(f"❌ {_ss['incumplidos']} seguimiento(s) incumplido(s)")
+            _alerta_chips.append(("❌", f"{_ss['incumplidos']} incumplido(s)", _RED))
         if _sa.get("hoy", 0):
-            _alerta_msgs.append(f"📅 {_sa['hoy']} audiencia(s) programada(s) para HOY")
+            _alerta_chips.append(("📅", f"{_sa['hoy']} audiencia(s) hoy", _AMBER))
         if _nml:
-            _alerta_msgs.append(f"📨 {_nml} mensaje(s) sin leer en tu bandeja")
-        for _am in _alerta_msgs:
-            st.warning(_am)
+            _alerta_chips.append(("📨", f"{_nml} sin leer", _BLUE))
+        if _alerta_chips:
+            _chips_html = "".join(
+                f"<span style='display:inline-flex;align-items:center;gap:5px;"
+                f"background:{_bg};color:{_fg};border:1px solid {_bd};"
+                f"border-radius:14px;padding:3px 12px;font-size:0.82rem;"
+                f"margin:2px 7px 2px 0;white-space:nowrap'>{_ic} {_txt}</span>"
+                for _ic, _txt, (_bg, _fg, _bd) in _alerta_chips
+            )
+            st.markdown(
+                f"<div style='display:flex;flex-wrap:wrap;align-items:center;"
+                f"margin:0.1rem 0 0.4rem'>"
+                f"<span style='font-weight:600;color:#555;font-size:0.84rem;"
+                f"margin-right:9px'>🔔 Pendientes:</span>{_chips_html}</div>",
+                unsafe_allow_html=True,
+            )
     except Exception:
         pass
 
