@@ -280,15 +280,18 @@ with st.sidebar:
                 st.session_state["goto_perfil"] = True
                 st.session_state["seccion_activa"] = "perfil"
                 st.rerun()
-        # Expediente pattern — auto-select and navigate to Mis Causas
+        # Expediente pattern — ofrecer salto explícito (NO auto-navegar:
+        # setear seccion_activa en cada render secuestraba la navegación)
         elif any(_q_rapid.upper().startswith(p) for p in ("UCN-","UCS-","UCG-","RC-","2025-")):
             _match_causas = listar_causas(busqueda=_q_rapid, limit=5)
             if len(_match_causas) == 1:
-                st.session_state["causa_sel_id"]   = _match_causas[0]["id"]
-                st.session_state["gc_busqueda"]    = _match_causas[0]["numero"]
-                st.session_state["seccion_activa"] = "mis_causas"
                 _ic_m = {"verde":"🟢","amarillo":"🟡","rojo":"🔴"}.get(_match_causas[0].get("carril",""),"⚪")
-                st.caption(f"{_ic_m} {_match_causas[0]['numero']} → Mis Causas")
+                if st.button(f"{_ic_m} Abrir {_match_causas[0]['numero']}", key="sb_open_exp",
+                             use_container_width=True, type="secondary"):
+                    st.session_state["causa_sel_id"]   = _match_causas[0]["id"]
+                    st.session_state["gc_busqueda"]    = _match_causas[0]["numero"]
+                    st.session_state["seccion_activa"] = "mis_causas"
+                    st.rerun()
         # Generic text (name) — offer search in Mis Causas
         else:
             _prev = listar_causas(busqueda=_q_rapid, limit=3)
