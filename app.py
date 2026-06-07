@@ -10,7 +10,8 @@ import pandas as pd
 from datetime import datetime
 import random
 
-from data_cordoba import TIPOS_INFRACCION, UNIDADES, CASOS_DEMO
+from data_cordoba import TIPOS_INFRACCION, UNIDADES, CASOS_DEMO, TITULOS_CCC
+from config_nodos import NODOS
 from classifier import clasificar_caso, tiempo_estimado_resolucion
 from document_gen import (
     generar_dictamen_mediacion,
@@ -3644,7 +3645,7 @@ if _seccion == "estadisticas":
             from database import (listar_usuarios as _lu_p, crear_usuario as _cu,
                                   desactivar_usuario as _du, cambiar_password as _cp,
                                   seed_usuarios_desde_config as _su)
-            from config_nodos import get_oficinas_nodo as _gon_p
+            from config_nodos import get_oficinas_nodo as _gon_p, NODOS
             _nodo_usu = st.selectbox("Ver usuarios del nodo",
                                      [None] + list(NODOS.keys()),
                                      format_func=lambda k: "Todos los nodos" if k is None else NODOS[k]["nombre"],
