@@ -377,11 +377,18 @@ def reset_db():
         DELETE FROM audiencias;
         DELETE FROM documentos;
         DELETE FROM estados_causa;
+        -- Tablas hijas que referencian causas (FK) — deben borrarse antes que causas
+        UPDATE mensajes_interoficina SET referencia_id = NULL;  -- romper auto-referencia
+        DELETE FROM mensajes_interoficina;
+        DELETE FROM victimas_causa;
+        DELETE FROM pases_expediente;
+        DELETE FROM notificaciones;
         DELETE FROM causas;
         DELETE FROM personas;
         DELETE FROM sqlite_sequence WHERE name IN (
             'registros_cumplimiento','condiciones','seguimientos','audiencias',
-            'documentos','estados_causa','causas','personas'
+            'documentos','estados_causa','mensajes_interoficina','victimas_causa',
+            'pases_expediente','notificaciones','causas','personas'
         );
         """)
 
