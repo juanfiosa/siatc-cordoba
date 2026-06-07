@@ -47,7 +47,6 @@ SECCIONES = [
     ("seguimiento",  "🔍", "Seguimiento",   "Condiciones post-resolucion y control de cumplimiento"),
     ("mensajeria",   "📨", "Mensajeria",    "Notificaciones e instrucciones entre oficinas del MPF"),
     ("estadisticas", "📊", "Estadisticas",  "Panel de control, KPIs y exportacion de informes"),
-    ("bandeja_rc",   "🔗", "Bandeja RC",    "Causas remitidas por la policia via sumarios-rc"),
 ]
 
 # Cargos del MPF (fiscalía)
@@ -434,7 +433,7 @@ def _render_home():
         row = SECCIONES[row_start:row_start+3]
         cols = st.columns(len(row))
         for col, (sec_key, icon, titulo, desc) in zip(cols, row):
-            # Badge para mensajeria y bandeja_rc
+            # Badge para mensajeria
             badge = ""
             if sec_key == "mensajeria":
                 try:
@@ -444,17 +443,6 @@ def _render_home():
                         badge = f" 🔴 {_n}"
                 except Exception:
                     pass
-            elif sec_key == "bandeja_rc":
-                try:
-                    from supabase_sync import is_configured as _sb_cfg, pull_causas_pendientes as _sb_pull
-                    if _sb_cfg():
-                        _rc_pend = len(_sb_pull(limit=5))
-                        if _rc_pend:
-                            badge = f" 🔴 {_rc_pend}"
-                    else:
-                        badge = " ⬜"  # no configurado
-                except Exception:
-                    badge = " ⬜"
             with col:
                 st.markdown(
                     f"<div style='background:#f8f9fa;border:1px solid #dee2e6;"
