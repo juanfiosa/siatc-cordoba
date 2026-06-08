@@ -121,6 +121,59 @@ def _abrir_dialogo_documento(c, fiscal_nombre, precarga=None):
     col3.download_button("📄 Descargar .txt", data=(titulo + "\n\n" + texto),
                          file_name=f"{numero}_{tipo}.txt", mime="text/plain",
                          key=f"dlgtxtdl_{cid}", use_container_width=True)
+
+
+@st.dialog("🔄 Clasificar causa (triaje)", width="large")
+def _dialog_clasificar(c, fiscal_nombre):
+    """Popup de clasificación/triaje. Calcula el carril y, si la causa está
+    'ingresada', la avanza a 'clasificada'. Accesible desde «Siguiente paso»."""
+    cid = c.get("id")
+    st.caption(f"Causa **{c.get('numero','')}** — {c.get('apellido_nombre','')}. "
+               "Ajustá los parámetros; el sistema calcula el carril del triaje.")
+    vic = st.checkbox("Víctima identificada", value=bool(c.get("victima_identificada")), key=f"cl_vic_{cid}")
+    les = st.checkbox("Lesiones físicas", value=bool(c.get("hay_lesiones")), key=f"cl_les_{cid}")
+    res = st.checkbox("Resistencia a la autoridad", value=bool(c.get("resistencia_autoridad")), key=f"cl_res_{cid}")
+    ant = st.number_input("Antecedentes contravencionales", min_value=0, max_value=10,
+                          value=0, key=f"cl_ant_{cid}")
+    _prev = clasificar_caso(c.get("tipo_infraccion", ""), ant, vic, les, res)
+    _ic = {"verde": "🟢", "amarillo": "🟡", "rojo": "🔴"}.get(_prev["carril"], "⚪")
+    st.info(f"Resultado del triaje: {_ic} **Carril {_prev['carril'].upper()}** "
+            f"(score {_prev['score']}) — {_prev['accion']}")
+    if st.button("✅ Clasificar y guardar", key=f"cl_btn_{cid}", type="primary", use_container_width=True):
+        reclasificar_causa(cid, _prev["carril"], _prev["score"], _prev["accion"],
+                           _prev["fundamento"], fiscal_nombre)
+        if c.get("estado") == "ingresada":
+            avanzar_estado(cid, "clasificada", fiscal_nombre,
+                           "Clasificación (triaje) desde gestión de causas")
+        st.cache_data.clear()
+        st.success(f"Causa clasificada: {_ic} Carril {_prev['carril'].upper()}")
+        st.rerun()
+
+
+@st.dialog("📅 Programar audiencia", width="large")
+def _dialog_audiencia(c):
+    """Popup para agendar una audiencia de esta causa. Accesible desde «Siguiente paso»."""
+    from datetime import date as _d, timedelta as _td, datetime as _dt
+    from data_cordoba import UNIDADES as _UN
+    cid = c.get("id")
+    st.caption(f"Causa **{c.get('numero','')}** — {c.get('apellido_nombre','')}")
+    tipo = st.selectbox(
+        "Tipo de audiencia", ["audiencia", "mediacion", "acta_compromiso", "control_seg"],
+        format_func=lambda k: {"audiencia": "Audiencia contravencional",
+                               "mediacion": "Audiencia de mediación",
+                               "acta_compromiso": "Suscripción acta de compromiso",
+                               "control_seg": "Control de seguimiento"}.get(k, k),
+        key=f"ad_tipo_{cid}")
+    _c1, _c2 = st.columns(2)
+    fecha = _c1.date_input("Fecha", value=_d.today() + _td(days=5), key=f"ad_f_{cid}")
+    hora = _c2.time_input("Hora", value=_dt.strptime("09:00", "%H:%M").time(), key=f"ad_h_{cid}")
+    obs = st.text_input("Observaciones (opcional)", key=f"ad_o_{cid}")
+    if st.button("📅 Agendar audiencia", key=f"ad_btn_{cid}", type="primary", use_container_width=True):
+        crear_audiencia(cid, tipo, fecha.isoformat(), hora.strftime("%H:%M"),
+                        _UN.get(c.get("unidad", "norte"), "Sede de la Unidad"), obs)
+        st.cache_data.clear()
+        st.success(f"Audiencia agendada para {fecha.strftime('%d/%m/%Y')} {hora.strftime('%H:%M')}")
+        st.rerun()
 from export_excel import causas_a_excel, seguimientos_a_excel, audiencias_a_excel
 from database import (
     audiencias_hoy, stats_audiencias, listar_audiencias,
@@ -1523,31 +1576,49 @@ if _seccion == "mis_causas":
                             pass
                     st.markdown(f"**Fecha del hecho:** {_fecha_hecho_str}  |  **Ingresada:** {c['created_at'][:10]}{_resol_est}")
 
-                    # Siguiente paso sugerido — guía contextual según estado/carril
+                    # Siguiente paso sugerido — guía contextual + acción directa.
+                    # (icono, texto, accion): "clasificar" | "doc:<tipo>" |
+                    # "audiencia" | "seguimiento" | None
                     _pasos_gc = {
-                        "ingresada":    ("📋", "Clasificar la causa para determinar el carril (triage)"),
-                        "notificada":   ("📅", "Programar audiencia inicial"),
-                        "en_mediacion": ("✍️", "Suscribir acta de compromiso o solicitar suspensión a prueba"),
-                        "archivada":    ("✅", "Causa finalizada — sin acciones pendientes"),
+                        "ingresada":    ("📋", "Clasificar la causa para determinar el carril (triaje)", "clasificar"),
+                        "notificada":   ("📅", "Programar audiencia inicial", "audiencia"),
+                        "en_mediacion": ("✍️", "Suscribir acta de compromiso o suspensión a prueba", "doc:acta_compromiso"),
+                        "archivada":    ("✅", "Causa finalizada — sin acciones pendientes", None),
                     }
                     if c["estado"] == "clasificada":
                         if c.get("carril") == "verde":
-                            _paso_gc = ("📨", "Enviar cédula de citación a **mediación**")
+                            _paso_gc = ("📨", "Enviar cédula de citación a **mediación**", "doc:citacion_mediacion")
                         elif c.get("carril") == "rojo":
-                            _paso_gc = ("⚖️", "Notificar al imputado/a y preparar **requerimiento de apertura** del proceso")
+                            _paso_gc = ("⚖️", "Preparar **requerimiento de apertura** del proceso", "doc:requerimiento")
                         else:
-                            _paso_gc = ("📨", "Enviar cédula de notificación de **suspensión a prueba**")
+                            _paso_gc = ("📨", "Citar para **suspensión a prueba**", "doc:citacion_acta")
                     elif c["estado"] == "resuelta":
                         _seg_ps = get_seguimiento_por_causa(c["id"])
                         if _seg_ps:
-                            _paso_gc = ("✅", "Seguimiento registrado — controlar cumplimiento de condiciones")
+                            _paso_gc = ("✅", "Seguimiento registrado — controlar cumplimiento", "seguimiento")
                         else:
-                            _paso_gc = ("🔍", "Registrar **seguimiento** de condiciones si corresponde")
+                            _paso_gc = ("🔍", "Registrar **seguimiento** de condiciones", "seguimiento")
                     else:
                         _paso_gc = _pasos_gc.get(c["estado"])
                     if _paso_gc:
-                        _ps_ico, _ps_txt = _paso_gc
-                        st.caption(f"{_ps_ico} **Siguiente paso:** {_ps_txt}")
+                        _ps_ico, _ps_txt, _ps_act = _paso_gc
+                        _psc1, _psc2 = st.columns([5, 2])
+                        _psc1.caption(f"{_ps_ico} **Siguiente paso:** {_ps_txt}")
+                        if _ps_act and _psc2.button("→ Hacerlo ahora", key=f"paso_{c['id']}",
+                                                    use_container_width=True, type="primary"):
+                            if _ps_act == "clasificar":
+                                _dialog_clasificar(dict(c), fiscal_nombre)
+                            elif _ps_act == "audiencia":
+                                _dialog_audiencia(dict(c))
+                            elif _ps_act == "seguimiento":
+                                st.session_state["seccion_activa"] = "seguimiento"
+                                st.rerun()
+                            elif _ps_act.startswith("doc:"):
+                                for _k in (f"dlgsig_{c['id']}", f"dlgtit_{c['id']}",
+                                           f"dlgtxt_{c['id']}", f"dlgpre_{c['id']}"):
+                                    st.session_state.pop(_k, None)
+                                st.session_state[f"dlgtipo_{c['id']}"] = _ps_act.split(":", 1)[1]
+                                _abrir_dialogo_documento(dict(c), fiscal_nombre)
 
                     # Timeline
                     timeline = get_timeline(c["id"])
