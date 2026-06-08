@@ -12,6 +12,7 @@ import random
 
 from data_cordoba import TIPOS_INFRACCION, UNIDADES, CASOS_DEMO, TITULOS_CCC
 from config_nodos import NODOS
+import workflow as wf
 from classifier import clasificar_caso, tiempo_estimado_resolucion
 from document_gen import (
     generar_dictamen_mediacion,
@@ -174,6 +175,31 @@ def _dialog_audiencia(c):
         st.cache_data.clear()
         st.success(f"Audiencia agendada para {fecha.strftime('%d/%m/%Y')} {hora.strftime('%H:%M')}")
         st.rerun()
+
+
+def _render_riel(prog):
+    """Dibuja el riel de etapas (stepper) de una causa según su ruta/carril."""
+    _COL = {"done":    ("#1e7e34", "#d4edda", "#c3e6cb"),
+            "current": ("#0b5394", "#cfe2ff", "#9ec5fe"),
+            "future":  ("#8a8a8a", "#f1f3f5", "#e3e6ea")}
+    chips = []
+    for e in prog["etapas"]:
+        fg, bg, bd = _COL[e["status"]]
+        mark = " ✓" if e["status"] == "done" else ""
+        peso = "700" if e["status"] == "current" else "500"
+        ring = "box-shadow:0 0 0 2px #0b5394;" if e["status"] == "current" else ""
+        chips.append(
+            f"<span style='display:inline-flex;align-items:center;gap:4px;background:{bg};"
+            f"color:{fg};border:1px solid {bd};{ring}border-radius:14px;padding:3px 10px;"
+            f"font-size:0.78rem;font-weight:{peso};white-space:nowrap'>"
+            f"{e['icono']} {e['label']}{mark}</span>")
+    sep = "<span style='color:#c0c0c0;margin:0 1px'>→</span>"
+    st.markdown(
+        f"<div style='margin:0.2rem 0 0.15rem'><span style='font-size:0.8rem;color:#555;"
+        f"font-weight:600'>{prog['ruta_icono']} Ruta: {prog['ruta_label']}</span></div>"
+        f"<div style='display:flex;flex-wrap:wrap;align-items:center;gap:3px;"
+        f"margin-bottom:0.5rem'>{sep.join(chips)}</div>",
+        unsafe_allow_html=True)
 from export_excel import causas_a_excel, seguimientos_a_excel, audiencias_a_excel
 from database import (
     audiencias_hoy, stats_audiencias, listar_audiencias,
@@ -1576,49 +1602,37 @@ if _seccion == "mis_causas":
                             pass
                     st.markdown(f"**Fecha del hecho:** {_fecha_hecho_str}  |  **Ingresada:** {c['created_at'][:10]}{_resol_est}")
 
-                    # Siguiente paso sugerido — guía contextual + acción directa.
-                    # (icono, texto, accion): "clasificar" | "doc:<tipo>" |
-                    # "audiencia" | "seguimiento" | None
-                    _pasos_gc = {
-                        "ingresada":    ("📋", "Clasificar la causa para determinar el carril (triaje)", "clasificar"),
-                        "notificada":   ("📅", "Programar audiencia inicial", "audiencia"),
-                        "en_mediacion": ("✍️", "Suscribir acta de compromiso o suspensión a prueba", "doc:acta_compromiso"),
-                        "archivada":    ("✅", "Causa finalizada — sin acciones pendientes", None),
-                    }
-                    if c["estado"] == "clasificada":
-                        if c.get("carril") == "verde":
-                            _paso_gc = ("📨", "Enviar cédula de citación a **mediación**", "doc:citacion_mediacion")
-                        elif c.get("carril") == "rojo":
-                            _paso_gc = ("⚖️", "Preparar **requerimiento de apertura** del proceso", "doc:requerimiento")
-                        else:
-                            _paso_gc = ("📨", "Citar para **suspensión a prueba**", "doc:citacion_acta")
-                    elif c["estado"] == "resuelta":
-                        _seg_ps = get_seguimiento_por_causa(c["id"])
-                        if _seg_ps:
-                            _paso_gc = ("✅", "Seguimiento registrado — controlar cumplimiento", "seguimiento")
-                        else:
-                            _paso_gc = ("🔍", "Registrar **seguimiento** de condiciones", "seguimiento")
-                    else:
-                        _paso_gc = _pasos_gc.get(c["estado"])
-                    if _paso_gc:
-                        _ps_ico, _ps_txt, _ps_act = _paso_gc
-                        _psc1, _psc2 = st.columns([5, 2])
-                        _psc1.caption(f"{_ps_ico} **Siguiente paso:** {_ps_txt}")
-                        if _ps_act and _psc2.button("→ Hacerlo ahora", key=f"paso_{c['id']}",
-                                                    use_container_width=True, type="primary"):
-                            if _ps_act == "clasificar":
-                                _dialog_clasificar(dict(c), fiscal_nombre)
-                            elif _ps_act == "audiencia":
-                                _dialog_audiencia(dict(c))
-                            elif _ps_act == "seguimiento":
-                                st.session_state["seccion_activa"] = "seguimiento"
-                                st.rerun()
-                            elif _ps_act.startswith("doc:"):
-                                for _k in (f"dlgsig_{c['id']}", f"dlgtit_{c['id']}",
-                                           f"dlgtxt_{c['id']}", f"dlgpre_{c['id']}"):
-                                    st.session_state.pop(_k, None)
-                                st.session_state[f"dlgtipo_{c['id']}"] = _ps_act.split(":", 1)[1]
-                                _abrir_dialogo_documento(dict(c), fiscal_nombre)
+                    # ── Riel de workflow + siguiente paso (modelo por carril) ──
+                    _wf_auds = listar_audiencias(causa_id=c["id"])
+                    _wf_seg  = get_seguimiento_por_causa(c["id"])
+                    _wf_tseg = bool(_wf_seg)
+                    _wf_scomp = False
+                    if _wf_seg:
+                        _wf_conds = get_condiciones(_wf_seg["id"])
+                        _wf_scomp = bool(_wf_conds) and all(cd["estado"] == "cumplido" for cd in _wf_conds)
+                    _prog = wf.progreso_causa(dict(c), tiene_audiencia=bool(_wf_auds),
+                                              tiene_seguimiento=_wf_tseg, seg_completo=_wf_scomp)
+                    _render_riel(_prog)
+                    _acc = wf.siguiente_accion(dict(c), tiene_audiencia=bool(_wf_auds),
+                                               tiene_seguimiento=_wf_tseg, seg_completo=_wf_scomp)
+                    _psc1, _psc2 = st.columns([5, 2])
+                    _psc1.markdown(f"{_acc['icono']} **Siguiente paso:** {_acc['texto']}")
+                    if _acc["accion"] and _psc2.button("→ Hacerlo ahora", key=f"paso_{c['id']}",
+                                                       use_container_width=True, type="primary"):
+                        _act = _acc["accion"]
+                        if _act == "clasificar":
+                            _dialog_clasificar(dict(c), fiscal_nombre)
+                        elif _act == "audiencia":
+                            _dialog_audiencia(dict(c))
+                        elif _act == "seguimiento":
+                            st.session_state["seccion_activa"] = "seguimiento"
+                            st.rerun()
+                        elif _act.startswith("doc:"):
+                            for _k in (f"dlgsig_{c['id']}", f"dlgtit_{c['id']}",
+                                       f"dlgtxt_{c['id']}", f"dlgpre_{c['id']}"):
+                                st.session_state.pop(_k, None)
+                            st.session_state[f"dlgtipo_{c['id']}"] = _act.split(":", 1)[1]
+                            _abrir_dialogo_documento(dict(c), fiscal_nombre)
 
                     # Timeline
                     timeline = get_timeline(c["id"])
