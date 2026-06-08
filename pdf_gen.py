@@ -2320,6 +2320,38 @@ def _num_a_letra(n: int) -> str:
     return _MAP.get(n, str(n))
 
 
+# -- Render genérico de TEXTO editable -> PDF institucional -------------------
+
+def pdf_desde_texto(titulo: str, cuerpo: str, fiscal_nombre: str,
+                    unidad_key: str, numero: str = "S/N") -> bytes:
+    """
+    Renderiza un documento de TEXTO (editado por el actuante) al PDF
+    institucional MPF: membrete + título + metadatos + el cuerpo tal cual + sello.
+    Es la base del flujo 'generar -> editar -> archivar': lo que el usuario edita
+    en el cuadro de texto es exactamente lo que sale impreso.
+    """
+    pdf = PDFMPFBase(unidad_key)
+    pdf.alias_nb_pages()
+    pdf.add_page()
+    pdf.titulo_documento(titulo)
+    pdf.metadatos(numero, _fecha_formal())
+    pdf._sf("", 9)
+    for linea in str(cuerpo).replace("\r\n", "\n").split("\n"):
+        if linea.strip() == "":
+            pdf.ln(2.5)
+        else:
+            # new_x=LMARGIN: reponer el cursor a la izquierda tras cada línea
+            # (fpdf2 deja X en el margen derecho por defecto -> rompería la siguiente)
+            pdf.multi_cell(0, 5, _s(linea), align="L", new_x="LMARGIN", new_y="NEXT")
+    try:
+        pdf.sello_digital(fiscal_nombre, numero)
+    except Exception:
+        pass
+    buf = BytesIO()
+    pdf.output(buf)
+    return buf.getvalue()
+
+
 # -- Punto de entrada ---------------------------------------------------------
 
 def generar_pdf(tipo_doc, caso, clf, fiscal, unidad):

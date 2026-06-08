@@ -48,6 +48,79 @@ from agenda_tab import render_tab_agenda
 from perfil_tab import render_buscador_perfil
 from demo_seed import poblar, ya_poblado, poblar_rc, rc_poblado
 from bienvenida import mostrar_si_primera_vez, nav_registrar, nav_botones
+
+
+@st.dialog("📄 Documento de la causa", width="large")
+def _abrir_dialogo_documento(c, fiscal_nombre, precarga=None):
+    """
+    Popup unificado de documentos: elegir tipo -> texto precargado y EDITABLE
+    -> guardar y archivar en la causa / descargar PDF o .txt.
+    El PDF se arma a partir del texto editado (lo que se ve es lo que sale).
+    'precarga' = {'tipo','titulo','texto'} para reabrir un documento archivado.
+    """
+    import documentos_ccc as _dc
+    from pdf_gen import pdf_desde_texto as _pdf_txt
+    cid        = c.get("id")
+    unidad_key = c.get("unidad", "norte")
+    numero     = c.get("numero", "S/N")
+    tipos      = _dc.TIPOS_DOCUMENTO
+    keys       = [k for k, _ in tipos]
+    labels     = dict(tipos)
+
+    _idx = 0
+    if precarga and precarga.get("tipo") in keys:
+        _idx = keys.index(precarga["tipo"])
+    tipo = st.selectbox("Tipo de documento", keys, index=_idx,
+                        format_func=lambda k: labels[k], key=f"dlgtipo_{cid}")
+
+    extra = {}
+    if tipo == "decreto_archivo":
+        extra["motivo"] = st.selectbox(
+            "Motivo de archivo", list(_dc.MOTIVOS_ARCHIVO_TEXTO),
+            format_func=lambda m: _dc.MOTIVOS_ARCHIVO_TEXTO[m][0], key=f"dlgmot_{cid}")
+    if tipo in ("dictamen_suspension", "acta_compromiso", "decreto_suspension"):
+        extra["plazo_meses"] = st.selectbox("Plazo (meses)", [3, 6, 9, 12],
+                                            index=1, key=f"dlgpl_{cid}")
+
+    sig    = f"{tipo}|{extra}"
+    txtkey = f"dlgtxt_{cid}"
+    # Precarga (reabrir archivado): solo la primera vez
+    if precarga and not st.session_state.get(f"dlgpre_{cid}"):
+        st.session_state[f"dlgtit_{cid}"] = precarga.get("titulo", labels.get(tipo, ""))
+        st.session_state[txtkey]          = precarga.get("texto", "")
+        st.session_state[f"dlgsig_{cid}"] = sig
+        st.session_state[f"dlgpre_{cid}"] = True
+    elif st.session_state.get(f"dlgsig_{cid}") != sig:
+        titulo, cuerpo = _dc.generar_texto(tipo, dict(c), fiscal_nombre, unidad_key, extra)
+        st.session_state[f"dlgtit_{cid}"] = titulo
+        st.session_state[txtkey]          = cuerpo
+        st.session_state[f"dlgsig_{cid}"] = sig
+
+    titulo = st.session_state.get(f"dlgtit_{cid}", labels.get(tipo, ""))
+    st.caption(f"**{titulo}** — revisá y editá el texto antes de archivar.")
+    st.text_area("Contenido", key=txtkey, height=360, label_visibility="collapsed")
+    texto = st.session_state.get(txtkey, "")
+
+    st.divider()
+    col1, col2, col3 = st.columns(3)
+    if col1.button("💾 Guardar y archivar", key=f"dlgsave_{cid}",
+                   type="primary", use_container_width=True):
+        guardar_documento(cid, labels.get(tipo, tipo), texto, fiscal_nombre)
+        for k in (f"dlgsig_{cid}", f"dlgtit_{cid}", txtkey, f"dlgpre_{cid}"):
+            st.session_state.pop(k, None)
+        st.cache_data.clear()
+        st.success("Documento archivado en la causa ✅")
+        st.rerun()
+    try:
+        _pdf = _pdf_txt(titulo, texto, fiscal_nombre, unidad_key, numero)
+        col2.download_button("⬇️ Descargar PDF", data=_pdf,
+                             file_name=f"{numero}_{tipo}.pdf", mime="application/pdf",
+                             key=f"dlgpdf_{cid}", use_container_width=True)
+    except Exception:
+        col2.warning("PDF no disponible")
+    col3.download_button("📄 Descargar .txt", data=(titulo + "\n\n" + texto),
+                         file_name=f"{numero}_{tipo}.txt", mime="text/plain",
+                         key=f"dlgtxtdl_{cid}", use_container_width=True)
 from export_excel import causas_a_excel, seguimientos_a_excel, audiencias_a_excel
 from database import (
     audiencias_hoy, stats_audiencias, listar_audiencias,
@@ -1588,29 +1661,41 @@ if _seccion == "mis_causas":
                                     _oc_inf = TIPOS_INFRACCION.get(_oc.get("tipo_infraccion",""),{}).get("label","")[:30]
                                     st.markdown(f"{_oc_ic} **{_oc['numero']}** — {_oc_inf} | {_oc_est} | {_oc.get('created_at','')[:10]}")
 
-                    # Documentos previos
+                    # ── Documentos de la causa (archivo recuperable) ──────────
                     docs = listar_documentos(c["id"])
-                    if docs:
-                        st.markdown(f"**Documentos generados ({len(docs)}):**")
-                        for d in docs:
-                            with st.expander(f"📄 {d['tipo_documento']} — {d['created_at'][:16]}"):
-                                st.markdown(f"<div class='doc-preview'>{d['contenido']}</div>", unsafe_allow_html=True)
-                                _caso_d = {"numero": c["numero"], "tipo": c["tipo_infraccion"],
-                                           "imputado": c["apellido_nombre"], "dni": c["persona_dni"],
-                                           "edad": c.get("persona_edad", 0), "domicilio": ""}
-                                _clf_d  = {"carril": c.get("carril","amarillo"), "score": c.get("score_clasificacion",2),
-                                           "categoria": TIPOS_INFRACCION.get(c["tipo_infraccion"],{}).get("categoria",""),
-                                           "accion": "", "fundamento": [], "icono": "", "descripcion": "", "color": ""}
-                                try:
-                                    _pdf = generar_pdf(d["tipo_documento"], _caso_d, _clf_d, d.get("generado_por",""), c.get("unidad","norte"))
-                                    st.download_button("⬇️ Descargar PDF", data=_pdf,
-                                                       file_name=f"{c['numero']}_{d['tipo_documento']}.pdf",
-                                                       mime="application/pdf", key=f"dl_pdf_{d['id']}",
-                                                       type="primary")
-                                except Exception:
-                                    st.download_button("⬇️ Descargar .txt", data=d["contenido"],
-                                                       file_name=f"{c['numero']}_{d['tipo_documento']}.txt",
-                                                       mime="text/plain", key=f"dl_doc_{d['id']}")
+                    st.markdown(f"**📂 Documentos de la causa ({len(docs)}):**")
+                    if not docs:
+                        st.caption("Aún no hay documentos archivados. Usá «Generar / editar documento».")
+                    from documentos_ccc import LABELS_DOC as _LBL
+                    _rev = {v: k for k, v in _LBL.items()}
+                    for d in docs:
+                        with st.expander(f"📄 {d['tipo_documento']} — {d['created_at'][:16]} · {d.get('generado_por','')}"):
+                            st.markdown(f"<div class='doc-preview'>{d['contenido']}</div>", unsafe_allow_html=True)
+                            _dc1, _dc2, _dc3 = st.columns(3)
+                            try:
+                                from pdf_gen import pdf_desde_texto as _pdt
+                                _pdf = _pdt(d["tipo_documento"], d["contenido"],
+                                            d.get("generado_por", ""), c.get("unidad", "norte"), c["numero"])
+                                _dc1.download_button("⬇️ PDF", data=_pdf,
+                                                     file_name=f"{c['numero']}_{d['tipo_documento']}.pdf",
+                                                     mime="application/pdf", key=f"dl_pdf_{d['id']}",
+                                                     use_container_width=True)
+                            except Exception:
+                                _dc1.caption("PDF no disp.")
+                            _dc2.download_button("📄 .txt", data=d["contenido"],
+                                                 file_name=f"{c['numero']}_{d['tipo_documento']}.txt",
+                                                 mime="text/plain", key=f"dl_doc_{d['id']}",
+                                                 use_container_width=True)
+                            if _dc3.button("✏️ Reabrir / editar", key=f"reedit_{d['id']}",
+                                           use_container_width=True):
+                                for _k in (f"dlgsig_{c['id']}", f"dlgtit_{c['id']}",
+                                           f"dlgtxt_{c['id']}", f"dlgpre_{c['id']}"):
+                                    st.session_state.pop(_k, None)
+                                _abrir_dialogo_documento(
+                                    dict(c), fiscal_nombre,
+                                    precarga={"tipo": _rev.get(d["tipo_documento"]),
+                                              "titulo": d["tipo_documento"],
+                                              "texto": d["contenido"]})
 
                 with col_acciones:
                     # Reclasificación — el fiscal puede cambiar el carril
@@ -2002,191 +2087,10 @@ if _seccion == "mis_causas":
 
                     st.markdown("---")
                     st.markdown("**Generar documento:**")
-
-                    clf_stored = {
-                        "carril": c.get("carril","amarillo"),
-                        "accion": c.get("accion",""),
-                        "fundamento": [],
-                        "score": c.get("score_clasificacion",2),
-                        "categoria": TIPOS_INFRACCION.get(c["tipo_infraccion"],{}).get("categoria",""),
-                        "icono": {"verde":"🟢","amarillo":"🟡","rojo":"🔴"}.get(c.get("carril",""),"⚪"),
-                        "descripcion": "",
-                        "color": "",
-                    }
-                    caso_stored = {
-                        "numero": c["numero"],
-                        "tipo": c["tipo_infraccion"],
-                        "imputado": c["apellido_nombre"],
-                        "dni": c["persona_dni"],
-                        "edad": c.get("persona_edad", 0),
-                        "antecedentes": 0,
-                        "descripcion": c.get("descripcion",""),
-                        "unidad": c.get("unidad","norte"),
-                    }
-                    _gc_titulo_ccc = TIPOS_INFRACCION.get(c.get("tipo_infraccion",""), {}).get("titulo_ccc", "")
-                    _gc_es_vf = _gc_titulo_ccc == "I"
-                    if c.get("carril") == "verde":
-                        doc_opts_causa = ["Dictamen de derivación a mediación",
-                                          "Acta de audiencia contravencional",
-                                          "Cédula de citación a mediación"]
-                        if _gc_es_vf:
-                            doc_opts_causa += ["Acta de restricción de acercamiento",
-                                               "Oficio al Polo Integral de la Mujer"]
-                    elif c.get("carril") == "rojo":
-                        doc_opts_causa = ["Requerimiento de apertura del proceso",
-                                          "Acta de audiencia contravencional",
-                                          "Cédula de citación a audiencia",
-                                          "Resumen ejecutivo"]
-                        if c.get("estado") in ("resuelta", "archivada"):
-                            doc_opts_causa += ["Decreto de archivo", "Informe de incumplimiento"]
-                        if _gc_es_vf:
-                            doc_opts_causa += ["Acta de restricción de acercamiento",
-                                               "Oficio al Polo Integral de la Mujer"]
-                    elif c.get("estado") in ("resuelta", "archivada"):
-                        doc_opts_causa = ["Dictamen de suspensión a prueba",
-                                          "Decreto de suspensión a prueba",
-                                          "Acta de compromiso",
-                                          "Certificado de cumplimiento",
-                                          "Decreto de archivo",
-                                          "Informe de incumplimiento",
-                                          "Cédula de citación", "Resumen ejecutivo"]
-                    else:
-                        doc_opts_causa = ["Dictamen de suspensión a prueba",
-                                          "Decreto de suspensión a prueba",
-                                          "Acta de audiencia contravencional",
-                                          "Cédula de citación",
-                                          "Oficio - Informe socioambiental",
-                                          "Resumen ejecutivo"]
-                        if _gc_es_vf:
-                            doc_opts_causa += ["Acta de restricción de acercamiento",
-                                               "Oficio al Polo Integral de la Mujer",
-                                               "Oficio - Valoración psicológica"]
-                    doc_tipo = st.selectbox("Tipo", doc_opts_causa, key=f"dopt_{c['id']}", label_visibility="collapsed")
-                    if st.button("Generar y guardar", key=f"gendoc_{c['id']}", use_container_width=True):
-                        _needs_rerun = True
-                        if doc_tipo == "Dictamen de derivación a mediación":
-                            doc_txt = generar_dictamen_mediacion(caso_stored, clf_stored, fiscal_nombre, caso_stored["unidad"])
-                        elif "Requerimiento" in doc_tipo:
-                            doc_txt = generar_requerimiento_apertura(caso_stored, clf_stored, fiscal_nombre, caso_stored["unidad"])
-                        elif "suspensión" in doc_tipo or "prueba" in doc_tipo:
-                            doc_txt = generar_dictamen_suspension(caso_stored, clf_stored, fiscal_nombre, caso_stored["unidad"])
-                        elif "Acta de compromiso" in doc_tipo:
-                            from data_cordoba import CONDICIONES_SUSPENSION
-                            cat = TIPOS_INFRACCION.get(caso_stored["tipo"], {}).get("categoria", "Convivencia")
-                            key_c = "transito_alcoholemia" if caso_stored["tipo"] == "transito_alcoholemia" else \
-                                    ("transito" if cat == "Tránsito" else ("comercio" if cat == "Comercio" else
-                                    ("integridad" if cat == "Integridad" else
-                                    ("espacio_publico" if cat == "Espacio Público" else "convivencia"))))
-                            conds_list = CONDICIONES_SUSPENSION.get(key_c, [])
-                            pdf_bytes = generar_pdf("acta compromiso", caso_stored, {"condiciones": conds_list}, fiscal_nombre, caso_stored["unidad"])
-                            st.session_state[f"_pdf_acta_{c['id']}"] = pdf_bytes
-                            doc_txt = f"Acta de compromiso — {caso_stored['imputado']} — {c['numero']}"
-                            _needs_rerun = False   # show download before rerun
-                        elif "Informe de incumplimiento" in doc_tipo:
-                            seg_info = get_seguimiento_por_causa(c["id"]) or {}
-                            conds_inc = [cd for cd in get_condiciones(seg_info.get("id", 0))
-                                         if cd["estado"] == "incumplido"] if seg_info else []
-                            pdf_bytes = generar_pdf("informe incumplimiento", caso_stored,
-                                                    {"seguimiento": seg_info, "condiciones_inc": conds_inc},
-                                                    fiscal_nombre, caso_stored["unidad"])
-                            st.session_state[f"_pdf_inf_{c['id']}"] = pdf_bytes
-                            doc_txt = f"Informe de incumplimiento — {caso_stored['imputado']} — {c['numero']}"
-                            _needs_rerun = False
-                        elif "Acta de restricción" in doc_tipo or "restriccion" in doc_tipo.lower():
-                            pdf_bytes = generar_pdf("medidas restriccion", caso_stored,
-                                                    {}, fiscal_nombre, caso_stored["unidad"])
-                            st.session_state[f"_pdf_rest_{c['id']}"] = pdf_bytes
-                            doc_txt = f"Acta de restriccion de acercamiento — {caso_stored['imputado']}"
-                            _needs_rerun = False
-                        elif "Polo" in doc_tipo:
-                            pdf_bytes = generar_pdf("polo integral", caso_stored,
-                                                    {}, fiscal_nombre, caso_stored["unidad"])
-                            st.session_state[f"_pdf_polo_{c['id']}"] = pdf_bytes
-                            doc_txt = f"Oficio al Polo — {caso_stored['imputado']}"
-                            _needs_rerun = False
-                        elif "socioambiental" in doc_tipo.lower():
-                            pdf_bytes = generar_pdf("socioambiental", caso_stored,
-                                                    {}, fiscal_nombre, caso_stored["unidad"])
-                            st.session_state[f"_pdf_soc_{c['id']}"] = pdf_bytes
-                            doc_txt = f"Oficio informe socioambiental — {caso_stored['imputado']}"
-                            _needs_rerun = False
-                        elif "Valoración psicológica" in doc_tipo or "valoracion" in doc_tipo.lower():
-                            pdf_bytes = generar_pdf("valoracion psicologica", caso_stored,
-                                                    {}, fiscal_nombre, caso_stored["unidad"])
-                            st.session_state[f"_pdf_val_{c['id']}"] = pdf_bytes
-                            doc_txt = f"Oficio valoracion psicologica — {caso_stored['imputado']}"
-                            _needs_rerun = False
-                        elif "Decreto de archivo" in doc_tipo:
-                            _mot_arch = get_motivo_archivo(c["id"]) or "falta_merito"
-                            pdf_bytes = generar_pdf("decreto archivo", caso_stored,
-                                                    {"motivo": _mot_arch},
-                                                    fiscal_nombre, caso_stored["unidad"])
-                            st.session_state[f"_pdf_arch_{c['id']}"] = pdf_bytes
-                            doc_txt = f"Decreto de archivo — {caso_stored['imputado']}"
-                            _needs_rerun = False
-                        elif "Certificado de cumplimiento" in doc_tipo:
-                            _seg_cert = get_seguimiento_por_causa(c["id"]) or {}
-                            _conds_cert = get_condiciones(_seg_cert.get("id", 0)) if _seg_cert else []
-                            pdf_bytes = generar_pdf("certificado cumplimiento", caso_stored,
-                                                    {"seguimiento": _seg_cert, "condiciones": _conds_cert},
-                                                    fiscal_nombre, caso_stored["unidad"])
-                            st.session_state[f"_pdf_cert_{c['id']}"] = pdf_bytes
-                            doc_txt = f"Certificado de cumplimiento — {caso_stored['imputado']}"
-                            _needs_rerun = False
-                        elif "Acta de audiencia" in doc_tipo:
-                            pdf_bytes = generar_pdf("acta audiencia", caso_stored,
-                                                    {"tipo_audiencia": "contravencional"},
-                                                    fiscal_nombre, caso_stored["unidad"])
-                            st.session_state[f"_pdf_aud_{c['id']}"] = pdf_bytes
-                            doc_txt = f"Acta de audiencia contravencional — {caso_stored['imputado']}"
-                            _needs_rerun = False
-                        elif "Decreto de suspensión" in doc_tipo:
-                            _seg_susp = get_seguimiento_por_causa(c["id"]) or {}
-                            _conds_susp = [cd["descripcion"] for cd in get_condiciones(_seg_susp.get("id", 0))]
-                            pdf_bytes = generar_pdf("decreto suspension prueba", caso_stored,
-                                                    {"condiciones": _conds_susp,
-                                                     "plazo_meses": _seg_susp.get("tipo_resolucion","6").split("_")[-1]
-                                                     if _seg_susp else 6},
-                                                    fiscal_nombre, caso_stored["unidad"])
-                            st.session_state[f"_pdf_dec_{c['id']}"] = pdf_bytes
-                            doc_txt = f"Decreto de suspension — {caso_stored['imputado']}"
-                            _needs_rerun = False
-                        elif "citación" in doc_tipo:
-                            doc_txt = generar_citacion(caso_stored, fiscal_nombre, caso_stored["unidad"])
-                        else:
-                            doc_txt = generar_resumen_ejecutivo(caso_stored, clf_stored)
-                        if doc_txt and _needs_rerun:
-                            guardar_documento(c["id"], doc_tipo, doc_txt, fiscal_nombre)
-                        elif not _needs_rerun:
-                            guardar_documento(c["id"], doc_tipo, doc_txt if doc_txt else doc_tipo, fiscal_nombre)
-                        st.success("Documento guardado en la causa")
-                        if _needs_rerun:
-                            st.rerun()
-
-                    # Persistent download buttons for PDF-only docs
-                    for _pdf_key, _pdf_name, _pdf_dl_key in [
-                        (f"_pdf_acta_{c['id']}", "acta_compromiso",    f"dl_acta_{c['id']}"),
-                        (f"_pdf_inf_{c['id']}",  "informe_incumplim",  f"dl_inf_{c['id']}"),
-                        (f"_pdf_rest_{c['id']}", "restriccion",        f"dl_rest_{c['id']}"),
-                        (f"_pdf_polo_{c['id']}", "oficio_polo",        f"dl_polo_{c['id']}"),
-                        (f"_pdf_soc_{c['id']}",  "socioambiental",     f"dl_soc_{c['id']}"),
-                        (f"_pdf_val_{c['id']}",  "valoracion_psi",     f"dl_val_{c['id']}"),
-                        (f"_pdf_arch_{c['id']}", "decreto_archivo",    f"dl_arch_{c['id']}"),
-                        (f"_pdf_cert_{c['id']}", "certificado_cumpl",  f"dl_cert_{c['id']}"),
-                        (f"_pdf_aud_{c['id']}",  "acta_audiencia",     f"dl_aud_{c['id']}"),
-                        (f"_pdf_dec_{c['id']}",  "decreto_suspension", f"dl_dec_{c['id']}"),
-                    ]:
-                        if st.session_state.get(_pdf_key):
-                            st.download_button(
-                                f"⬇️ Descargar {_pdf_name.replace('_',' ').title()} PDF",
-                                data=st.session_state[_pdf_key],
-                                file_name=f"{c['numero']}_{_pdf_name}.pdf",
-                                mime="application/pdf",
-                                key=_pdf_dl_key,
-                                type="primary",
-                                use_container_width=True,
-                            )
-
+                    st.caption("Genera el documento, revisalo/editalo en el cuadro y archivalo en la causa.")
+                    if st.button("📄 Generar / editar documento", key=f"opendoc_{c['id']}",
+                                 use_container_width=True, type="primary"):
+                        _abrir_dialogo_documento(dict(c), fiscal_nombre)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # TAB 3 — CASOS DEMO
