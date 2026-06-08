@@ -18,8 +18,6 @@ from document_gen import (
     generar_dictamen_mediacion,
     generar_dictamen_suspension,
     generar_citacion,
-    generar_resumen_ejecutivo,
-    generar_requerimiento_apertura,
 )
 from pdf_gen import generar_pdf, pdf_reporte_diario
 from database import (
@@ -1035,33 +1033,11 @@ if _seccion == "nueva_causa":
                 help="Esta nota quedará registrada en el historial de estados de la causa al guardarla.",
             )
 
-            # Documento — menú contextual según carril e infracción
-            _nc_titulo_ccc = TIPOS_INFRACCION.get(tipo, {}).get("titulo_ccc", "")
-            _nc_es_vf = _nc_titulo_ccc == "I"  # Convivencia/VF/hostigamiento
-            if clf["carril"] == "verde":
-                doc_ops = ["Dictamen de derivación a mediación", "Cédula de citación a mediación"]
-            elif clf["carril"] == "amarillo":
-                doc_ops = ["Dictamen de suspensión del proceso a prueba",
-                           "Decreto de suspensión a prueba",
-                           "Cédula de citación",
-                           "Oficio - Informe socioambiental",
-                           "Dictamen de derivación a mediación"]
-                if _nc_es_vf:
-                    doc_ops += ["Acta de restricción de acercamiento",
-                                "Oficio al Polo Integral de la Mujer",
-                                "Oficio - Valoración psicológica"]
-            else:
-                doc_ops = ["Requerimiento de apertura del proceso",
-                           "Cédula de citación a audiencia",
-                           "Resumen ejecutivo del caso"]
-                if _nc_es_vf:
-                    doc_ops += ["Acta de restricción de acercamiento",
-                                "Oficio al Polo Integral de la Mujer"]
-            doc_sel = st.selectbox("Documento a generar", doc_ops)
-
-            col_btn1, col_btn2 = st.columns(2)
-            gen_doc = col_btn1.button("⚡ Generar documento", type="primary", use_container_width=True)
-            guardar = col_btn2.button("💾 Guardar en sistema", use_container_width=True)
+            # Los documentos se generan DESPUÉS de guardar la causa, desde el popup
+            # unificado en «Mis Causas» (texto editable + archivo en la causa).
+            st.caption("📄 Una vez guardada la causa vas a poder generar y archivar sus "
+                       "documentos (dictámenes, cédulas, oficios) desde el popup unificado.")
+            guardar = st.button("💾 Guardar en sistema", type="primary", use_container_width=True)
 
             if guardar:
                 causa_id = guardar_causa(caso, clf, fiscal_nombre)
@@ -1096,13 +1072,20 @@ if _seccion == "nueva_causa":
                     f"— Carril {_carril_ico} {clf['carril'].upper()}"
                 )
                 _post_c1, _post_c2, _post_c3 = st.columns(3)
-                if _post_c1.button("📂 Ver en Mis Causas", key="post_ver_causa",
+                if _post_c1.button("📄 Generar documento", key="post_gen_doc",
                                     use_container_width=True, type="primary"):
+                    st.session_state["gc_busqueda"]    = numero_guardado
+                    st.session_state["causa_sel_id"]   = causa_id
+                    st.session_state["abrir_doc_para"] = causa_id
+                    st.session_state["seccion_activa"] = "mis_causas"
+                    st.rerun()
+                if _post_c2.button("📂 Ver en Mis Causas", key="post_ver_causa",
+                                    use_container_width=True):
                     st.session_state["gc_busqueda"]  = numero_guardado
                     st.session_state["causa_sel_id"] = causa_id
                     st.session_state["seccion_activa"] = "mis_causas"
                     st.rerun()
-                if _post_c2.button("🗑️ Registrar otra causa", key="post_nueva_causa",
+                if _post_c3.button("🔄 Registrar otra causa", key="post_nueva_causa",
                                     use_container_width=True):
                     # Limpia el formulario para un caso nuevo
                     _nc_keys2 = [k for k in st.session_state if k.startswith(
@@ -1113,43 +1096,8 @@ if _seccion == "nueva_causa":
                     for _k2 in _nc_keys2:
                         st.session_state.pop(_k2, None)
                     st.rerun()
-                _post_c3.caption("El formulario conserva los datos si querés hacer cambios.")
+                st.caption("El formulario conserva los datos si querés registrar otra o hacer cambios.")
 
-            if gen_doc or st.session_state.get("doc_generado_nuevo"):
-                # Generamos el número provisional para el documento
-                numero_prov = f"BORRADOR-{datetime.now().strftime('%H%M%S')}"
-                caso_doc = {**caso, "numero": numero_prov}
-                if doc_sel == "Dictamen de derivación a mediación":
-                    doc = generar_dictamen_mediacion(caso_doc, clf, fiscal_nombre, unidad_key)
-                elif doc_sel == "Dictamen de suspensión del proceso a prueba":
-                    doc = generar_dictamen_suspension(caso_doc, clf, fiscal_nombre, unidad_key)
-                elif "Requerimiento" in doc_sel:
-                    doc = generar_requerimiento_apertura(caso_doc, clf, fiscal_nombre, unidad_key)
-                elif "citación" in doc_sel.lower():
-                    motivo = "mediacion" if "mediación" in doc_sel else "audiencia"
-                    doc = generar_citacion(caso_doc, fiscal_nombre, unidad_key, motivo)
-                else:
-                    doc = generar_resumen_ejecutivo(caso_doc, clf)
-
-                st.markdown("##### Vista previa")
-                st.markdown(f"<div class='doc-preview'>{doc}</div>", unsafe_allow_html=True)
-                col_pdf, col_txt = st.columns(2)
-                pdf_bytes = generar_pdf(doc_sel, caso_doc, clf, fiscal_nombre, unidad_key)
-                col_pdf.download_button(
-                    "⬇️ Descargar PDF",
-                    data=pdf_bytes,
-                    file_name=f"borrador_{doc_sel[:20].replace(' ','_')}.pdf",
-                    mime="application/pdf",
-                    use_container_width=True,
-                    type="primary",
-                )
-                col_txt.download_button(
-                    "📄 Descargar .txt",
-                    data=doc,
-                    file_name=f"borrador_{doc_sel[:20].replace(' ','_')}.txt",
-                    mime="text/plain",
-                    use_container_width=True,
-                )
         else:
             st.info("Completá DNI, nombre y tipo de infracción para ver la clasificación.")
 
@@ -1517,6 +1465,11 @@ if _seccion == "mis_causas":
         _pers_cnt_gc = causas_count_por_persona(_pids_gc) if _pids_gc else {}
 
         for c in causas:
+            # Llegada desde «Nueva Causa»: abrir el popup de documento una sola vez
+            # (antes del filtro de vista, para que funcione en cualquier modo)
+            if st.session_state.get("abrir_doc_para") == c["id"]:
+                st.session_state.pop("abrir_doc_para", None)
+                _abrir_dialogo_documento(dict(c), fiscal_nombre)
             if _vista_gc in ("📊 Tabla", "🗂️ Kanban"):
                 continue   # ya renderizados arriba
             carril_icon = {"verde":"🟢","amarillo":"🟡","rojo":"🔴"}.get(c.get("carril",""),"⚪")
