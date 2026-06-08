@@ -1613,6 +1613,19 @@ if _seccion == "mis_causas":
                     _prog = wf.progreso_causa(dict(c), tiene_audiencia=bool(_wf_auds),
                                               tiene_seguimiento=_wf_tseg, seg_completo=_wf_scomp)
                     _render_riel(_prog)
+                    # Mini-seguimiento — continuidad del flujo dentro de la causa
+                    if _wf_seg:
+                        _sc_tot = len(_wf_conds) if _wf_conds else 0
+                        _sc_ok  = sum(1 for cd in (_wf_conds or []) if cd["estado"] == "cumplido")
+                        _scA, _scB = st.columns([4, 1])
+                        _scA.markdown(f"🔁 **Seguimiento:** {_sc_ok}/{_sc_tot} condiciones cumplidas"
+                                      + (" — ✅ completo" if _wf_scomp else ""))
+                        if _sc_tot:
+                            _scA.progress(_sc_ok / _sc_tot)
+                        if _scB.button("Ver", key=f"goseg_{c['id']}", use_container_width=True,
+                                       help="Ir al seguimiento de condiciones"):
+                            st.session_state["seccion_activa"] = "seguimiento"
+                            st.rerun()
                     _acc = wf.siguiente_accion(dict(c), tiene_audiencia=bool(_wf_auds),
                                                tiene_seguimiento=_wf_tseg, seg_completo=_wf_scomp)
                     _psc1, _psc2 = st.columns([5, 2])
@@ -1783,6 +1796,8 @@ if _seccion == "mis_causas":
                                               "texto": d["contenido"]})
 
                 with col_acciones:
+                    st.markdown("**⚙️ Otras acciones**")
+                    st.caption("El paso recomendado está arriba. Acá podés hacer ajustes manuales.")
                     # Reclasificación — el fiscal puede cambiar el carril
                     with st.popover("🔄 Reclasificar causa", use_container_width=True):
                         st.caption(
