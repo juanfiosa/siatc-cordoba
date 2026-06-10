@@ -39,50 +39,86 @@ TIPOS_DOCUMENTO = [
 ]
 LABELS_DOC = dict(TIPOS_DOCUMENTO)
 
+# Causas de archivo del Decreto de archivo. Citas verificadas contra el Compendio de
+# Normativa v6.0 (Feb 2026), que incluye las modificaciones de la Ley 11.097 (BO 05/01/2026),
+# y contra el Reglamento del procedimiento contravencional (salidas tempranas, arts. 5-11).
+# Estructura de cada tupla: (causa_txt, base_legal, circ).
 MOTIVOS_ARCHIVO_TEXTO = {
     "prescripcion": (
         "prescripción de la acción contravencional",
-        "Art. 43 de la Ley 10.326 (Código de Convivencia Ciudadana): la acción "
-        "contravencional prescribe a los dos (2) años para las contravenciones "
-        "sancionadas con pena mayor a seis meses, y al año (1) para las demás.",
-        "habiendo transcurrido el plazo legal de prescripción sin que se hubiera "
-        "dictado resolución definitiva.",
-    ),
-    "reparacion_danio": (
-        "reparación voluntaria del daño causado",
-        "Art. 58 de la Ley 10.326: constituye causa de extinción de la acción "
-        "contravencional la reparación integral del daño causado, de modo voluntario "
-        "y antes de que se dicte la resolución final.",
-        "habiendo el/la imputado/a reparado integralmente el daño causado a "
-        "satisfacción de la parte damnificada.",
-    ),
-    "conciliacion": (
-        "conciliación entre las partes",
-        "Art. 59 de la Ley 10.326: extingue la acción contravencional el acuerdo "
-        "de conciliación celebrado entre imputado/a y damnificado/a.",
-        "habiendo las partes alcanzado un acuerdo de conciliación que resuelve el "
-        "conflicto subyacente al hecho investigado.",
-    ),
-    "oportunidad": (
-        "criterio de oportunidad reglada",
-        "Art. 44 de la Ley 10.326: el Ministerio Público Fiscal podrá prescindir "
-        "del ejercicio de la acción contravencional cuando el hecho carezca de "
-        "significación contravencional o el bien jurídico afectado sea de escasa entidad.",
-        "por carecer el hecho investigado de la significación contravencional "
-        "suficiente para justificar el ejercicio de la acción pública.",
-    ),
-    "falta_merito": (
-        "falta de mérito suficiente",
-        "Art. 312 del CPP (aplicación supletoria, Art. 128 Ley 10.326): no existiendo "
-        "méritos suficientes para sostener la acusación.",
-        "por no haberse reunido elementos probatorios suficientes para acreditar la "
-        "comisión del hecho investigado.",
+        "Arts. 47 inc. b) y 49 de la Ley 10.326 (Código de Convivencia Ciudadana, texto "
+        "según Ley 11.097): la acción contravencional se extingue por prescripción. La "
+        "acción prescribe al año (1) cuando no se hubiere iniciado procedimiento y a los "
+        "dos (2) años cuando éste se encontrare iniciado.",
+        "habiendo transcurrido el plazo legal de prescripción sin que se hubiera dictado "
+        "resolución definitiva.",
     ),
     "muerte_imputado": (
-        "fallecimiento del imputado/a",
-        "Art. 45 inc. 1 de la Ley 10.326: la acción contravencional se extingue por "
-        "muerte del imputado/a.",
+        "muerte del imputado/a",
+        "Art. 47 inc. a) de la Ley 10.326: la acción contravencional se extingue por la "
+        "muerte del infractor.",
         "habiéndose acreditado el fallecimiento del/la imputado/a.",
+    ),
+    "reparacion_danio": (
+        "perdón judicial por reparación del daño",
+        "Art. 25 inc. b) de la Ley 10.326: corresponde el perdón judicial —que extingue la "
+        "acción contravencional (art. 47 inc. c)— cuando el/la imputado/a, sin condena "
+        "contravencional en el año anterior, ofreciere reparar el daño causado. No debe "
+        "confundirse con la reparación del daño como pena sustitutiva del art. 45.",
+        "habiendo el/la imputado/a ofrecido reparar el daño causado y no registrando "
+        "condena contravencional en el año anterior al hecho.",
+    ),
+    "conciliacion": (
+        "perdón judicial por conciliación",
+        "Art. 25 inc. c) de la Ley 10.326: corresponde el perdón judicial —que extingue la "
+        "acción contravencional (art. 47 inc. c)— cuando el particular ofendido pusiere de "
+        "manifiesto su voluntad de perdonar al/la infractor/a.",
+        "habiendo el/la damnificado/a manifestado su voluntad de perdonar al/la infractor/a.",
+    ),
+    "oportunidad": (
+        "perdón judicial por levedad del hecho",
+        "Art. 25 inc. a) de la Ley 10.326: corresponde el perdón judicial —que extingue la "
+        "acción contravencional— cuando por circunstancias especiales resulte evidente la "
+        "levedad del hecho y lo excusable de los motivos determinantes revelaren la falta de "
+        "toda peligrosidad en el/la imputado/a.",
+        "por resultar evidente la levedad del hecho y la falta de peligrosidad del/la "
+        "imputado/a, sin registrar condena contravencional en el año anterior.",
+    ),
+    "falta_merito": (
+        "imposibilidad de acreditar el hecho o individualizar al autor",
+        "Art. 6 del Reglamento del procedimiento contravencional (con remisión al art. 135 "
+        "del CCC; aplicación supletoria del Código Procesal Penal, Ley 8123): el Ayudante "
+        "Fiscal dispone el archivo cuando no se hubiere podido individualizar al autor o "
+        "partícipe del hecho, o fuere manifiesta la imposibilidad de reunir elementos de "
+        "convicción que permitan acreditarlo.",
+        "por no haberse reunido elementos de convicción suficientes para acreditar el hecho "
+        "investigado o individualizar a su autor.",
+    ),
+    "atipicidad": (
+        "atipicidad — el hecho no encuadra en figura contravencional",
+        "Art. 6 inc. 2 del Reglamento del procedimiento contravencional (remisión al art. 135 "
+        "del CCC): el Ayudante Fiscal dispone el archivo cuando el hecho contenido en las "
+        "actuaciones no encuadra en una figura contravencional.",
+        "por no encuadrar el hecho investigado en ninguna figura contravencional prevista "
+        "en la Ley 10.326.",
+    ),
+    "inimputabilidad": (
+        "inimputabilidad o causa de justificación",
+        "Art. 6 inc. 1 del Reglamento del procedimiento contravencional, con remisión al "
+        "art. 9 de la Ley 10.326: el Ayudante Fiscal dispone el archivo cuando no se pudiere "
+        "proceder por concurrir alguno de los supuestos de inimputabilidad o causas de "
+        "justificación.",
+        "por concurrir en el caso un supuesto de inimputabilidad o causa de justificación "
+        "que impide proseguir con la acción contravencional.",
+    ),
+    "pena_natural": (
+        "pena natural",
+        "Art. 26 de la Ley 10.326 (y art. 8 del Reglamento del procedimiento contravencional): "
+        "queda exento de pena quien, como consecuencia de su conducta al cometer la "
+        "contravención, se infligiere graves daños en su persona o bienes, o los produjere en "
+        "la persona o bienes de quien conviva o lo unan lazos de parentesco.",
+        "habiéndose acreditado que el/la imputado/a sufrió, a raíz del hecho, un daño de "
+        "entidad tal que torna la sanción contravencional innecesaria y desproporcionada.",
     ),
 }
 
@@ -371,8 +407,8 @@ def generar_texto(tipo: str, caso: dict, fiscal_nombre: str,
             f"VISTOS: Las actuaciones contravencionales caratuladas {caratula}, tramitadas "
             f"ante esta {unidad}.\n\n"
             "CONSIDERANDO:\n\n"
-            f"Que habiéndose analizado las presentes actuaciones, se advierte que concurre la "
-            f"causa de extinción de la acción contravencional consistente en la {causa_txt}.\n\n"
+            f"Que habiéndose analizado las presentes actuaciones, se advierte que corresponde "
+            f"disponer su archivo por la siguiente causa: {causa_txt}.\n\n"
             f"{base_legal}\n\n"
             f"Que en el caso concreto ello se verifica {circ}\n\n"
             "POR TODO ELLO, ESTE MINISTERIO PÚBLICO FISCAL RESUELVE:\n\n"
