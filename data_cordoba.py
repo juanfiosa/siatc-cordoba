@@ -207,6 +207,13 @@ TIPOS_INFRACCION = {
         "gravedad_base": 1, "es_conflicto_vecinal": False,
         "frecuencia": "baja", "favorito": False,
     },
+    "acciones_atemorizantes": {
+        "label": "Acciones atemorizantes o amenazantes (aglomeraciones intimidantes)",
+        "titulo_ccc": "III", "capitulo_ccc": "I",
+        "articulo": "Art. 70 bis CCC",
+        "gravedad_base": 3, "es_conflicto_vecinal": False,
+        "frecuencia": "baja", "favorito": False,
+    },
 
     # Capítulo II: Monumentos y arqueología (Arts 72-73)
     "daño_monumentos_historicos": {
@@ -222,6 +229,13 @@ TIPOS_INFRACCION = {
         "articulo": "Art. 73 CCC",
         "gravedad_base": 3, "es_conflicto_vecinal": False,
         "frecuencia": "baja", "favorito": False,
+    },
+    "disposicion_ilegal_residuos": {
+        "label": "Disposición ilegal de residuos (basurales, vuelco contaminante)",
+        "titulo_ccc": "III", "capitulo_ccc": "II",
+        "articulo": "Art. 73 bis CCC",
+        "gravedad_base": 3, "es_conflicto_vecinal": False,
+        "frecuencia": "media", "favorito": False,
     },
 
     # ═══════════════════════════════════════════════════════════════════════
@@ -295,10 +309,17 @@ TIPOS_INFRACCION = {
         "gravedad_base": 1, "es_conflicto_vecinal": True,
         "frecuencia": "alta", "favorito": True,
     },
+    "fiestas_eventos_sin_autorizacion": {
+        "label": "Fiestas o eventos sin autorización (eventos clandestinos)",
+        "titulo_ccc": "V", "capitulo_ccc": "I",
+        "articulo": "Art. 81 bis CCC",
+        "gravedad_base": 2, "es_conflicto_vecinal": True,
+        "frecuencia": "media", "favorito": True,
+    },
 
     # Capítulo II: Alcohol y protección NNyA (Arts 82-85)
     "ebriedad_escandalosa": {
-        "label": "Ebriedad o intoxicación escandalosa en vía pública",
+        "label": "Ebriedad o intoxicación en el espacio público",
         "titulo_ccc": "V", "capitulo_ccc": "II",
         "articulo": "Art. 82 CCC",
         "gravedad_base": 1, "es_conflicto_vecinal": False,
@@ -459,11 +480,18 @@ TIPOS_INFRACCION = {
         "frecuencia": "media", "favorito": True,
     },
     "transito_conduccion_peligrosa": {
-        "label": "Conducción peligrosa (imprudente, negligente o antirreglamentaria)",
+        "label": "Conducción peligrosa (imprudente, negligente, celular al volante)",
         "titulo_ccc": "VII", "capitulo_ccc": "Único",
         "articulo": "Art. 105 CCC",
         "gravedad_base": 2, "es_conflicto_vecinal": False,
         "frecuencia": "alta", "favorito": True,
+    },
+    "transito_evasion_control_policial": {
+        "label": "Evasión de control policial (eludir control fijo o móvil)",
+        "titulo_ccc": "VII", "capitulo_ccc": "Único",
+        "articulo": "Art. 105 bis CCC",
+        "gravedad_base": 2, "es_conflicto_vecinal": False,
+        "frecuencia": "media", "favorito": False,
     },
     "transito_carreras_via_publica": {
         "label": "Carreras o competencias no autorizadas en vía pública",
@@ -600,6 +628,8 @@ _CAT_OVERRIDES = {
     "posesion_ganzuas":                 "Propiedad",
     "conducta_sospechosa":              "Propiedad",
     "merodeo_zona_rural":               "Propiedad",
+    "acciones_atemorizantes":           "Propiedad",
+    "disposicion_ilegal_residuos":      "Espacio Publico",
     "interrupcion_servicios_publicos":  "Propiedad",
     "falsa_apariencia":                 "Propiedad",
     "omision_listas_registros":         "Transito",
