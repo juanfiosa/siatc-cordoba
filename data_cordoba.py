@@ -749,10 +749,23 @@ def get_condiciones_para(tipo_infraccion: str, incluir_articulo: bool = False) -
     return list(conds)
 
 
+# Sede de cada unidad/nodo, usada como referencia en los documentos generados.
+# Capital (norte/sur/genero) + interior (claves = nodo_key, ver config_nodos.NODOS).
+# Direcciones del interior tomadas del folleto oficial "10 preguntas del CCC" (MPF).
 UNIDADES = {
     "norte": "Unidad Contravencional Norte - Antonio del Viso 756, Barrio Alta Cordoba",
     "sur":   "Unidad Contravencional Sur - Guzman 1075, Centro",
     "genero":"Unidad Contravencional de Violencia de Genero - Entre Rios 680",
+    # ── Interior de la Provincia ──────────────────────────────────────────────
+    "rio_cuarto":    "Unidad Contravencional Rio Cuarto - Belgrano 58, Rio Cuarto",
+    "bell_ville":    "Unidad Contravencional Bell Ville - Bv. Colon 1050, Bell Ville",
+    "villa_maria":   "Unidad Contravencional Villa Maria - General Paz 317, Villa Maria",
+    "san_francisco": "Unidad Contravencional San Francisco - Av. del Libertador Sur 199, San Francisco",
+    "villa_dolores": "Unidad Contravencional Villa Dolores - Av. San Martin 156, Villa Dolores",
+    "cruz_del_eje":  "Unidad Contravencional Cruz del Eje - Thomas Edison s/n, Cruz del Eje",
+    "laboulaye":     "Unidad Contravencional Laboulaye - Av. Independencia 296, Laboulaye",
+    "dean_funes":    "Unidad Contravencional Dean Funes - 25 de Mayo 500, Dean Funes",
+    "rio_tercero":   "Unidad Contravencional Rio Tercero - Pje. Vucetich esq. 25 de Mayo, Rio Tercero",
 }
 
 CASOS_DEMO = [
