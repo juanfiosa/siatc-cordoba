@@ -132,9 +132,14 @@ def _dialog_clasificar(c, fiscal_nombre):
     vic = st.checkbox("Víctima identificada", value=bool(c.get("victima_identificada")), key=f"cl_vic_{cid}")
     les = st.checkbox("Lesiones físicas", value=bool(c.get("hay_lesiones")), key=f"cl_les_{cid}")
     res = st.checkbox("Resistencia a la autoridad", value=bool(c.get("resistencia_autoridad")), key=f"cl_res_{cid}")
-    ant = st.number_input("Antecedentes contravencionales", min_value=0, max_value=10,
-                          value=0, key=f"cl_ant_{cid}")
-    _prev = clasificar_caso(c.get("tipo_infraccion", ""), ant, vic, les, res)
+    ocr = st.checkbox("Ocultamiento de rostro (art. 44 bis)",
+                      value=bool(c.get("ocultamiento_rostro")), key=f"cl_ocr_{cid}")
+    ant = st.number_input("Condenas contravencionales previas (reincidencia, art. 15)",
+                          min_value=0, max_value=10, value=0, key=f"cl_ant_{cid}")
+    reit = st.number_input("Causas en trámite sin sentencia firme (reiterancia, art. 15 bis)",
+                           min_value=0, max_value=20, value=0, key=f"cl_reit_{cid}")
+    _prev = clasificar_caso(c.get("tipo_infraccion", ""), ant, vic, les, res,
+                            reiterancia=reit, ocultamiento_rostro=ocr)
     _ic = {"verde": "🟢", "amarillo": "🟡", "rojo": "🔴"}.get(_prev["carril"], "⚪")
     st.info(f"Resultado del triaje: {_ic} **Carril {_prev['carril'].upper()}** "
             f"(score {_prev['score']}) — {_prev['accion']}")
@@ -882,6 +887,11 @@ if _seccion == "nueva_causa":
         victima    = col_v.checkbox("Víctima identificada")
         lesiones   = col_l.checkbox("Lesiones físicas")
         resistencia= col_r.checkbox("Resistencia a autoridad")
+        col_o, col_reit = st.columns(2)
+        ocultamiento = col_o.checkbox("Ocultamiento de rostro (art. 44 bis)")
+        reiterancia  = col_reit.number_input(
+            "Causas en trámite sin sentencia firme (reiterancia, art. 15 bis)",
+            min_value=0, max_value=20, value=0, key="nc_reit")
 
         # Datos de víctima (opcional, solo si hay víctima identificada)
         _vic_datos: dict = {}
@@ -936,9 +946,11 @@ if _seccion == "nueva_causa":
                 "descripcion": descripcion, "unidad": unidad_key,
                 "domicilio": domicilio, "telefono": telefono,
                 "victima": victima, "lesiones": lesiones, "resistencia": resistencia,
+                "ocultamiento_rostro": ocultamiento, "reiterancia": reiterancia,
                 "fecha_hecho": fecha_hecho.isoformat(),
             }
-            clf = clasificar_caso(tipo, antecedentes, victima, lesiones, resistencia)
+            clf = clasificar_caso(tipo, antecedentes, victima, lesiones, resistencia,
+                                  reiterancia=reiterancia, ocultamiento_rostro=ocultamiento)
             t   = tiempo_estimado_resolucion(clf["carril"])
 
             st.markdown(f"""

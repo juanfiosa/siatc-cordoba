@@ -7,7 +7,8 @@ from data_cordoba import TIPOS_INFRACCION
 
 
 def clasificar_caso(tipo_infraccion: str, antecedentes: int, victima_identificada: bool,
-                    hay_lesiones: bool = False, resistencia_autoridad: bool = False) -> dict:
+                    hay_lesiones: bool = False, resistencia_autoridad: bool = False,
+                    reiterancia: int = 0, ocultamiento_rostro: bool = False) -> dict:
     """
     Retorna un dict con:
       - carril: "verde" | "amarillo" | "rojo"
@@ -32,7 +33,7 @@ def clasificar_caso(tipo_infraccion: str, antecedentes: int, victima_identificad
     elif antecedentes == 1:
         fundamento.append("Un antecedente contravencional previo")
     elif antecedentes >= 2:
-        fundamento.append(f"{antecedentes} antecedentes contravencionales — reincidencia comprobada")
+        fundamento.append(f"{antecedentes} condenas contravencionales previas — reincidencia (art. 15)")
         score += 2
 
     # Modificadores por víctima
@@ -51,6 +52,25 @@ def clasificar_caso(tipo_infraccion: str, antecedentes: int, victima_identificad
     if resistencia_autoridad:
         fundamento.append("Resistencia o desobediencia a la autoridad policial")
         score += 2
+
+    # Reiterancia (art. 15 bis): una o más causas en trámite SIN sentencia firme.
+    # Agravante discrecional y más leve que la reincidencia (no hay condena firme);
+    # la autoridad la valora a los fines de la graduación de la sanción (art. 23).
+    if reiterancia > 0:
+        bump = min(reiterancia, 3) * 0.5
+        score += bump
+        fundamento.append(
+            f"Reiterancia (art. 15 bis): {reiterancia} causa(s) en trámite sin sentencia "
+            "firme — agravante discrecional (art. 23)"
+        )
+
+    # Agravante por ocultamiento de rostro (art. 44 bis): pasamontañas, capucha u otro
+    # elemento que oculte el rostro o impida la identificación — agrava hasta en un tercio.
+    if ocultamiento_rostro:
+        score += 1.5
+        fundamento.append(
+            "Ocultamiento de rostro (art. 44 bis): agrava la sanción hasta en un tercio"
+        )
 
     # Caso especial: alcoholemia
     if tipo_infraccion == "transito_alcoholemia" and antecedentes == 0:
