@@ -43,7 +43,7 @@ TIPOS_INFRACCION = {
     # ═══════════════════════════════════════════════════════════════════════
     "molestias_sitios_publicos": {
         "label": "Molestias a personas en sitios públicos (gestos, palabras, gratificaciones)",
-        "titulo_ccc": "I", "categoria": "Integridad", "categoria": "Convivencia", "categoria": "Convivencia", "categoria": "Comercio", "categoria": "Comercio", "categoria": "Comercio", "categoria": "Comercio", "categoria": "Convivencia", "categoria": "Convivencia", "categoria": "Convivencia", "categoria": "Convivencia", "categoria": "Integridad", "categoria": "Convivencia", "categoria": "Convivencia", "capitulo_ccc": "I",
+        "titulo_ccc": "I", "capitulo_ccc": "I",
         "articulo": "Art. 51 CCC",
         "gravedad_base": 1, "es_conflicto_vecinal": True,
         "frecuencia": "media", "favorito": False,
@@ -155,7 +155,7 @@ TIPOS_INFRACCION = {
     # ═══════════════════════════════════════════════════════════════════════
     "agravio_personal_educacion_salud": {
         "label": "Agravio o intimidación al personal de centros educativos o de salud",
-        "titulo_ccc": "II", "categoria": "Convivencia", "capitulo_ccc": "Único",
+        "titulo_ccc": "II", "capitulo_ccc": "Único",
         "articulo": "Art. 67 CCC",
         "gravedad_base": 2, "es_conflicto_vecinal": False,
         "frecuencia": "baja", "favorito": False,
@@ -167,7 +167,7 @@ TIPOS_INFRACCION = {
     # ═══════════════════════════════════════════════════════════════════════
     "daño_propiedad_publica": {
         "label": "Daño a la propiedad pública (grafitis, roturas, vandalismo)",
-        "titulo_ccc": "III", "categoria": "Espacio Publico", "categoria": "Espacio Publico", "categoria": "Propiedad", "categoria": "Propiedad", "categoria": "Propiedad", "categoria": "Propiedad", "categoria": "Propiedad", "categoria": "Propiedad", "capitulo_ccc": "I",
+        "titulo_ccc": "III", "capitulo_ccc": "I",
         "articulo": "Art. 68 CCC",
         "gravedad_base": 2, "es_conflicto_vecinal": False,
         "frecuencia": "media", "favorito": True,
@@ -243,7 +243,7 @@ TIPOS_INFRACCION = {
     # ═══════════════════════════════════════════════════════════════════════
     "falsa_apariencia": {
         "label": "Falsa apariencia para obtener beneficios indebidos",
-        "titulo_ccc": "IV", "categoria": "Comercio", "categoria": "Propiedad", "categoria": "Propiedad", "categoria": "Comercio", "categoria": "Convivencia", "categoria": "Propiedad", "capitulo_ccc": "I",
+        "titulo_ccc": "IV", "capitulo_ccc": "I",
         "articulo": "Art. 74 CCC",
         "gravedad_base": 2, "es_conflicto_vecinal": False,
         "frecuencia": "baja", "favorito": False,
@@ -290,7 +290,7 @@ TIPOS_INFRACCION = {
     # ═══════════════════════════════════════════════════════════════════════
     "riña_desordenes_publicos": {
         "label": "Desórdenes públicos — riña o pelea en vía pública",
-        "titulo_ccc": "V", "categoria": "Convivencia", "categoria": "Convivencia", "categoria": "Comercio", "categoria": "Convivencia", "categoria": "Convivencia", "categoria": "Convivencia", "categoria": "Convivencia", "capitulo_ccc": "I",
+        "titulo_ccc": "V", "capitulo_ccc": "I",
         "articulo": "Art. 80 CCC",
         "gravedad_base": 2, "es_conflicto_vecinal": True,
         "frecuencia": "alta", "favorito": True,
@@ -353,7 +353,7 @@ TIPOS_INFRACCION = {
     # ═══════════════════════════════════════════════════════════════════════
     "falsa_denuncia_contravencion": {
         "label": "Falsa denuncia contravencional",
-        "titulo_ccc": "VI", "categoria": "Integridad", "categoria": "Integridad", "categoria": "Propiedad", "categoria": "Pirotecnia", "categoria": "Pirotecnia", "categoria": "Pirotecnia", "categoria": "Pirotecnia", "categoria": "Propiedad", "categoria": "Animales", "categoria": "Animales", "categoria": "Propiedad", "categoria": "Espacio Publico", "categoria": "Animales", "categoria": "Propiedad", "categoria": "Propiedad", "categoria": "Propiedad", "capitulo_ccc": "I",
+        "titulo_ccc": "VI", "capitulo_ccc": "I",
         "articulo": "Art. 86 CCC",
         "gravedad_base": 2, "es_conflicto_vecinal": False,
         "frecuencia": "baja", "favorito": False,
@@ -474,7 +474,7 @@ TIPOS_INFRACCION = {
     # ═══════════════════════════════════════════════════════════════════════
     "transito_conductor_menor_edad": {
         "label": "Conductor menor de edad sin habilitación",
-        "titulo_ccc": "VII", "categoria": "Transito", "categoria": "Transito", "categoria": "Transito", "categoria": "Transito", "categoria": "Transito", "categoria": "Transito", "categoria": "Transito", "capitulo_ccc": "Único",
+        "titulo_ccc": "VII", "capitulo_ccc": "Único",
         "articulo": "Art. 104 CCC",
         "gravedad_base": 2, "es_conflicto_vecinal": False,
         "frecuencia": "media", "favorito": True,
@@ -535,7 +535,7 @@ TIPOS_INFRACCION = {
     # ═══════════════════════════════════════════════════════════════════════
     "omision_listas_registros": {
         "label": "Omisión de enviar listas o llevar registros reglamentarios",
-        "titulo_ccc": "VIII", "categoria": "Animales", "categoria": "Animales", "categoria": "Transito", "categoria": "Transito", "categoria": "Transito", "capitulo_ccc": "I",
+        "titulo_ccc": "VIII", "capitulo_ccc": "I",
         "articulo": "Art. 112 CCC",
         "gravedad_base": 1, "es_conflicto_vecinal": False,
         "frecuencia": "baja", "favorito": False,
