@@ -23,6 +23,9 @@ TIPOS_DOCUMENTO = [
     ("citacion_audiencia",   "Cédula de citación — audiencia"),
     ("citacion_mediacion",   "Cédula de citación — mediación"),
     ("citacion_acta",        "Cédula de citación — acta de compromiso"),
+    ("notificacion_imputacion", "Notificación de la imputación (art. 133)"),
+    ("citacion_testigo",     "Citación a testigo (lenguaje claro)"),
+    ("citacion_imputado",    "Citación a persona imputada (lenguaje claro)"),
     ("acta_audiencia",       "Acta de audiencia contravencional"),
     ("dictamen_mediacion",   "Dictamen de derivación a mediación"),
     ("dictamen_suspension",  "Dictamen de suspensión del proceso a prueba"),
@@ -30,9 +33,12 @@ TIPOS_DOCUMENTO = [
     ("decreto_suspension",   "Decreto de suspensión del proceso a prueba"),
     ("acta_restriccion",     "Acta de medidas restrictivas / acercamiento"),
     ("requerimiento",        "Requerimiento fiscal de apertura del proceso"),
+    ("perdon_judicial",      "Resolución de perdón judicial"),
     ("decreto_archivo",      "Decreto de archivo"),
+    ("resolucion_sobreseimiento", "Resolución de sobreseimiento"),
     ("certificado_cumplimiento", "Certificado de cumplimiento de condiciones"),
     ("informe_incumplimiento",   "Informe de incumplimiento de condiciones"),
+    ("comunicacion_victima", "Comunicación a la víctima (lenguaje claro)"),
     ("oficio_polo",          "Oficio al Polo Integral de la Mujer"),
     ("oficio_socioambiental", "Oficio — informe socioambiental"),
     ("oficio_valoracion",    "Oficio — valoración psicológica"),
@@ -173,6 +179,7 @@ def generar_texto(tipo: str, caso: dict, fiscal_nombre: str,
     c = _norm(caso)
     inf = TIPOS_INFRACCION.get(c.get("tipo", ""), {})
     art = inf.get("articulo", "Código de Convivencia Ciudadana")
+    art_num = art.replace(" CCC", "").strip()  # "Art. 65" sin el sufijo CCC, para no duplicarlo
     unidad = UNIDADES.get(unidad_key, UNIDADES["norte"])
     imp, dni, edad = c.get("imputado", ""), c.get("dni", ""), c.get("edad", "")
     dom = c.get("domicilio") or "el declarado en autos"
@@ -180,7 +187,7 @@ def generar_texto(tipo: str, caso: dict, fiscal_nombre: str,
     titulo = LABELS_DOC.get(tipo, "Documento contravencional")
 
     # ── Cédulas de citación ──────────────────────────────────────────────────
-    if tipo.startswith("citacion"):
+    if tipo in ("citacion_audiencia", "citacion_mediacion", "citacion_acta"):
         motivo_txt = {
             "citacion_audiencia": "comparecer a audiencia contravencional",
             "citacion_mediacion": "participar en instancia de mediación",
@@ -196,6 +203,145 @@ def generar_texto(tipo: str, caso: dict, fiscal_nombre: str,
             "incomparecencia injustificada podrá motivar la continuación del proceso "
             "en su rebeldía.\n\n"
             "Ante cualquier consulta comunicarse a los teléfonos de la Unidad interviniente."
+            + _firma(fiscal_nombre, "Ayudante Fiscal", unidad)
+        )
+        return titulo, cuerpo
+
+    # ── Notificación de la imputación (art. 133 CCC) ──────────────────────────
+    if tipo == "notificacion_imputacion":
+        cuerpo = (
+            f"En {unidad}, a los {_fecha()}, comparece ante esta Instancia el/la "
+            f"ciudadano/a {imp}, D.N.I. N° {dni}, de {edad} años de edad, con domicilio "
+            f"en {dom}.\n\n"
+            f"Se le INFORMA que en las presentes actuaciones {caratula} se le atribuye un "
+            f"hecho encuadrado, en principio, en el {art_num} del Código de Convivencia "
+            "Ciudadana (Ley 10.326), que se investiga en esta Unidad Contravencional.\n\n"
+            "Se le hace saber que tiene derecho a:\n"
+            "   • Requerir copia del acta del art. 130 del CCC con la que se inició el caso;\n"
+            "   • Designar un/a abogado/a de su confianza o a que se le designe uno/a de "
+            "oficio en caso de carecer;\n"
+            "   • Realizar una llamada telefónica y dar aviso de su situación a un familiar "
+            "o persona de confianza;\n"
+            "   • Permanecer en silencio, sin que ello implique presunción de culpabilidad.\n\n"
+            "Oportunamente se le notificará la fecha de audiencia. A tal fin, constituye "
+            "domicilio legal en [DOMICILIO LEGAL CONSTITUIDO].\n\n"
+            "Previa lectura y ratificación, firma el/la compareciente. Doy fe."
+            + _doble_firma(imp, dni, fiscal_nombre)
+        )
+        return titulo, cuerpo
+
+    # ── Citación a testigo (lenguaje claro) ───────────────────────────────────
+    if tipo == "citacion_testigo":
+        cuerpo = (
+            "Sr./Sra.: [NOMBRE DEL/LA TESTIGO]\nDomicilio: [DOMICILIO]\n\n"
+            f"Mi nombre es {fiscal_nombre} y soy Ayudante Fiscal de la {unidad}. Lo/la "
+            f"contactamos porque en las actuaciones {caratula} se lo/la menciona como "
+            "testigo de un hecho contravencional (infracción a la Ley provincial N° 10.326).\n\n"
+            "Por ello lo/la CITO formalmente para que se presente el día [FECHA] a las "
+            f"[HORA] hs. en la sede de esta Unidad, sita en {unidad}.\n\n"
+            "Le haremos preguntas sobre el hecho y usted deberá responder lo que sabe. Le "
+            "recuerdo que ser testigo es una carga pública, por lo que tiene la obligación "
+            "de concurrir a esta citación.\n\n"
+            "Ante cualquier duda o consulta puede comunicarse con esta Unidad."
+            + _firma(fiscal_nombre, "Ayudante Fiscal", unidad)
+        )
+        return titulo, cuerpo
+
+    # ── Citación a persona imputada (lenguaje claro) ──────────────────────────
+    if tipo == "citacion_imputado":
+        cuerpo = (
+            f"Sr./Sra.: {imp}\nD.N.I.: {dni}\nDomicilio: {dom}\n\n"
+            f"Mi nombre es {fiscal_nombre} y soy Ayudante Fiscal de la {unidad}. Lo/la "
+            f"contactamos porque en las actuaciones {caratula} existen elementos de prueba "
+            "suficientes para imputarle una contravención (infracción a la Ley provincial "
+            "N° 10.326).\n\n"
+            "Por ello lo/la CITO formalmente para que se presente el día [FECHA] a las "
+            f"[HORA] hs. en la sede de esta Unidad, sita en {unidad}.\n\n"
+            "Podrá concurrir con su abogado/a de confianza. Le recuerdo que tiene la "
+            "obligación de concurrir a esta citación.\n\n"
+            "Ante cualquier duda o consulta puede comunicarse con esta Unidad."
+            + _firma(fiscal_nombre, "Ayudante Fiscal", unidad)
+        )
+        return titulo, cuerpo
+
+    # ── Resolución de perdón judicial (art. 25 CCC) ───────────────────────────
+    if tipo == "perdon_judicial":
+        cuerpo = (
+            "RESOLUCIÓN N° [NÚMERO]\n\n"
+            f"VISTOS: Las presentes actuaciones contravencionales {caratula}, siendo "
+            f"imputado/a el/la Sr./Sra. {imp}, D.N.I. {dni}, por presunta infracción al "
+            f"{art}.\n\n"
+            "Y CONSIDERANDO:\n\n"
+            f"Que el hecho atribuido a {imp} se encuadra, en principio, en el {art_num} del "
+            "Código de Convivencia Ciudadana (Ley 10.326).\n\n"
+            "Que conforme al art. 25 del CCC corresponde otorgar el perdón judicial cuando "
+            "el/la imputado/a no registre condena contravencional en el año anterior y el "
+            "hecho se evidencie como leve, sin revelar peligrosidad — circunstancias que se "
+            "verifican en el presente caso.\n\n"
+            "POR TODO ELLO, ESTE MINISTERIO PÚBLICO FISCAL RESUELVE:\n\n"
+            f"ARTÍCULO 1°: DISPONER el perdón judicial de {imp} por la presunta infracción "
+            f"al {art} y, en consecuencia, DECLARAR EXTINGUIDA la acción contravencional "
+            "(arts. 25 y 47 inc. c) del CCC).\n\n"
+            f"ARTÍCULO 2°: NOTIFICAR a {imp} los alcances de la presente resolución de "
+            "forma clara y precisa.\n\n"
+            "ARTÍCULO 3°: [En caso de secuestros, DISPONER su entrega al titular registral, "
+            "remitiendo oficio a la dependencia policial correspondiente].\n\n"
+            "ARTÍCULO 4°: PROTOCOLÍCESE, NOTIFÍQUESE y ARCHÍVESE."
+            + _firma(fiscal_nombre, "Ayudante Fiscal", unidad)
+        )
+        return titulo, cuerpo
+
+    # ── Resolución de sobreseimiento ──────────────────────────────────────────
+    if tipo == "resolucion_sobreseimiento":
+        cuerpo = (
+            "RESOLUCIÓN N° [NÚMERO]\n\n"
+            "1. IDENTIFICACIÓN DEL/LA IMPUTADO/A:\n"
+            f"   {imp} — D.N.I. {dni}.\n\n"
+            "2. HECHOS:\n"
+            "   [DESCRIBIR el hecho atribuido: fecha, lugar y circunstancias].\n\n"
+            "3. CALIFICACIÓN LEGAL:\n"
+            f"   La conducta encuadra, en principio, en el {art_num} del Código de "
+            "Convivencia Ciudadana (Ley 10.326).\n\n"
+            "4. ELEMENTOS DE PRUEBA:\n"
+            "   [DETALLAR las constancias: acta del art. 130, declaraciones, secuestros, "
+            "acta de imputación del art. 133, etc.].\n\n"
+            "5. FUNDAMENTOS DE LA DECISIÓN:\n"
+            "   Que corresponde dictar el SOBRESEIMIENTO —y no el mero archivo— por cuanto "
+            "el/la imputado/a fue formalmente imputado/a y notificado/a de sus derechos "
+            "(art. 133 del CCC). Si bien el sobreseimiento no se halla específicamente "
+            "regulado en el CCC, resulta aplicable por remisión supletoria al Código "
+            "Procesal Penal (art. 149 del CCC).\n"
+            "   [FUNDAR la causal concreta: p. ej. prescripción de la acción —art. 49 del "
+            "CCC—, no habiéndose verificado causales interruptivas (art. 50 del CCC)].\n\n"
+            "6. PARTE RESOLUTIVA:\n"
+            f"   ARTÍCULO 1°: DECLARAR EXTINGUIDA la acción contravencional respecto de "
+            f"{imp} y DICTAR EL SOBRESEIMIENTO TOTAL en la presente causa a su favor, por el "
+            f"hecho calificado como {art}, conforme los arts. 348, 350 inc. 4 y 351 del "
+            "C.P.P. en relación con los arts. 146, 47 inc. b) y 49 del CCC.\n"
+            "   ARTÍCULO 2°: [En caso de secuestros, DISPONER su restitución al legítimo "
+            "propietario].\n"
+            f"   ARTÍCULO 3°: NOTIFICAR a {imp} y a las partes interesadas. PROTOCOLÍCESE."
+            + _firma(fiscal_nombre, "Ayudante Fiscal", unidad)
+        )
+        return titulo, cuerpo
+
+    # ── Comunicación a la víctima (lenguaje claro) ────────────────────────────
+    if tipo == "comunicacion_victima":
+        cuerpo = (
+            "Sr./Sra.: [NOMBRE DE LA VÍCTIMA]\nDomicilio: [DOMICILIO]\n\n"
+            f"Mi nombre es {fiscal_nombre} y soy Ayudante Fiscal de la {unidad}. La/lo "
+            "contactamos para informarle que hemos tomado una decisión en relación con la "
+            "denuncia que usted efectuó, identificada con el número [N° DE CAUSA].\n\n"
+            "Le informamos, en lenguaje claro, qué se resolvió:\n"
+            "   [RESUMIR la resolución: qué se decidió respecto del/la imputado/a y qué "
+            "consecuencias tiene — p. ej. multa, prohibición de acercamiento por X días, "
+            "curso, etc. Si corresponde, indicar qué puede hacer la víctima ante un "
+            "incumplimiento].\n\n"
+            "Se acompaña a la presente la resolución completa. Esta comunicación es "
+            "solamente para informarle, de manera sencilla, cómo se resolvió el caso.\n\n"
+            "Ante cualquier duda o consulta puede llamar a esta Unidad y consultar con el/la "
+            "instructor/a interviniente.\n\n"
+            "La/lo saludamos atentamente."
             + _firma(fiscal_nombre, "Ayudante Fiscal", unidad)
         )
         return titulo, cuerpo
