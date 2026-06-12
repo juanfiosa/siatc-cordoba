@@ -80,6 +80,10 @@ def _abrir_dialogo_documento(c, fiscal_nombre, precarga=None):
     if tipo in ("dictamen_suspension", "acta_compromiso", "decreto_suspension"):
         extra["plazo_meses"] = st.selectbox("Plazo (meses)", [3, 6, 9, 12],
                                             index=1, key=f"dlgpl_{cid}")
+    if tipo == "acta_restriccion":
+        extra["plazo_dias"] = st.number_input("Plazo en días (máx. 60 — art. 135 bis)",
+                                              min_value=1, max_value=60, value=60,
+                                              key=f"dlgpd_{cid}")
 
     sig    = f"{tipo}|{extra}"
     txtkey = f"dlgtxt_{cid}"
